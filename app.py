@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import uuid
 
 import location
 
@@ -26,6 +27,7 @@ def main():
         team_id=config.TEAM_ID,
         device_id=config.DEVICE_ID,
         client_time=datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(),
+        sample_id=str(uuid.uuid4()),
         location=position,
     )
     repository_directory = os.path.dirname(os.path.abspath(__file__))
