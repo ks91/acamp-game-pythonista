@@ -25,6 +25,16 @@ class LocationPayloadTests(unittest.TestCase):
             },
             result,
         )
+    def test_missing_sample_id_generates_one_for_older_app_scripts(self):
+        result = make_location_sample(
+            team_id="green",
+            device_id="green-ipad",
+            client_time="2026-09-20T10:00:00+09:00",
+            location={"latitude": 35.3387, "longitude": 139.4888, "horizontal_accuracy": 18.5},
+        )
+
+        self.assertEqual("green", result["team_id"])
+        self.assertTrue(result["sample_id"])
 
 
 if __name__ == "__main__":
