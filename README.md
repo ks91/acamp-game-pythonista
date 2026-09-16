@@ -11,7 +11,10 @@ Pythonista 3 client toolkit for Academy Camp 2026's position game.
 
 ## Current toolkit
 
-`toolkit/event_queue.py` provides a small JSON-backed FIFO queue for location samples and actions that must be retried after a connection failure.
+- `toolkit/event_queue.py` provides a small JSON-backed FIFO queue for location samples and actions that must be retried after a connection failure.
+- `toolkit/api_client.py` sends authenticated JSON requests with Python's standard HTTPS client.
+- `toolkit/check_in.py` retries queued location samples before a new sample after connectivity returns.
+- `app.py` is the first Pythonista 3 executable: it obtains one GPS fix and sends it to `/v1/location-samples`.
 
 ## Pythonista setup
 
