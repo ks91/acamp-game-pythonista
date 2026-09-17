@@ -51,7 +51,7 @@ class GameView(ui.View):
             )
         )
         for view in list(self.scroll.subviews):
-            view.remove_from_superview()
+            self.scroll.remove_subview(view)
         update_button = ui.Button(title="現在地を更新", frame=(16, 0, 220, 44))
         update_button.action = self.update_location
         self.scroll.add_subview(update_button)
