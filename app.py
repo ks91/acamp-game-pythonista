@@ -39,6 +39,12 @@ def main():
         print("通信できなかったため、位置情報を端末に保存しました。次回の送信時に再試行します。")
     else:
         print("位置情報を送信しました: event_id={}".format(result["event_id"]))
+        state = api.get_team_state()
+        print(
+            "この班の位置送信回数: {}".format(
+                state["location_event_count"]
+            )
+        )
 
 
 if __name__ == "__main__":

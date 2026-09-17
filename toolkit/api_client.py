@@ -22,3 +22,15 @@ class ApiClient:
         )
         with urlopen(request, timeout=self.timeout_s) as response:
             return json.loads(response.read().decode("utf-8"))
+
+    def get_team_state(self) -> dict[str, Any]:
+        request = Request(
+            self.base_url + "/team/state",
+            headers={
+                "Accept": "application/json",
+                "Authorization": "Bearer " + self.token,
+            },
+            method="GET",
+        )
+        with urlopen(request, timeout=self.timeout_s) as response:
+            return json.loads(response.read().decode("utf-8"))

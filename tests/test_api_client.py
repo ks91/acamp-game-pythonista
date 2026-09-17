@@ -11,6 +11,16 @@ class RecordingHandler(BaseHTTPRequestHandler):
     authorization = None
     payload = None
 
+    def do_GET(self):
+        type(self).request_path = self.path
+        type(self).authorization = self.headers.get("Authorization")
+        body = b'{"team_id":"green","location_event_count":1,"latest_location":null}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
         content_length = int(self.headers["Content-Length"])
         type(self).request_path = self.path
@@ -63,6 +73,18 @@ class ApiClientTests(unittest.TestCase):
         self.assertEqual("/v1/location-samples", RecordingHandler.request_path)
         self.assertEqual("Bearer team-token", RecordingHandler.authorization)
         self.assertEqual("green", RecordingHandler.payload["team_id"])
+    def test_get_team_state_uses_team_bearer_token(self):
+        host, port = self.server.server_address
+        client = ApiClient(
+            base_url="http://{}:{}/v1".format(host, port),
+            token="team-token",
+        )
+
+        result = client.get_team_state()
+
+        self.assertEqual("green", result["team_id"])
+        self.assertEqual("/v1/team/state", RecordingHandler.request_path)
+        self.assertEqual("Bearer team-token", RecordingHandler.authorization)
 
 
 if __name__ == "__main__":
