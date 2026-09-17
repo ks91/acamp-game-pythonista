@@ -17,6 +17,7 @@ from toolkit.location_payload import make_location_sample
 
 class GameView(ui.View):
     def __init__(self):
+        super().__init__(frame=(0, 0, 375, 667))
         self.name = "アカキャン位置ゲー"
         self.background_color = "white"
         self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
@@ -108,4 +109,4 @@ class GameView(ui.View):
 
 
 if __name__ == "__main__":
-    GameView().present("sheet")
+    GameView().present("fullscreen")
