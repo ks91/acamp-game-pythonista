@@ -23,6 +23,29 @@ class ApiClient:
         with urlopen(request, timeout=self.timeout_s) as response:
             return json.loads(response.read().decode("utf-8"))
 
+    def claim_place(
+        self, *, action_id: str, game_session_id: str, place_id: str
+    ) -> dict[str, Any]:
+        request = Request(
+            self.base_url + "/actions",
+            data=json.dumps(
+                {
+                    "action_id": action_id,
+                    "game_session_id": game_session_id,
+                    "type": "claim_place",
+                    "place_id": place_id,
+                }
+            ).encode("utf-8"),
+            headers={
+                "Accept": "application/json",
+                "Authorization": "Bearer " + self.token,
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            method="POST",
+        )
+        with urlopen(request, timeout=self.timeout_s) as response:
+            return json.loads(response.read().decode("utf-8"))
+
     def get_team_state(self) -> dict[str, Any]:
         request = Request(
             self.base_url + "/team/state",
