@@ -108,4 +108,4 @@ class GameView(ui.View):
 
 
 if __name__ == "__main__":
-    GameView(frame=(0, 0, 375, 667)).present("sheet")
+    GameView().present("sheet")
