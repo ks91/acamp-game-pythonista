@@ -25,7 +25,7 @@ Use [Working Copy](https://workingcopyapp.com/) as the sole Git client on each i
 1. In Working Copy, tap **+** and clone `https://github.com/ks91/acamp-game-pythonista.git`.
 2. In Pythonista, use its Files / external-folder integration to open that **entire Working Copy repository folder** and run `app.py` there.
 3. If the iPad does not expose the Working Copy folder directly, create a shared folder in the Files app (for example `iCloud Drive/Pythonista/acamp-game-pythonista`) and use Working Copy's **Link Repository** / folder-link integration for that folder. Do **not** use Pythonista's sandboxed `This iPad` folder as the Git working folder: Working Copy cannot update it in place.
-4. For every update: use **Pull** in Working Copy, completely quit and reopen Pythonista, then run `app.py` from the same linked folder.
+4. For every update: **completely quit Pythonista first**, use **Pull** in Working Copy, then reopen Pythonista and run `app.py` from the same linked folder. Closing Pythonista before Pull prevents its file cache from overwriting the newly pulled files.
 5. Never update only `app.py`: the toolkit files and `app.py` must always come from the same commit.
 
 ### Team-specific configuration
