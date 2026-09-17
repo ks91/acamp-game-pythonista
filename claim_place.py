@@ -1,6 +1,7 @@
 """Set PLACE_ID, then run this in Pythonista 3 to claim a test place."""
 
 import uuid
+from urllib.error import HTTPError
 
 import config
 from toolkit.api_client import ApiClient
@@ -11,11 +12,16 @@ PLACE_ID = "time-site"
 
 def main():
     api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
-    result = api.claim_place(
-        action_id=str(uuid.uuid4()),
-        game_session_id=config.GAME_SESSION_ID,
-        place_id=PLACE_ID,
-    )
+    try:
+        result = api.claim_place(
+            action_id=str(uuid.uuid4()),
+            game_session_id=config.GAME_SESSION_ID,
+            place_id=PLACE_ID,
+        )
+    except HTTPError as error:
+        print("スポットを獲得できませんでした: HTTP {}".format(error.code))
+        print(error.read().decode("utf-8"))
+        return
     if result["claimed"]:
         print(
             "スポット獲得: {} (+{}点)、合計 {}点".format(
