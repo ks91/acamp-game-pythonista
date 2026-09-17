@@ -18,14 +18,15 @@ Pythonista 3 client toolkit for Academy Camp 2026's position game.
 
 ## Pythonista setup
 
-### Use Working Copy as the Git client
+### Standard iPad workflow: Working Copy owns Git, Pythonista runs the linked folder
 
-Use [Working Copy](https://workingcopyapp.com/) to clone and pull this public repository on each iPad. Pythonista supports editing entire folders from other apps in place, including Git repositories from Working Copy ([Pythonista documentation](https://omz-software.com/pythonista/docs-3.4/py3/ios/pythonista.html)). Open and run this repository as a **linked Working Copy folder** in Pythonista; do not copy individual files into a separate Pythonista folder.
+Use [Working Copy](https://workingcopyapp.com/) as the sole Git client on each iPad. Pythonista supports editing entire folders from other apps in place, including Git repositories from Working Copy ([Pythonista documentation](https://omz-software.com/pythonista/docs-3.4/py3/ios/pythonista.html)).
 
-1. In Working Copy, clone `https://github.com/ks91/acamp-game-pythonista.git`.
-2. Link/open that whole repository folder in Pythonista and run `app.py` from that linked folder.
-3. For every update, use **Pull** in Working Copy, then return to the same linked folder in Pythonista.
-4. Never update only `app.py`: the toolkit files and `app.py` must always come from the same commit.
+1. In Working Copy, tap **+** and clone `https://github.com/ks91/acamp-game-pythonista.git`.
+2. In Pythonista, use its Files / external-folder integration to open that **entire Working Copy repository folder** and run `app.py` there.
+3. If the iPad does not expose the Working Copy folder directly, create a shared folder in the Files app (for example `iCloud Drive/Pythonista/acamp-game-pythonista`) and use Working Copy's **Link Repository** / folder-link integration for that folder. Do **not** use Pythonista's sandboxed `This iPad` folder as the Git working folder: Working Copy cannot update it in place.
+4. For every update: use **Pull** in Working Copy, completely quit and reopen Pythonista, then run `app.py` from the same linked folder.
+5. Never update only `app.py`: the toolkit files and `app.py` must always come from the same commit.
 
 ### Team-specific configuration
 
