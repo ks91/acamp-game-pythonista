@@ -15,6 +15,7 @@ Pythonista 3 client toolkit for Academy Camp 2026's position game.
 - `toolkit/api_client.py` sends authenticated JSON requests with Python's standard HTTPS client.
 - `toolkit/check_in.py` retries queued location samples before a new sample after connectivity returns.
 - `app.py` is the first Pythonista 3 executable: it obtains one GPS fix and sends it to `/v1/location-samples`.
+- `game_app.py` is the player-facing one-screen interface: it shows the active scenario, team score, claimed places, location-update control, and claim buttons.
 - `claim_place.py` is a test launcher for a server-configured place claim.
 
 ## Pythonista setup
