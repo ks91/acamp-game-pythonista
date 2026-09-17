@@ -40,11 +40,10 @@ def main():
     else:
         print("位置情報を送信しました: event_id={}".format(result["event_id"]))
         state = api.get_team_state()
-        print(
-            "この班の位置送信回数: {}".format(
-                state["location_event_count"]
-            )
-        )
+        print("この班の位置送信回数: {}".format(state["location_event_count"]))
+        print("現在の得点: {}点".format(state.get("score", 0)))
+        claimed_places = state.get("claimed_places", [])
+        print("獲得済みスポット: {}".format(", ".join(claimed_places) or "なし"))
 
 
 if __name__ == "__main__":
