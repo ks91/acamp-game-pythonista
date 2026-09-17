@@ -14,7 +14,10 @@ class RecordingHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         type(self).request_path = self.path
         type(self).authorization = self.headers.get("Authorization")
-        body = b'{"team_id":"green","location_event_count":1,"latest_location":null}'
+        if self.path == "/v1/game/definition":
+            body = b'{"id":"fujisawa-test-1","name":"Fujisawa","places":[]}'
+        else:
+            body = b'{"team_id":"green","location_event_count":1,"latest_location":null}'
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
@@ -76,6 +79,19 @@ class ApiClientTests(unittest.TestCase):
         self.assertEqual("/v1/location-samples", RecordingHandler.request_path)
         self.assertEqual("Bearer team-token", RecordingHandler.authorization)
         self.assertEqual("green", RecordingHandler.payload["team_id"])
+    def test_get_game_definition_uses_team_bearer_token(self):
+        host, port = self.server.server_address
+        client = ApiClient(
+            base_url="http://{}:{}/v1".format(host, port),
+            token="team-token",
+        )
+
+        result = client.get_game_definition()
+
+        self.assertEqual("fujisawa-test-1", result["id"])
+        self.assertEqual("/v1/game/definition", RecordingHandler.request_path)
+        self.assertEqual("Bearer team-token", RecordingHandler.authorization)
+
     def test_claim_place_posts_an_action_with_the_team_bearer_token(self):
         host, port = self.server.server_address
         client = ApiClient(
