@@ -103,12 +103,14 @@ class ApiClientTests(unittest.TestCase):
             action_id="claim-1",
             game_session_id="fujisawa-test-1",
             place_id="time-site",
+            device_id="green-ipad",
         )
 
         self.assertTrue(result["claimed"])
         self.assertEqual("/v1/actions", RecordingHandler.request_path)
         self.assertEqual("Bearer team-token", RecordingHandler.authorization)
         self.assertEqual("claim_place", RecordingHandler.payload["type"])
+        self.assertEqual("green-ipad", RecordingHandler.payload["device_id"])
 
     def test_get_team_state_uses_team_bearer_token(self):
         host, port = self.server.server_address

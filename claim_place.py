@@ -17,6 +17,7 @@ def main():
             action_id=str(uuid.uuid4()),
             game_session_id=config.GAME_SESSION_ID,
             place_id=PLACE_ID,
+            device_id=config.DEVICE_ID,
         )
     except HTTPError as error:
         print("スポットを獲得できませんでした: HTTP {}".format(error.code))

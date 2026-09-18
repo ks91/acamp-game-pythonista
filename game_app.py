@@ -97,6 +97,7 @@ class GameView(ui.View):
                 action_id=str(uuid.uuid4()),
                 game_session_id=config.GAME_SESSION_ID,
                 place_id=sender.place_id,
+                device_id=config.DEVICE_ID,
             )
         except HTTPError as error:
             self.show_message("獲得できません。\n" + error.read().decode("utf-8"))

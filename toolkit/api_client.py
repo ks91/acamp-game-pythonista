@@ -36,7 +36,7 @@ class ApiClient:
             return json.loads(response.read().decode("utf-8"))
 
     def claim_place(
-        self, *, action_id: str, game_session_id: str, place_id: str
+        self, *, action_id: str, game_session_id: str, place_id: str, device_id: str
     ) -> dict[str, Any]:
         request = Request(
             self.base_url + "/actions",
@@ -46,6 +46,7 @@ class ApiClient:
                     "game_session_id": game_session_id,
                     "type": "claim_place",
                     "place_id": place_id,
+                    "device_id": device_id,
                 }
             ).encode("utf-8"),
             headers={
