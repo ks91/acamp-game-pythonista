@@ -30,6 +30,10 @@ class GameView(ui.View):
         self.add_subview(self.scroll)
         self.refresh()
 
+    def layout(self):
+        self.status_label.frame = (16, 12, self.width - 32, 110)
+        self.scroll.frame = (0, 130, self.width, self.height - 130)
+
     def show_message(self, message):
         self.status_label.text = message
 
