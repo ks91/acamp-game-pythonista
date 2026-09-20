@@ -7,7 +7,7 @@ import ui
 
 MONSTERS = [
     {"name": "森のぷに", "stars": 1, "kind": "攻撃系", "drop": "木の棒", "drop_power": 50},
-    {"name": "草むらモン", "stars": 1, "kind": "回復系", "drop": "成長フード", "drop_power": 10},
+    {"name": "草むらモン", "stars": 1, "kind": "回復系", "drop": "成長フード（+10）", "drop_power": 10},
     {"name": "石ころモン", "stars": 1, "kind": "強化系", "drop": "木の棒", "drop_power": 50},
     {"name": "青い影", "stars": 2, "kind": "弱体化系", "drop": "弓", "drop_power": 100},
     {"name": "赤い影", "stars": 2, "kind": "攻撃系", "drop": "剣", "drop_power": 100},
@@ -38,7 +38,7 @@ class RedPrototype(ui.View):
         self.monsters = list(MONSTERS)
         random.shuffle(self.monsters)
         self.build_header()
-        self.show_map()
+        self.show_battle_selection()
 
     def build_header(self):
         self.title = ui.Label(frame=(12, 12, 351, 34))
@@ -62,6 +62,39 @@ class RedPrototype(ui.View):
 
     def set_status(self, text):
         self.status.text = text
+
+    def show_battle_selection(self):
+        self.current_screen = "battle_selection"
+        self.clear_content()
+        self.set_status(
+            "戦闘画面の第一試作\n"
+            "戦いたいモンスターを選ぼう。星が高いほど強い。\n"
+            "所持: {}/{}個".format(len(self.inventory), self.capacity)
+        )
+        y = 8
+        for index, monster in enumerate(self.monsters):
+            card = ui.Label(frame=(16, y, 343, 58))
+            card.number_of_lines = 0
+            card.font = ("<System>", 14)
+            card.text = "{}  {}  {}\n系統：{} / 敵HP：{}".format(
+                "★" * monster["stars"],
+                monster["name"],
+                STAR_NAMES[monster["stars"]],
+                monster["kind"],
+                STAR_HP[monster["stars"]],
+            )
+            self.content.add_subview(card)
+            fight_button = ui.Button(title="このモンスターと戦う", frame=(16, y + 60, 343, 42))
+            fight_button.tint_color = "#C62828"
+            fight_button.monster_index = index
+            fight_button.action = self.start_selected_battle
+            self.content.add_subview(fight_button)
+            y += 112
+        self.content.content_size = (375, y + 12)
+
+    def start_selected_battle(self, sender):
+        self.active_monster = self.monsters[sender.monster_index]
+        self.start_battle(sender)
 
     def show_map(self):
         self.current_screen = "map"
@@ -170,17 +203,35 @@ class RedPrototype(ui.View):
         power = {"木の棒": 50, "剣": 100, "弓": 100}[sender.item_name]
         self.resolve_player_attack(power, "{}で攻撃！".format(sender.item_name))
 
+    def revive_if_possible(self):
+        if not self.inventory:
+            self.player_hp = self.player_max_hp
+            return ""
+        lost_item = random.choice(self.inventory)
+        self.inventory.remove(lost_item)
+        self.player_hp = self.player_max_hp
+        return lost_item
+
     def resolve_player_attack(self, power, message):
-        self.enemy_hp = max(0, self.enemy_hp - power)
+        damage = random.randint((power * 8) // 10, power)
+        self.enemy_hp = max(0, self.enemy_hp - damage)
+        message = "{}（{}ダメージ）".format(message, damage)
         if self.enemy_hp == 0:
             self.finish_battle(True, message + "\nモンスターを倒した！")
             return
-        enemy_damage = 10 * self.active_monster["stars"]
+        enemy_base_damage = 10 * self.active_monster["stars"]
+        enemy_damage = random.randint((enemy_base_damage * 8) // 10, enemy_base_damage)
         self.player_hp = max(0, self.player_hp - enemy_damage)
+        enemy_message = "モンスターの反撃！（{}ダメージ）".format(enemy_damage)
         if self.player_hp == 0:
-            self.finish_battle(False, message + "\nモンスターの反撃で倒れた…")
+            lost_item = self.revive_if_possible()
+            if lost_item:
+                revival_message = "{}を失って全回復・復活！".format(lost_item)
+            else:
+                revival_message = "アイテムなしで全回復・復活！"
+            self.show_battle(message + "\n" + enemy_message + "\nHP0！" + revival_message)
             return
-        self.show_battle(message + "\nモンスターの反撃！")
+        self.show_battle(message + "\n" + enemy_message)
 
     def try_escape(self, sender):
         if self.active_monster["stars"] == 1:
@@ -190,18 +241,31 @@ class RedPrototype(ui.View):
         else:
             success = random.random() < 0.2
         if success:
-            self.show_map()
+            self.show_battle_selection()
         else:
-            self.player_hp = max(0, self.player_hp - 10 * self.active_monster["stars"])
+            enemy_base_damage = 10 * self.active_monster["stars"]
+            enemy_damage = random.randint((enemy_base_damage * 8) // 10, enemy_base_damage)
+            self.player_hp = max(0, self.player_hp - enemy_damage)
+            enemy_message = "逃走失敗！モンスターの攻撃！（{}ダメージ）".format(enemy_damage)
             if self.player_hp == 0:
-                self.finish_battle(False, "逃げられず、モンスターの攻撃を受けた…")
+                lost_item = self.revive_if_possible()
+                if lost_item:
+                    revival_message = "{}を失って全回復・復活！".format(lost_item)
+                else:
+                    revival_message = "アイテムなしで全回復・復活！"
+                self.show_battle(enemy_message + "\n" + revival_message)
             else:
-                self.show_battle("逃走失敗！モンスターの攻撃！")
+                self.show_battle(enemy_message)
 
     def finish_battle(self, won, message):
         if won:
             drop = self.active_monster["drop"]
-            if len(self.inventory) < self.capacity:
+            if drop.startswith("成長フード（+"):
+                food_value = int(drop.split("+")[1].rstrip("）"))
+                self.player_max_hp += food_value
+                self.capacity += 1
+                drop_message = "\n{}を自動摂取！最大HP+{}、所持容量+1。".format(drop, food_value)
+            elif len(self.inventory) < self.capacity:
                 self.inventory.append(drop)
                 drop_message = "\n{}を自動取得！".format(drop)
             else:
@@ -217,7 +281,7 @@ class RedPrototype(ui.View):
         self.content.add_subview(result)
         again = ui.Button(title="地図にもどる", frame=(16, 160, 343, 50))
         again.tint_color = "#C62828"
-        again.action = lambda sender: self.show_map()
+        again.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(again)
         self.content.content_size = (375, 240)
 
