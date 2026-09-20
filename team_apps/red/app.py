@@ -71,7 +71,11 @@ class RedPrototype(ui.View):
             "戦いたいモンスターを選ぼう。星が高いほど強い。\n"
             "所持: {}/{}個".format(len(self.inventory), self.capacity)
         )
-        y = 8
+        inventory_button = ui.Button(title="アイテムを見る", frame=(16, 8, 343, 42))
+        inventory_button.tint_color = "#6A1B9A"
+        inventory_button.action = self.show_inventory
+        self.content.add_subview(inventory_button)
+        y = 62
         for index, monster in enumerate(self.monsters):
             card = ui.Label(frame=(16, y, 343, 58))
             card.number_of_lines = 0
@@ -95,6 +99,40 @@ class RedPrototype(ui.View):
     def start_selected_battle(self, sender):
         self.active_monster = self.monsters[sender.monster_index]
         self.start_battle(sender)
+
+    def show_inventory(self, sender=None):
+        self.current_screen = "inventory"
+        self.clear_content()
+        self.set_status(
+            "アイテム一覧\n所持: {}/{}個\n勝利するとHPは全回復します。".format(
+                len(self.inventory), self.capacity
+            )
+        )
+        y = 18
+        if not self.inventory:
+            empty = ui.Label(frame=(20, y, 335, 50))
+            empty.text = "まだアイテムはありません。"
+            empty.alignment = ui.ALIGN_CENTER
+            self.content.add_subview(empty)
+            y += 70
+        else:
+            effect_text = {
+                "木の棒": "攻撃：基準50（40〜50ダメージ）",
+                "剣": "攻撃：基準100（80〜100ダメージ）",
+                "弓": "攻撃：基準100（80〜100ダメージ）",
+                "オレンジジュース": "HP0時の復活に使える切り札",
+            }
+            for item in self.inventory:
+                label = ui.Label(frame=(20, y, 335, 44))
+                label.number_of_lines = 0
+                label.text = "・{}\n  {}".format(item, effect_text.get(item, "効果は戦闘で確認"))
+                self.content.add_subview(label)
+                y += 58
+        back = ui.Button(title="戦う相手を選ぶ", frame=(16, y + 12, 343, 48))
+        back.tint_color = "#C62828"
+        back.action = lambda button: self.show_battle_selection()
+        self.content.add_subview(back)
+        self.content.content_size = (375, y + 80)
 
     def show_map(self):
         self.current_screen = "map"
