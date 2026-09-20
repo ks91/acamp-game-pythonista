@@ -4,9 +4,7 @@ This file uses local GPS but no server connection or real-world chemicals.
 It is a button-driven UI mock for testing the two-place -> attack loop.
 """
 
-import json
 import math
-import os
 import random
 import ui
 import location
@@ -18,7 +16,12 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
-PLACES_FILE = os.path.join(os.path.dirname(__file__), "places.json")
+# 地点が決まったら、ここに緯度・経度を入れる。
+# 例: {"latitude": 35.000000, "longitude": 139.000000}
+FIXED_PLACES = [
+    None,  # 地点1
+    None,  # 地点2
+]
 
 QUESTIONS = [
     {
@@ -120,7 +123,7 @@ class PurpleMockGame(ui.View):
         self.used_question_indexes = set()
         self.feedback_label = None
         self.current_location = None
-        self.place_locations = self._load_shared_places()
+        self.place_locations = [dict(place) if place else None for place in FIXED_PLACES]
         self._build_ui()
         self._refresh()
 
@@ -209,28 +212,6 @@ class PurpleMockGame(ui.View):
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
-    def _load_shared_places(self):
-        try:
-            with open(PLACES_FILE, "r", encoding="utf-8") as source:
-                data = json.load(source)
-            places = data.get("places", [None, None])
-            if len(places) == 2:
-                return places
-        except (OSError, ValueError, TypeError):
-            pass
-        return [None, None]
-
-    def _save_shared_places(self):
-        temporary_file = PLACES_FILE + ".tmp"
-        with open(temporary_file, "w", encoding="utf-8") as destination:
-            json.dump(
-                {"radius_m": GPS_RADIUS_M, "places": self.place_locations},
-                destination,
-                ensure_ascii=False,
-                indent=2,
-            )
-        os.replace(temporary_file, PLACES_FILE)
-
     def _read_current_location(self):
         self._refresh("GPSを取得しています…")
         location.start_updates()
@@ -266,13 +247,7 @@ class PurpleMockGame(ui.View):
         if current is None:
             return
         self.place_locations[index] = dict(current)
-        try:
-            self._save_shared_places()
-        except OSError as error:
-            self.place_locations[index] = None
-            self._refresh("地点を保存できませんでした。{}".format(error))
-            return
-        self._refresh("地点{}を共通設定しました。半径{}mで判定します。".format(index + 1, int(GPS_RADIUS_M)))
+        self._refresh("地点{}を仮設定しました。確定後はFIXED_PLACESに埋め込みます。".format(index + 1))
 
     def _update_location(self, sender):
         current = self._read_current_location()
