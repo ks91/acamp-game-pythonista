@@ -297,10 +297,10 @@ class RedPrototype(ui.View):
         if self.player_hp == 0:
             lost_item = self.revive_if_possible()
             if lost_item:
-                revival_message = "{}を失って全回復・復活！".format(lost_item)
+                revival_message = "{}を失い、回復して帰還！".format(lost_item)
             else:
-                revival_message = "アイテムなしで全回復・復活！"
-            self.show_battle(message + "\n" + enemy_message + "\nHP0！" + revival_message)
+                revival_message = "アイテムなしで回復して帰還！"
+            self.finish_battle(False, message + "\n" + enemy_message + "\nゲームオーバー\n" + revival_message)
             return
         self.show_battle(message + "\n" + enemy_message)
 
@@ -321,10 +321,10 @@ class RedPrototype(ui.View):
             if self.player_hp == 0:
                 lost_item = self.revive_if_possible()
                 if lost_item:
-                    revival_message = "{}を失って全回復・復活！".format(lost_item)
+                    revival_message = "{}を失い、回復して帰還！".format(lost_item)
                 else:
-                    revival_message = "アイテムなしで全回復・復活！"
-                self.show_battle(enemy_message + "\n" + revival_message)
+                    revival_message = "アイテムなしで回復して帰還！"
+                self.finish_battle(False, enemy_message + "\nゲームオーバー\n" + revival_message)
             else:
                 self.show_battle(enemy_message)
 
@@ -354,7 +354,7 @@ class RedPrototype(ui.View):
         result.number_of_lines = 0
         result.font = ("<System-Bold>", 20)
         result.alignment = ui.ALIGN_CENTER
-        result.text = "勝利！" if won else "敗北…"
+        result.text = "勝利！" if won else ("ゲームオーバー" if "ゲームオーバー" in message else "敗北…")
         self.content.add_subview(result)
         again = ui.Button(title="地図にもどる", frame=(16, 160, 343, 50))
         again.tint_color = "#C62828"
