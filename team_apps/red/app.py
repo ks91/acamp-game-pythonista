@@ -66,6 +66,12 @@ class RedPrototype(ui.View):
     def set_status(self, text):
         self.status.text = text
 
+    def inventory_counts(self):
+        counts = {}
+        for item in self.inventory:
+            counts[item] = counts.get(item, 0) + 1
+        return counts
+
     def show_battle_selection(self):
         self.current_screen = "battle_selection"
         self.clear_content()
@@ -125,7 +131,8 @@ class RedPrototype(ui.View):
                 "弓": "攻撃：基準100（80〜100ダメージ）",
                 "オレンジジュース": "HP0時の復活に使える切り札",
             }
-            for item in self.inventory:
+            counts = self.inventory_counts()
+            for item, count in counts.items():
                 label = ui.Label(frame=(20, y, 335, 44))
                 label.number_of_lines = 0
                 effect = effect_text.get(item, "効果は戦闘で確認")
@@ -134,7 +141,8 @@ class RedPrototype(ui.View):
                         WEAPON_POWER[item],
                         self.weapon_uses.get(item, WEAPON_USES_PER_ITEM),
                     )
-                label.text = "・{}\n  {}".format(item, effect)
+                count_text = " ×{}".format(count) if count > 1 else ""
+                label.text = "・{}{}\n  {}".format(item, count_text, effect)
                 self.content.add_subview(label)
                 y += 58
         back = ui.Button(title="戦う相手を選ぶ", frame=(16, y + 12, 343, 48))
@@ -240,8 +248,13 @@ class RedPrototype(ui.View):
         y += 62
         inventory_label = ui.Label(frame=(20, y, 335, 50))
         inventory_label.number_of_lines = 0
+        counts = self.inventory_counts()
+        summary = []
+        for item, count in counts.items():
+            count_text = " ×{}".format(count) if count > 1 else ""
+            summary.append(item + count_text)
         inventory_label.text = "持ち物: {} / {}\n{}".format(
-            len(self.inventory), self.capacity, ", ".join(self.inventory) or "なし"
+            len(self.inventory), self.capacity, ", ".join(summary) or "なし"
         )
         self.content.add_subview(inventory_label)
         self.content.content_size = (375, y + 80)
