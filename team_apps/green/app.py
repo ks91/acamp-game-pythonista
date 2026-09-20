@@ -34,7 +34,8 @@ class TerritoryMap(ui.View):
 <style>html,body,#map{height:100%;margin:0;background:#101820}.dark .leaflet-tile{filter:brightness(.55) saturate(.75)}.flag{border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 5px #0008}.flag span{display:block;transform:rotate(45deg);font-size:17px;text-align:center;padding-top:3px}</style>
 </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
-function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:'#43A047',weight:2,fillColor:'#43A047',fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=p.owner?'#43A047':'#9E9E9E';let symbol=p.is_boss?'★':'⚑';let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.owner?'グリーンの陣地':'未獲得'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
+function ownerColor(owner){return ({green:'#43A047',blue:'#1E88E5',red:'#E53935',yellow:'#FDD835',purple:'#8E24AA',pink:'#D81B60'})[owner]||'#9E9E9E';}
+function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:ownerColor(p.owner),weight:2,fillColor:ownerColor(p.owner),fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=ownerColor(p.owner);let symbol=p.is_boss?'★':'⚑';let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.owner_label||'所有者不明'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
 function setTheme(mode){document.documentElement.className=mode==='dark'?'dark':'';}
 window.render=render;window.setTheme=setTheme;
 </script></body></html>''')
@@ -124,16 +125,23 @@ class GreenTerritoryGame(ui.View):
     @staticmethod
     def _build_model(definition, state, team_id):
         claimed = set(state.get("claimed_places", []))
+        territory_by_id = {item.get("place_id"): item for item in state.get("territories", [])}
         places = []
         for place in definition.get("places", []):
-            owner = team_id if place["id"] in claimed else None
+            territory = territory_by_id.get(place["id"], {})
+            owner = territory.get("owner")
+            if owner is None and place["id"] in claimed:
+                owner = team_id
+            owner_label = "自班（グリーン）" if owner == team_id else ("相手班" if owner else "中立")
+            action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
             places.append({
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
-                "points": place.get("points", 0), "owner": owner,
+                "points": territory.get("points", place.get("points", 0)), "owner": owner,
+                "owner_label": owner_label,
                 "is_boss": bool(place.get("is_boss", False)),
                 "mission": place.get("mission", place.get("description", "")),
-                "action_label": "状態確認" if owner else "ミッション開始",
+                "action_label": action_label,
             })
         return {"score": state.get("score", 0), "remaining_seconds": None, "offline": False, "connection_status": "online", "theme_mode": "dark", "places": places}
 
@@ -209,11 +217,48 @@ class GreenTerritoryGame(ui.View):
         self.model["theme_mode"] = "light" if self.model.get("theme_mode") == "dark" else "dark"
         self.refresh_view()
 
+    def _close_mission_overlay(self, sender=None):
+        if getattr(self, "mission_overlay", None) is not None:
+            self.mission_overlay.remove_from_superview()
+            self.mission_overlay = None
+
+    def _show_mission_overlay(self, title, message, primary_title, primary_action):
+        self._close_mission_overlay()
+        overlay = ui.View(frame=self.bounds, flex="WH")
+        overlay.background_color = (0, 0, 0, 0.58)
+        card_width = min(430, self.width - 40)
+        card_height = 270
+        card = ui.View(frame=((self.width - card_width) / 2, max(70, (self.height - card_height) / 2), card_width, card_height))
+        card.background_color = "#17212B" if self.model.get("theme_mode") == "dark" else "#FFFFFF"
+        title_label = ui.Label(frame=(20, 18, card_width - 40, 34), text=title, font=("<system-bold>", 20), alignment=ui.ALIGN_CENTER)
+        title_label.text_color = "white" if self.model.get("theme_mode") == "dark" else "#263238"
+        card.add_subview(title_label)
+        message_label = ui.Label(frame=(20, 66, card_width - 40, 86), text=message, font=("<system>", 16), number_of_lines=0, alignment=ui.ALIGN_CENTER)
+        message_label.text_color = title_label.text_color
+        card.add_subview(message_label)
+        primary = ui.Button(frame=(20, 166, card_width - 40, 44), title=primary_title, font=("<system-bold>", 16), action=primary_action)
+        primary.tint_color = "#42A5F5"
+        card.add_subview(primary)
+        close = ui.Button(frame=(20, 218, card_width - 40, 34), title="閉じる", action=self._close_mission_overlay)
+        close.tint_color = title_label.text_color
+        card.add_subview(close)
+        overlay.add_subview(card)
+        self.add_subview(overlay)
+        self.mission_overlay = overlay
+
     def run_mission(self, sender):
-        if self.selected_id is None or self.api_client is None or self.model.get("offline"):
+        place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
+        if place is None or self.model.get("connection_status") != "online":
             return
+        if place["owner"] == self.team_id:
+            self._show_mission_overlay("陣地の状態", "{}\n所有者: {}\n得点: {}点".format(place["name"], place["owner_label"], place["points"]), "閉じる", self._close_mission_overlay)
+            return
+        self._show_mission_overlay("ミッション開始確認", "{}\n{}\n成功すると自動で陣地を獲得します。".format(place["name"], place["mission"] or "地点ミッション"), "開始する", self._execute_mission)
+
+    def _execute_mission(self, sender=None):
+        self._close_mission_overlay()
         self.action_button.enabled = False
-        self.detail.text = "現在地を確認しています…"
+        self.detail.text = "ミッション実行中…\n現在地を確認しています。"
         try:
             current = location.get_location()
             if not current:
@@ -222,12 +267,15 @@ class GreenTerritoryGame(ui.View):
             self.api_client.post_location_sample(sample)
             result = self.api_client.claim_place(action_id="green-{}".format(int(time.time() * 1000)), game_session_id=self.session_id, place_id=self.selected_id, device_id=self.device_id)
             if result.get("claimed"):
-                self.detail.text = "陣地を獲得しました！\n+{}点　班合計: {}点".format(result.get("score_delta", 0), result.get("team_score", 0))
+                self.detail.text = "陣地を獲得しました！"
+                self.refresh_now()
+                self._show_mission_overlay("ミッション成功", "+{}点\n班合計: {}点\n旗を立てました。".format(result.get("score_delta", 0), result.get("team_score", 0)), "地図へ戻る", self._close_mission_overlay)
             else:
-                self.detail.text = "この地点はすでに自班の陣地です。"
-            self.refresh_now()
+                self._show_mission_overlay("ミッション完了", "この地点はすでに自班の陣地です。", "地図へ戻る", self._close_mission_overlay)
         except Exception as error:
-            self.detail.text = "ミッションを実行できませんでした。\n{}".format(error)
+            self._show_mission_overlay("ミッション失敗", "{}\n得点と陣地は変化しません。".format(error), "もう一度挑戦", self._execute_mission)
+        finally:
+            self.action_button.enabled = True
             self.refresh_view()
 
 
