@@ -68,7 +68,7 @@ class GameView(ui.View):
                 "type": "elevator",
             }
         ]
-        self.render_location_selection(accent_color)
+        self.render_quest_selection(accent_color)
 
     def _clear_content(self):
         for view in list(self.scroll.subviews):
@@ -82,47 +82,7 @@ class GameView(ui.View):
         return button
 
     def render_location_selection(self, accent_color):
-        self._clear_content()
-        self.show_message(self.model["status_text"])
-        location_button = self._add_button(
-            "{} のクエストを選ぶ".format(
-                self.definition.get("name", "オリンピックセンター")
-            ),
-            0,
-            self.select_location,
-            accent_color,
-        )
-        location_button.location_id = self.definition.get("id")
-        update_button = self._add_button(
-            "現在地を更新", 58, self.update_location, accent_color
-        )
-        update_button.tint_color = accent_color
-        y = 116
-        for place in self.model["places"]:
-            title = "✓ " if place["claimed"] else ""
-            button = self._add_button(
-                "{}{}（{}点）".format(
-                    title, place["name"], place["points"]
-                ),
-                y,
-                self.claim_place,
-                accent_color,
-            )
-            button.place_id = place["id"]
-            narrative = place["narrative"]
-            if narrative:
-                label = ui.Label(frame=(24, y + 46, self.width - 48, 36), flex="W")
-                label.text = narrative
-                label.font = ("<System>", 13)
-                label.number_of_lines = 0
-                self.scroll.add_subview(label)
-                y += 92
-            else:
-                y += 60
-        self.scroll.content_size = (self.width, y + 16)
-
-    def select_location(self, sender):
-        self.render_quest_selection(self.status_label.text_color)
+        self.render_quest_selection(accent_color)
 
     def render_quest_selection(self, accent_color):
         self._clear_content()
@@ -139,10 +99,6 @@ class GameView(ui.View):
             )
             button.quest = quest
             y += 60
-        self._add_button(
-            "ゲーム画面にもどる", y, self.back_to_location, accent_color
-        )
-        y += 60
         self.scroll.content_size = (self.width, y + 16)
 
     def select_quest(self, sender):
@@ -153,33 +109,48 @@ class GameView(ui.View):
         self._clear_content()
         quest = self.selected_quest
         self.show_message("{}\n{}".format(quest["name"], capture_instruction(quest)))
-        capture_button = self._add_button("写真を選ぶ", 12, self.capture_photo, accent_color)
-        capture_button.tint_color = accent_color
-        back_button = self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, accent_color)
+        select_button = self._add_button("写真を選択", 12, self.select_photo, accent_color)
+        select_button.tint_color = accent_color
+        camera_button = self._add_button("写真を撮影", 72, self.take_photo, accent_color)
+        camera_button.tint_color = accent_color
+        back_button = self._add_button("クエスト一覧にもどる", 132, self.back_to_quests, accent_color)
         back_button.tint_color = accent_color
-        self.scroll.content_size = (self.width, 140)
+        self.scroll.content_size = (self.width, 200)
 
-    def capture_photo(self, sender):
+    def select_photo(self, sender):
         try:
             import photos
             image = photos.pick_image(show_albums=True)
         except (ImportError, OSError) as error:
-            self.show_message("写真を開けません。\n{}".format(error))
+            self.show_message("写真を選択できません。\n{}".format(error))
             return
         if image is None:
             self.show_message("写真の選択をキャンセルしました。\n" + capture_instruction(self.selected_quest))
             return
+        self._photo_received(image, "選択した写真")
+
+    def take_photo(self, sender):
+        try:
+            import photos
+            image = photos.capture_image()
+        except (ImportError, OSError) as error:
+            self.show_message("カメラを起動できません。\n{}".format(error))
+            return
+        if image is None:
+            self.show_message("写真の撮影をキャンセルしました。\n" + capture_instruction(self.selected_quest))
+            return
+        self._photo_received(image, "撮影した写真")
+
+    def _photo_received(self, image, source_label):
         self.show_message(
-            "画像を受け取りました。\n"
-            "画像判定とサーバー送信は未実装です。\n"
+            "{}を受け取りました。\n".format(source_label)
+            + "画像判定とサーバー送信は未実装です。\n"
             + capture_instruction(self.selected_quest)
         )
 
     def back_to_quests(self, sender):
         self.render_quest_selection(self.status_label.text_color)
 
-    def back_to_location(self, sender):
-        self.render_location_selection(self.status_label.text_color)
 
     def update_location(self, sender):
         self.show_message("位置情報を取得しています…")
