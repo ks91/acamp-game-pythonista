@@ -174,5 +174,9 @@ class GameView(ui.View):
         self.refresh()
 
 
-if __name__ == "__main__":
+def run():
     GameView().present("fullscreen")
+
+
+if __name__ == "__main__":
+    run()
