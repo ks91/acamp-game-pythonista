@@ -1,6 +1,7 @@
 """Pythonista 3 one-screen interface for a team's location game."""
 
 import datetime
+import math
 import os
 import random
 import uuid
@@ -33,6 +34,9 @@ SPOT_ADDRESSES = {
     },
 }
 
+COIN_SPACING_M = 30
+COIN_RADIUS_M = 5
+
 
 class GameView(ui.View):
     def __init__(self):
@@ -44,6 +48,8 @@ class GameView(ui.View):
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
         self.coins = 0
         self.tickets = {"スキップチケット": 0, "交換チケット": 0, "ヒントチケット": 0}
+        self.coin_points = []
+        self.collected_coin_ids = set()
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -58,6 +64,58 @@ class GameView(ui.View):
     def show_message(self, message):
         self.status_label.text = message
 
+    @staticmethod
+    def _distance_m(latitude_a, longitude_a, latitude_b, longitude_b):
+        earth_radius_m = 6371000
+        lat_a = math.radians(latitude_a)
+        lat_b = math.radians(latitude_b)
+        delta_lat = math.radians(latitude_b - latitude_a)
+        delta_lon = math.radians(longitude_b - longitude_a)
+        value = (
+            math.sin(delta_lat / 2) ** 2
+            + math.cos(lat_a) * math.cos(lat_b) * math.sin(delta_lon / 2) ** 2
+        )
+        return 2 * earth_radius_m * math.asin(math.sqrt(value))
+
+    def _build_coin_points(self, definition):
+        places = [
+            place for place in definition.get("places", [])
+            if place.get("latitude") is not None and place.get("longitude") is not None
+        ]
+        points = []
+        for route_index, (start, end) in enumerate(zip(places, places[1:])):
+            distance = self._distance_m(
+                start["latitude"], start["longitude"],
+                end["latitude"], end["longitude"],
+            )
+            steps = int(distance // COIN_SPACING_M)
+            for step in range(1, steps + 1):
+                fraction = (step * COIN_SPACING_M) / distance
+                points.append({
+                    "id": "route-{}-coin-{}".format(route_index, step),
+                    "latitude": start["latitude"] + (end["latitude"] - start["latitude"]) * fraction,
+                    "longitude": start["longitude"] + (end["longitude"] - start["longitude"]) * fraction,
+                })
+        return points
+
+    def _collect_nearby_coins(self, position):
+        latitude = position.get("latitude")
+        longitude = position.get("longitude")
+        if latitude is None or longitude is None:
+            return 0
+        collected = 0
+        for coin in self.coin_points:
+            if coin["id"] in self.collected_coin_ids:
+                continue
+            distance = self._distance_m(
+                latitude, longitude, coin["latitude"], coin["longitude"]
+            )
+            if distance <= COIN_RADIUS_M:
+                self.collected_coin_ids.add(coin["id"])
+                collected += 1
+        self.coins += collected
+        return collected
+
     def refresh(self):
         try:
             definition = self.api.get_game_definition()
@@ -71,6 +129,8 @@ class GameView(ui.View):
         self.background_color = theme["background_color"]
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
+        if not self.coin_points:
+            self.coin_points = self._build_coin_points(definition)
         self.show_message("こんにちは、{}班です！\n{}".format(config.TEAM_ID, model["status_text"]))
         for view in list(self.scroll.subviews):
             self.scroll.remove_subview(view)
@@ -78,8 +138,11 @@ class GameView(ui.View):
         update_button.action = self.update_location
         update_button.tint_color = accent_color
         self.scroll.add_subview(update_button)
-        self.coin_label = ui.Label(frame=(16, 48, 170, 30), flex="W")
-        self.coin_label.text = "🪙 コイン: {}枚".format(self.coins)
+        self.coin_label = ui.Label(frame=(16, 48, 170, 40), flex="W")
+        self.coin_label.text = "🪙 コイン: {}枚\n試作コース: {}/{}回収".format(
+            self.coins, len(self.collected_coin_ids), len(self.coin_points)
+        )
+        self.coin_label.number_of_lines = 0
         self.scroll.add_subview(self.coin_label)
         gacha_button = ui.Button(title="🎁 ガチャ（50コイン）", frame=(190, 48, 170, 36))
         gacha_button.action = self.play_gacha
@@ -178,9 +241,14 @@ class GameView(ui.View):
             sample_id=str(uuid.uuid4()),
             location=position,
         )
+        collected_coins = self._collect_nearby_coins(position)
         result = CheckInService(self.api, self.queue).submit(sample)
         if result.get("queued"):
-            self.show_message("通信できないため位置情報を端末に保存しました。次回更新時に再送します。")
+            self.show_message(
+                "通信できないため位置情報を端末に保存しました。\n近くのコイン: {}枚".format(
+                    collected_coins
+                )
+            )
             return
         self.refresh()
 
