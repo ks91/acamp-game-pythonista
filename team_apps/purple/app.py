@@ -191,7 +191,7 @@ class PurpleMockGame(ui.View):
             self._refresh("謎解きをキャンセルしました。もう一度挑戦できます。")
             return
         if selected != question["answer"]:
-            self._refresh("不正解。もう一度挑戦できます。")
+            self._refresh("不正解。正解は「{}」。もう一度挑戦できます。".format(question["answer"]))
             return
         self.solved[index] = True
         self.score += 10
