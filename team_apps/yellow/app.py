@@ -44,9 +44,14 @@ SPOT_STORIES = {
         "display_name": "ナイル川",
         "description": "桜の道を、東京の仲間と進むナイル川の探検コースに見立てた場所。",
     },
+    "center-building": {
+        "names": {"センター棟"},
+        "display_name": "アヌビス",
+        "description": "センター棟を、みんなの活動を見守る犬の神アヌビスの神殿に見立てた場所。",
+    },
 }
 
-SPOT_ORDER = ("fan-cafe", "ycap", "sakura-namiki")
+SPOT_ORDER = ("fan-cafe", "ycap", "sakura-namiki", "center-building")
 
 
 def _story_for(place):
@@ -136,13 +141,14 @@ class YellowEgyptGame(ui.View):
         self._clear_content()
         claimed_ids = self._claimed_ids()
         target_places = self._target_places()
+        target_count = len(target_places)
         claimed_count = sum(place[2]["id"] in claimed_ids for place in target_places)
         server_score = (self.state or {}).get("score", 0)
-        bonus_text = "\nコンプリート！ ボーナス{}点の対象".format(COMPLETION_BONUS) if claimed_count == 3 else ""
+        bonus_text = "\nコンプリート！ ボーナス{}点の対象".format(COMPLETION_BONUS) if target_count and claimed_count == target_count else ""
         self.status_label.text = (
             "イエロー班｜東京ご当地エジプト\n"
-            "発見: {}/3　班の得点: {}点{}"
-        ).format(claimed_count, server_score, bonus_text)
+            "発見: {}/{}　班の得点: {}点{}"
+        ).format(claimed_count, target_count, server_score, bonus_text)
 
         y = 12
         update_button = self._button("現在地を送る（GPS）", (16, y, 343, 48), self.update_location)
@@ -156,8 +162,8 @@ class YellowEgyptGame(ui.View):
 
         if not target_places:
             waiting = self._label(
-                "3スポットの設定待ちです。\n"
-                "スタッフがファンカフェ・YCAP・桜並木をシナリオに登録すると、ここに表示されます。",
+                "対象スポットの設定待ちです。\n"
+                "スタッフがファンカフェ・YCAP・桜並木・センター棟をシナリオに登録すると、ここに表示されます。",
                 (20, y, 335, 100),
                 ("<system>", 16),
             )
@@ -185,9 +191,9 @@ class YellowEgyptGame(ui.View):
                 self.content.add_subview(description)
                 y += 76
 
-        if claimed_count == 3:
+        if target_count and claimed_count == target_count:
             complete = self._label(
-                "3種類コンプリート！\nボーナス{}点の対象".format(COMPLETION_BONUS),
+                "{}種類コンプリート！\nボーナス{}点の対象".format(target_count, COMPLETION_BONUS),
                 (20, y + 8, 335, 56),
                 ("<system-bold>", 18),
                 TEAM_COLOR,
