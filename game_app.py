@@ -12,6 +12,7 @@ import config
 from toolkit.api_client import ApiClient
 from toolkit.check_in import CheckInService
 from toolkit.event_queue import EventQueue
+from toolkit.game_view_model import build_game_view_model
 from toolkit.location_payload import make_location_sample
 
 
@@ -44,23 +45,13 @@ class GameView(ui.View):
         except OSError as error:
             self.show_message("サーバーへ接続できません。\n{}".format(error))
             return
-        theme = definition.get("ui", {})
-        accent_color = theme.get("accent_color", "#1565C0")
-        self.background_color = theme.get("background_color", "white")
+        model = build_game_view_model(definition, state, config.TEAM_ID)
+        theme = model["theme"]
+        accent_color = theme["accent_color"]
+        self.background_color = theme["background_color"]
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
-        claimed = set(state.get("claimed_places", []))
-        intro = definition.get("intro", "")
-        self.show_message(
-            "{} / {}班\n{}\n得点: {}点　位置送信: {}回\n獲得済み: {}".format(
-                definition.get("name", "ゲーム"),
-                config.TEAM_ID,
-                intro,
-                state.get("score", 0),
-                state.get("location_event_count", 0),
-                ", ".join(claimed) or "なし",
-            )
-        )
+        self.show_message(model["status_text"])
         for view in list(self.scroll.subviews):
             self.scroll.remove_subview(view)
         update_button = ui.Button(title="現在地を更新", frame=(16, 0, 220, 44))
@@ -68,8 +59,8 @@ class GameView(ui.View):
         update_button.tint_color = accent_color
         self.scroll.add_subview(update_button)
         y = 58
-        for place in definition.get("places", []):
-            title = "✓ " if place["id"] in claimed else ""
+        for place in model["places"]:
+            title = "✓ " if place["claimed"] else ""
             button = ui.Button(
                 title="{}{}（{}点）".format(title, place["name"], place["points"]),
                 frame=(16, y, 340, 44),
@@ -78,7 +69,7 @@ class GameView(ui.View):
             button.action = self.claim_place
             button.tint_color = accent_color
             self.scroll.add_subview(button)
-            narrative = place.get("description") or place.get("hint")
+            narrative = place["narrative"]
             if narrative:
                 label = ui.Label(frame=(24, y + 42, 330, 36), flex="W")
                 label.text = narrative
