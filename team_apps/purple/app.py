@@ -260,7 +260,7 @@ class PurpleMockGame(ui.View):
             return
         distance = self._distance_m(current, target)
         if distance <= GPS_RADIUS_M:
-            self._arrive(next_index)
+            self._arrive(next_index, distance)
         else:
             self._refresh("現在地を更新しました。地点{}まで約{:.0f}mです。".format(next_index + 1, distance))
 
@@ -277,11 +277,14 @@ class PurpleMockGame(ui.View):
             return
         distance = self._distance_m(current, target)
         if distance <= GPS_RADIUS_M:
-            self._arrive(index)
+            self._arrive(index, distance)
         else:
             self._refresh("まだ地点{}の範囲外です。約{:.0f}m離れています。".format(index + 1, distance))
 
-    def _arrive(self, index):
+    def _arrive(self, index, distance_m):
+        if distance_m > GPS_RADIUS_M:
+            self._refresh("地点{}は範囲外です。約{:.0f}m離れています。".format(index + 1, distance_m))
+            return
         if index > 0 and not self.arrived[index - 1]:
             self._refresh("先に地点{}へ到着してください。".format(index))
             return
