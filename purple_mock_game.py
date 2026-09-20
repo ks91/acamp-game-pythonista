@@ -56,7 +56,7 @@ class PurpleMockGame(ui.View):
         for index, y in enumerate((168, 280)):
             number = index + 1
             self._label("小腸の地点{}".format(number), (24, y, 150, 30), ("<system-bold>", 17))
-            arrive = self._button("地点{}に到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._arrive(i), "#2E7D32")
+            arrive = self._button("地点{}に到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._arrive(i), "#000000")
             solve = self._button("謎{}を解く (+10pt)".format(number), (24, y + 84, 327, 42), lambda sender, i=index: self._solve(i), "#6A1B9A")
             self.place_buttons.append(arrive)
             self.solve_buttons.append(solve)
