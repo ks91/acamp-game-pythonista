@@ -162,6 +162,14 @@ class YellowEgyptGame(ui.View):
         reset_button.background_color = "#8D6E63"
         self.content.add_subview(reset_button)
         y += 64
+        items_button = self._button(
+            "獲得済みアイテムを見る",
+            (16, y, 343, 48),
+            self.show_collected_items,
+        )
+        items_button.background_color = "#6D4C41"
+        self.content.add_subview(items_button)
+        y += 64
 
         if message:
             notice = self._label(message, (20, y, 335, 60), ("<system-bold>", 16), TEAM_COLOR)
@@ -221,6 +229,44 @@ class YellowEgyptGame(ui.View):
         retry = self._button("もう一度読み込む", (16, 150, 343, 48), lambda sender: self.refresh())
         self.content.add_subview(retry)
         self.content.content_size = (self.width, 220)
+
+    def show_collected_items(self, sender):
+        self._clear_content()
+        claimed_ids = self._claimed_ids()
+        target_places = self._target_places()
+        places_by_key = {key: (story, place) for key, story, place in target_places}
+        self.status_label.text = "獲得済みアイテム"
+        y = 12
+        back_button = self._button("ゲーム画面にもどる", (16, y, 343, 48), lambda button: self._render())
+        self.content.add_subview(back_button)
+        y += 68
+        collected = 0
+        for key in SPOT_ORDER:
+            entry = places_by_key.get(key)
+            if entry is None:
+                continue
+            story, place = entry
+            if place["id"] not in claimed_ids:
+                continue
+            collected += 1
+            item_label = self._label(
+                "{}\n{}\n写真：準備中".format(
+                    story["display_name"], story["description"]
+                ),
+                (24, y, 327, 84),
+                ("<system>", 15),
+            )
+            self.content.add_subview(item_label)
+            y += 98
+        if collected == 0:
+            empty_label = self._label(
+                "まだ獲得済みアイテムはありません。\nスポットをチェックインして集めよう！",
+                (24, y, 327, 70),
+                ("<system>", 16),
+            )
+            self.content.add_subview(empty_label)
+            y += 84
+        self.content.content_size = (self.width, y + 24)
 
     def show_reset_notice(self, sender):
         self._render(
