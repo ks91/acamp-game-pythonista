@@ -68,8 +68,8 @@ class PurpleMockGame(ui.View):
     def _refresh(self, message=""):
         self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}".format(self.score, self.boss_hp, START_BOSS_HP)
         for index in range(2):
-            previous_solved = index == 0 or self.solved[index - 1]
-            can_arrive = previous_solved and not self.arrived[index]
+            previous_arrived = index == 0 or self.arrived[index - 1]
+            can_arrive = previous_arrived and not self.arrived[index]
             self.place_buttons[index].enabled = can_arrive
             self.place_buttons[index].alpha = 1.0 if can_arrive else 0.45
             can_solve = self.arrived[index] and not self.solved[index]
@@ -81,8 +81,8 @@ class PurpleMockGame(ui.View):
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
     def _arrive(self, index):
-        if index > 0 and not self.solved[index - 1]:
-            self._refresh("先に地点{}の謎を解いてください。".format(index))
+        if index > 0 and not self.arrived[index - 1]:
+            self._refresh("先に地点{}へ到着してください。".format(index))
             return
         if self.arrived[index]:
             return
