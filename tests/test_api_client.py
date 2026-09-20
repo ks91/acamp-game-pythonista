@@ -14,7 +14,7 @@ class RecordingHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         type(self).request_path = self.path
         type(self).authorization = self.headers.get("Authorization")
-        if self.path == "/v1/game/definition":
+        if self.path.startswith("/v1/game/definition"):
             body = b'{"id":"fujisawa-test-1","name":"Fujisawa","places":[]}'
         else:
             body = b'{"team_id":"green","location_event_count":1,"latest_location":null}'
@@ -29,7 +29,7 @@ class RecordingHandler(BaseHTTPRequestHandler):
         type(self).request_path = self.path
         type(self).authorization = self.headers.get("Authorization")
         type(self).payload = json.loads(self.rfile.read(content_length))
-        if self.path == "/v1/actions":
+        if self.path.startswith("/v1/actions"):
             body = b'{"action_id":"claim-1","claimed":true,"place_id":"time-site","score_delta":120,"team_score":120}'
         else:
             body = b'{"accepted":true,"event_id":1}'
@@ -92,6 +92,18 @@ class ApiClientTests(unittest.TestCase):
         self.assertEqual("/v1/game/definition", RecordingHandler.request_path)
         self.assertEqual("Bearer team-token", RecordingHandler.authorization)
 
+    def test_selected_game_adds_game_team_to_read_requests(self):
+        host, port = self.server.server_address
+        client = ApiClient(
+            base_url="http://{}:{}/v1".format(host, port),
+            token="team-token",
+            game_team_id="blue",
+        )
+
+        client.get_game_definition()
+
+        self.assertEqual("/v1/game/definition?game_team=blue", RecordingHandler.request_path)
+
     def test_claim_place_posts_an_action_with_the_team_bearer_token(self):
         host, port = self.server.server_address
         client = ApiClient(
@@ -111,6 +123,23 @@ class ApiClientTests(unittest.TestCase):
         self.assertEqual("Bearer team-token", RecordingHandler.authorization)
         self.assertEqual("claim_place", RecordingHandler.payload["type"])
         self.assertEqual("green-ipad", RecordingHandler.payload["device_id"])
+
+    def test_selected_game_adds_game_team_to_claim_requests(self):
+        host, port = self.server.server_address
+        client = ApiClient(
+            base_url="http://{}:{}/v1".format(host, port),
+            token="team-token",
+            game_team_id="blue",
+        )
+
+        client.claim_place(
+            action_id="claim-1",
+            game_session_id="green-session",
+            place_id="time-site",
+            device_id="green-ipad",
+        )
+
+        self.assertEqual("/v1/actions?game_team=blue", RecordingHandler.request_path)
 
     def test_get_team_state_uses_team_bearer_token(self):
         host, port = self.server.server_address
