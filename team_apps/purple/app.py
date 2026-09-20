@@ -12,6 +12,7 @@ START_SCORE = 10
 START_BOSS_HP = 1000
 ATTACK_COST = 50
 ATTACK_DAMAGE = 50
+START_LIVES = 3
 
 QUESTIONS = [
     {
@@ -107,8 +108,11 @@ class PurpleMockGame(ui.View):
         self.background_color = "#FFF8E1"
         self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
+        self.lives = START_LIVES
         self.arrived = [False, False]
         self.solved = [False, False]
+        self.used_question_indexes = set()
+        self.feedback_label = None
         self._build_ui()
         self._refresh()
 
@@ -152,8 +156,27 @@ class PurpleMockGame(ui.View):
         self.reset_button = self._button("仮試作をリセット", (24, 472, 327, 42), self._reset, "#546E7A")
         self.log_label = self._label("", (24, 530, 327, 90), ("<system>", 14), "#455A64")
 
+    def _hide_feedback(self):
+        if self.feedback_label is not None:
+            self.feedback_label.remove_from_superview()
+            self.feedback_label = None
+
+    def _show_feedback(self, text, color, seconds):
+        self._hide_feedback()
+        label = ui.Label(frame=(18, 225, self.width - 36, 160))
+        label.text = text
+        label.font = ("<system-bold>", 30)
+        label.text_color = color
+        label.background_color = "#FFFFFF"
+        label.alignment = ui.ALIGN_CENTER
+        label.number_of_lines = 0
+        label.corner_radius = 16
+        self.add_subview(label)
+        self.feedback_label = label
+        ui.delay(self._hide_feedback, seconds)
+
     def _refresh(self, message=""):
-        self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}".format(self.score, self.boss_hp, START_BOSS_HP)
+        self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}\n残機: {}".format(self.score, self.boss_hp, START_BOSS_HP, self.lives)
         for index in range(2):
             previous_arrived = index == 0 or self.arrived[index - 1]
             can_arrive = previous_arrived and not self.arrived[index]
@@ -182,7 +205,16 @@ class PurpleMockGame(ui.View):
             return
         import dialogs
 
-        question = random.choice(QUESTIONS)
+        available_indexes = [
+            index for index in range(len(QUESTIONS))
+            if index not in self.used_question_indexes
+        ]
+        if not available_indexes:
+            self.used_question_indexes.clear()
+            available_indexes = list(range(len(QUESTIONS)))
+        question_index = random.choice(available_indexes)
+        self.used_question_indexes.add(question_index)
+        question = QUESTIONS[question_index]
         try:
             selected = dialogs.list_dialog(question["question"], question["choices"])
         except KeyboardInterrupt:
@@ -191,11 +223,23 @@ class PurpleMockGame(ui.View):
             self._refresh("謎解きをキャンセルしました。もう一度挑戦できます。")
             return
         if selected != question["answer"]:
-            self._refresh("不正解。正解は「{}」。もう一度挑戦できます。".format(question["answer"]))
+            self.lives -= 1
+            if self.lives <= 0:
+                self._refresh("3回間違えました。最初からやり直します。")
+                self._show_feedback("最初から\nやり直し", "#C62828", 3)
+                ui.delay(lambda: self._reset(None), 3)
+                return
+            if self.lives == 1:
+                self._refresh("不正解。残機1。あと1回間違えたら最初からです。")
+                self._show_feedback("あと1回間違えたら\n最初からだよ", "#C62828", 3)
+            else:
+                self._refresh("不正解。正解は「{}」。残機{}。".format(question["answer"], self.lives))
+                self._show_feedback("不正解", "#C62828", 2)
             return
         self.solved[index] = True
         self.score += 10
         self._refresh("正解！ 謎{}を解いた！ +10pt".format(index + 1))
+        self._show_feedback("正解！\n+10pt", "#2E7D32", 2)
 
     def _attack(self, sender):
         if self.score < ATTACK_COST or self.boss_hp <= 0:
@@ -208,11 +252,14 @@ class PurpleMockGame(ui.View):
             message = "殴った！ 東京マンに50ダメージ。"
         self._refresh(message)
 
-    def _reset(self, sender):
+    def _reset(self, sender=None):
+        self._hide_feedback()
         self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
+        self.lives = START_LIVES
         self.arrived = [False, False]
         self.solved = [False, False]
+        self.used_question_indexes.clear()
         self._refresh("仮試作をリセットしました。")
 
 
