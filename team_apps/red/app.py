@@ -22,7 +22,11 @@ STAR_NAMES = {
 
 STAR_HP = {1: 100, 2: 300, 3: 500}
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
-WEAPON_USES_PER_ITEM = 10
+WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
+
+
+def weapon_uses_for(item_name):
+    return WEAPON_USES_PER_ITEM.get(item_name, 10)
 
 
 class RedPrototype(ui.View):
@@ -139,7 +143,7 @@ class RedPrototype(ui.View):
                 if item in WEAPON_POWER:
                     effect = "攻撃：基準{}（残り{}回）".format(
                         WEAPON_POWER[item],
-                        self.weapon_uses.get(item, WEAPON_USES_PER_ITEM),
+                        self.weapon_uses.get(item, weapon_uses_for(item)),
                     )
                 count_text = " ×{}".format(count) if count > 1 else ""
                 label.text = "・{}{}\n  {}".format(item, count_text, effect)
@@ -232,7 +236,7 @@ class RedPrototype(ui.View):
         for item in dict.fromkeys(self.inventory):
             if item in WEAPON_POWER:
                 power = WEAPON_POWER[item]
-                uses = self.weapon_uses.get(item, WEAPON_USES_PER_ITEM)
+                uses = self.weapon_uses.get(item, weapon_uses_for(item))
                 button = ui.Button(
                     title="{}で攻撃（基準{}／残り{}回）".format(item, power, uses),
                     frame=(16, y, 343, 48),
@@ -264,7 +268,7 @@ class RedPrototype(ui.View):
 
     def attack_with_item(self, sender):
         item_name = sender.item_name
-        uses_left = self.weapon_uses.get(item_name, WEAPON_USES_PER_ITEM) - 1
+        uses_left = self.weapon_uses.get(item_name, weapon_uses_for(item_name)) - 1
         if uses_left <= 0:
             self.weapon_uses.pop(item_name, None)
             self.inventory.remove(item_name)
@@ -345,8 +349,8 @@ class RedPrototype(ui.View):
             elif len(self.inventory) < self.capacity:
                 self.inventory.append(drop)
                 if drop in WEAPON_POWER:
-                    self.weapon_uses[drop] = self.weapon_uses.get(drop, 0) + WEAPON_USES_PER_ITEM
-                    drop_message = "\n{}を自動取得！使用回数+{}回。".format(drop, WEAPON_USES_PER_ITEM)
+                    self.weapon_uses[drop] = self.weapon_uses.get(drop, 0) + weapon_uses_for(drop)
+                    drop_message = "\n{}を自動取得！使用回数+{}回。".format(drop, weapon_uses_for(drop))
                 else:
                     drop_message = "\n{}を自動取得！".format(drop)
             else:
