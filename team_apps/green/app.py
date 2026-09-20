@@ -17,14 +17,16 @@ DARK_BG = "#101820"
 LIGHT_BG = "#F4F7F9"
 
 
-class TerritoryMap(ui.WebView):
-    """Leaflet/OpenStreetMap map; game state is supplied by the server-backed app."""
+class TerritoryMap(ui.View):
+    """Leaflet/OpenStreetMap map embedded in a normal Pythonista view."""
 
     def __init__(self, on_select):
         super().__init__()
-        self.delegate = self
         self.on_select = on_select
-        self.load_html(r'''<!doctype html><html><head>
+        self.web = ui.WebView(frame=self.bounds, flex="WH")
+        self.web.delegate = self
+        self.add_subview(self.web)
+        self.web.load_html(r'''<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>html,body,#map{height:100%;margin:0;background:#101820}.flag{border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 5px #0008}.flag span{display:block;transform:rotate(45deg);font-size:17px;text-align:center;padding-top:3px}</style>
@@ -34,7 +36,7 @@ function render(model){layers.clearLayers();let points=model.places||[],owned=po
 window.render=render;</script></body></html>''')
 
     def update_model(self, model):
-        self.evaluate_javascript("render({});".format(json.dumps(model)))
+        self.web.evaluate_javascript("render({});".format(json.dumps(model)))
 
     def webview_should_start_load(self, webview, url, navigation_type):
         prefix = "pythonista://select/"
