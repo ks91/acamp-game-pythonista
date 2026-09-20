@@ -16,23 +16,6 @@ from toolkit.game_view_model import build_game_view_model
 from toolkit.location_payload import make_location_sample
 
 
-PINK_RIDDLES = [
-    ("津島神社", "神社にある、赤くて大きな門はなーんだ？", "鳥居"),
-    ("参宮橋公園", "公園で座って休むものはなーんだ？", "ベンチ"),
-    ("代々木八幡宮", "神社で、パンパンと手をたたいてお願いすることを何という？", "お参り"),
-    ("代々木出世稲荷大明神", "稲荷神社と仲良しの動物はなーんだ？", "キツネ"),
-    ("代々木ポニー公園", "小さな馬のような動物はなーんだ？", "ポニー"),
-]
-
-SPOT_ADDRESSES = {
-    "津島神社": {
-        "plus_code": "MMHV+XV 渋谷区、東京都",
-        "coordinates": "35.680002644293516, 139.69468821491773",
-        "address": "東京都渋谷区代々木付近",
-    },
-}
-
-
 class GameView(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
@@ -68,7 +51,7 @@ class GameView(ui.View):
         self.background_color = theme["background_color"]
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
-        self.show_message("こんにちは、{}班です！\n{}".format(config.TEAM_ID, model["status_text"]))
+        self.show_message(model["status_text"])
         for view in list(self.scroll.subviews):
             self.scroll.remove_subview(view)
         update_button = ui.Button(title="現在地を更新", frame=(16, 0, 220, 44))
@@ -96,40 +79,7 @@ class GameView(ui.View):
                 y += 88
             else:
                 y += 52
-        y += 12
-        riddle_title = ui.Label(frame=(16, y, 340, 32), flex="W")
-        riddle_title.text = "🌸 ピンク班のかんたんなぞなぞ"
-        riddle_title.font = ("<System-Bold>", 16)
-        self.scroll.add_subview(riddle_title)
-        y += 38
-        for place_name, question, answer in PINK_RIDDLES:
-            label = ui.Label(frame=(20, y, 330, 48), flex="W")
-            label.text = "{}\n{}".format(place_name, question)
-            label.number_of_lines = 0
-            label.font = ("<System>", 13)
-            self.scroll.add_subview(label)
-            answer_button = ui.Button(title="答えを見る", frame=(220, y + 48, 110, 32))
-            answer_button.riddle_answer = answer
-            answer_button.action = self.reveal_riddle_answer
-            answer_button.tint_color = accent_color
-            self.scroll.add_subview(answer_button)
-            y += 88
-
-        address = SPOT_ADDRESSES.get("津島神社")
-        if address:
-            address_label = ui.Label(frame=(20, y, 330, 72), flex="W")
-            address_label.text = "📍 津島神社\n{}\nPlus Code: {}".format(
-                address["address"], address["plus_code"]
-            )
-            address_label.number_of_lines = 0
-            address_label.font = ("<System>", 13)
-            self.scroll.add_subview(address_label)
-            y += 84
         self.scroll.content_size = (375, y + 16)
-
-    def reveal_riddle_answer(self, sender):
-        sender.title = "答え: {}".format(sender.riddle_answer)
-        sender.enabled = False
 
     def update_location(self, sender):
         self.show_message("位置情報を取得しています…")
@@ -166,9 +116,7 @@ class GameView(ui.View):
             self.show_message("獲得できません。\n" + error.read().decode("utf-8"))
             return
         if result["claimed"]:
-            self.show_message(
-                "{}班が{}点獲得！".format(config.TEAM_ID, result["score_delta"])
-            )
+            self.show_message("{} を獲得！ +{}点".format(result["place_id"], result["score_delta"]))
         else:
             self.show_message("この場所は既に獲得済みです。")
         self.refresh()
