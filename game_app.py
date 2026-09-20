@@ -44,11 +44,14 @@ class GameView(ui.View):
         except OSError as error:
             self.show_message("サーバーへ接続できません。\n{}".format(error))
             return
+        self.places = {place["id"]: place for place in definition.get("places", [])}
         claimed = set(state.get("claimed_places", []))
+        intro = definition.get("intro", "")
         self.show_message(
-            "{} / {}班\n得点: {}点　位置送信: {}回\n獲得済み: {}".format(
+            "{} / {}班\n{}\n得点: {}点　位置送信: {}回\n獲得済み: {}".format(
                 definition.get("name", "ゲーム"),
                 config.TEAM_ID,
+                intro,
                 state.get("score", 0),
                 state.get("location_event_count", 0),
                 ", ".join(claimed) or "なし",
@@ -69,7 +72,16 @@ class GameView(ui.View):
             button.place_id = place["id"]
             button.action = self.claim_place
             self.scroll.add_subview(button)
-            y += 52
+            narrative = place.get("description") or place.get("hint")
+            if narrative:
+                label = ui.Label(frame=(24, y + 42, 330, 36), flex="W")
+                label.text = narrative
+                label.font = ("<System>", 13)
+                label.number_of_lines = 0
+                self.scroll.add_subview(label)
+                y += 88
+            else:
+                y += 52
         self.scroll.content_size = (375, y + 16)
 
     def update_location(self, sender):
