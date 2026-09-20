@@ -2,13 +2,23 @@
 
 import datetime
 import os
+import sys
 import uuid
 from urllib.error import HTTPError
 
 import location
 import ui
 
-import config
+
+REPOSITORY_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if REPOSITORY_ROOT not in sys.path:
+    sys.path.insert(0, REPOSITORY_ROOT)
+
+try:
+    import config
+except ImportError:
+    config = None
+
 from toolkit.api_client import ApiClient
 from toolkit.check_in import CheckInService
 from toolkit.event_queue import EventQueue
@@ -52,7 +62,7 @@ class YellowEgyptGame(ui.View):
         super().__init__(frame=(0, 0, 375, 667))
         self.name = "イエロー班 東京ご当地エジプト"
         self.background_color = "#FFF8E1"
-        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
+        self.api = None
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
         self.definition = None
@@ -64,6 +74,15 @@ class YellowEgyptGame(ui.View):
         self.add_subview(self.status_label)
         self.content = ui.ScrollView(frame=(0, 120, 375, 547), flex="WH")
         self.add_subview(self.content)
+        if config is None:
+            self.status_label.text = "設定ファイル config.py が見つかりません。"
+            self._render_message(
+                "Working Copyでリポジトリ全体をPullしたあと、\n"
+                "config.example.pyをconfig.pyとして複製し、\n"
+                "スタッフから渡された設定値を入れてください。"
+            )
+            return
+        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
         self.refresh()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
