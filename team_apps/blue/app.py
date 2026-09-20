@@ -68,7 +68,7 @@ class GameView(ui.View):
                 "type": "elevator",
             }
         ]
-        self.render_quest_selection(accent_color)
+        self.render_title_screen(accent_color)
 
     def _clear_content(self):
         for view in list(self.scroll.subviews):
@@ -81,12 +81,37 @@ class GameView(ui.View):
         self.scroll.add_subview(button)
         return button
 
+    def render_title_screen(self, accent_color):
+        self._clear_content()
+        self.show_message("blue位置ゲー開発（仮）")
+        self._add_button("開始", 12, self.start_game, accent_color)
+        self.scroll.content_size = (self.width, 80)
+
+    def start_game(self, sender):
+        self.render_location_selection(self.status_label.text_color)
+
     def render_location_selection(self, accent_color):
-        self.render_quest_selection(accent_color)
+        self._clear_content()
+        self.show_message("場所を選択してください")
+        self._add_button(
+            self.definition.get("name", "オリンピックセンター"),
+            12,
+            self.select_location,
+            accent_color,
+        )
+        self.scroll.content_size = (self.width, 80)
+
+    def select_location(self, sender):
+        self.render_quest_selection(self.status_label.text_color)
 
     def render_quest_selection(self, accent_color):
         self._clear_content()
-        self.show_message("{}\nクエストを1つ選んでください".format(self.definition.get("name", "")))
+        self.show_message(
+            "オリンピックセンター探索イベント（仮）\n"
+            "オリンピックセンターの中を歩いて、\n"
+            "身近なものをカメラで探してみよう！\n\n"
+            "クエストを選択してください"
+        )
         y = 12
         for quest in self.available_quests:
             button = self._add_button(
