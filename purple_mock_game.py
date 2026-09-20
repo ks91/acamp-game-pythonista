@@ -81,6 +81,9 @@ class PurpleMockGame(ui.View):
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
     def _arrive(self, index):
+        if index > 0 and not self.solved[index - 1]:
+            self._refresh("先に地点{}の謎を解いてください。".format(index))
+            return
         if self.arrived[index]:
             return
         self.arrived[index] = True
