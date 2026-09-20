@@ -171,7 +171,7 @@ class GameView(ui.View):
             return
         self.show_message(
             "画像を受け取りました。\n"
-            "画像判定サービスへ送信する準備ができました。\n"
+            "画像判定とサーバー送信は未実装です。\n"
             + capture_instruction(self.selected_quest)
         )
 

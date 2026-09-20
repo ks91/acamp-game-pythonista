@@ -24,6 +24,16 @@ class GameAppSourceTests(unittest.TestCase):
         self.assertIn("update_location", attributes)
         self.assertIn("claim_place", attributes)
 
+    def test_capture_status_does_not_claim_unimplemented_upload_is_ready(self):
+        string_values = {
+            node.value
+            for node in ast.walk(self.tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        }
+        self.assertFalse(
+            any("送信する準備ができました" in value for value in string_values)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
