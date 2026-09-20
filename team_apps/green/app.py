@@ -41,7 +41,9 @@ class TerritoryMap(ui.View):
 </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
 function ownerColor(owner){return ({green:'#43A047',blue:'#1E88E5',red:'#E53935',yellow:'#FDD835',purple:'#8E24AA',pink:'#D81B60'})[owner]||'#9E9E9E';}
-function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:ownerColor(p.owner),weight:2,fillColor:ownerColor(p.owner),fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=ownerColor(p.owner);let symbol=p.is_boss?'★':'⚑';let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.owner_label||'所有者不明'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
+function roleColor(role,owner){return ({own_home:'#00A86B',enemy_target:'#D32F2F',enemy_base:'#7B1FA2',neutral:'#9E9E9E',own_base:'#43A047'})[role]||ownerColor(owner);}
+function roleSymbol(role){return ({own_home:'⌂',enemy_target:'★',enemy_base:'◆',neutral:'○',own_base:'⚑'})[role]||'⚑';}
+function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:roleColor(p.role,p.owner),weight:2,fillColor:roleColor(p.role,p.owner),fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=roleColor(p.role,p.owner);let symbol=roleSymbol(p.role);let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.role_label||'地点'}<br>${p.owner_label||'所有者不明'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
 function setTheme(mode){document.documentElement.className=mode==='dark'?'dark':'';}
 window.render=render;window.setTheme=setTheme;
 </script></body></html>''')
@@ -147,12 +149,27 @@ class GreenTerritoryGame(ui.View):
                 owner = opponent_teams[index % len(opponent_teams)]
                 simulated = True
             owner_label = "自班（グリーン）" if owner == team_id else ("テスト表示: {}班".format(owner) if simulated else ("相手班" if owner else "中立"))
+            home_id = state.get("home_place_id") or (getattr(config, "HOME_PLACE_ID", None) if config else None)
+            if place.get("role"):
+                role = place["role"]
+            elif owner == team_id and place["id"] == home_id:
+                role = "own_home"
+            elif owner and owner != team_id and place.get("is_boss"):
+                role = "enemy_target"
+            elif owner and owner != team_id:
+                role = "enemy_base"
+            elif owner == team_id:
+                role = "own_base"
+            else:
+                role = "neutral"
+            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手の攻略対象", "enemy_base": "相手の拠点", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
             action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
             places.append({
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
                 "points": territory.get("points", place.get("points", 0)), "owner": owner,
                 "owner_label": owner_label, "simulated_owner": simulated,
+                "role": role, "role_label": role_labels.get(role, "地点"),
                 "is_boss": bool(place.get("is_boss", False)),
                 "mission": place.get("mission", place.get("description", "")),
                 "action_label": action_label,
@@ -186,7 +203,7 @@ class GreenTerritoryGame(ui.View):
             self.action_button.enabled = False
             return
         kind = "★ボス地点" if place["is_boss"] else "通常地点"
-        self.detail.text = "{} [{}]\n得点: {}点\nミッション: {}".format(place["name"], kind, place["points"], place["mission"] or "詳細を確認")
+        self.detail.text = "{} [{}]\n{}　得点: {}点\nミッション: {}".format(place["name"], kind, place["role_label"], place["points"], place["mission"] or "詳細を確認")
         self.action_button.title = place["action_label"] if not offline else "オフラインのためプレイ不可"
         self.action_button.enabled = not offline
 
@@ -253,9 +270,10 @@ class GreenTerritoryGame(ui.View):
         primary = ui.Button(frame=(20, 166, card_width - 40, 44), title=primary_title, font=("<system-bold>", 16), action=primary_action)
         primary.tint_color = "#42A5F5"
         card.add_subview(primary)
-        close = ui.Button(frame=(20, 218, card_width - 40, 34), title="閉じる", action=self._close_mission_overlay)
-        close.tint_color = title_label.text_color
-        card.add_subview(close)
+        if primary_title != "閉じる":
+            close = ui.Button(frame=(20, 218, card_width - 40, 34), title="閉じる", action=self._close_mission_overlay)
+            close.tint_color = title_label.text_color
+            card.add_subview(close)
         overlay.add_subview(card)
         self.add_subview(overlay)
         self.mission_overlay = overlay
