@@ -157,6 +157,7 @@ class PurpleMockGame(ui.View):
         self.current_location = None
         self.place_locations = [dict(place) if place else None for place in FIXED_PLACES]
         self._build_ui()
+        self._read_current_location()
         self._refresh()
 
     def _label(self, text, frame, font, color="#263238", align=ui.ALIGN_LEFT):
@@ -204,6 +205,7 @@ class PurpleMockGame(ui.View):
                 self.map_view.eval_js(
                     "setPlace({},{},{})".format(index, place["latitude"], place["longitude"])
                 )
+        ui.delay(self._draw_place_markers, 1.0)
 
         self.place_buttons = []
         self.solve_buttons = []
@@ -253,6 +255,29 @@ class PurpleMockGame(ui.View):
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
+    def _draw_current_marker(self):
+        if self.current_location is None:
+            return
+        try:
+            self.map_view.eval_js(
+                "updatePosition({},{})".format(
+                    self.current_location["latitude"],
+                    self.current_location["longitude"],
+                )
+            )
+        except Exception:
+            pass
+
+    def _draw_place_markers(self):
+        for index, place in enumerate(self.place_locations):
+            if place is not None:
+                try:
+                    self.map_view.eval_js(
+                        "setPlace({},{},{})".format(index, place["latitude"], place["longitude"])
+                    )
+                except Exception:
+                    pass
+
     def _read_current_location(self):
         self._refresh("GPSを取得しています…")
         location.start_updates()
@@ -277,6 +302,7 @@ class PurpleMockGame(ui.View):
             )
         except Exception:
             pass
+        ui.delay(self._draw_current_marker, 1.0)
         return self.current_location
 
     def _distance_m(self, first, second):
