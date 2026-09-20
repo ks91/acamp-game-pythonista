@@ -151,8 +151,16 @@ class YellowEgyptGame(ui.View):
         ).format(claimed_count, target_count, server_score, bonus_text)
 
         y = 12
-        update_button = self._button("現在地を送る（GPS）", (16, y, 343, 48), self.update_location)
+        update_button = self._button("位置情報を更新（GPS）", (16, y, 343, 48), self.update_location)
         self.content.add_subview(update_button)
+        y += 64
+        reset_button = self._button(
+            "得点をリセット（スタッフ操作）",
+            (16, y, 343, 48),
+            self.show_reset_notice,
+        )
+        reset_button.background_color = "#8D6E63"
+        self.content.add_subview(reset_button)
         y += 64
 
         if message:
@@ -213,6 +221,12 @@ class YellowEgyptGame(ui.View):
         retry = self._button("もう一度読み込む", (16, 150, 343, 48), lambda sender: self.refresh())
         self.content.add_subview(retry)
         self.content.content_size = (self.width, 220)
+
+    def show_reset_notice(self, sender):
+        self._render(
+            "得点リセットはサーバー側の操作です。\n"
+            "スタッフに新しいゲームセッションを作ってもらってください。"
+        )
 
     def update_location(self, sender):
         self.status_label.text = "位置情報を取得しています…"
