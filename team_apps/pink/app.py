@@ -50,12 +50,14 @@ class GameView(ui.View):
         self.tickets = {"スキップチケット": 0, "交換チケット": 0, "ヒントチケット": 0}
         self.coin_points = []
         self.collected_coin_ids = set()
+        self.auto_coin_collection_active = True
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
         self.scroll = ui.ScrollView(frame=(0, 130, 0, 0), flex="WH")
         self.add_subview(self.scroll)
         self.refresh()
+        self.start_auto_coin_collection()
 
     def layout(self):
         self.status_label.frame = (16, 12, self.width - 32, 110)
@@ -63,6 +65,35 @@ class GameView(ui.View):
 
     def show_message(self, message):
         self.status_label.text = message
+
+    def start_auto_coin_collection(self):
+        try:
+            location.start_updates()
+        except Exception:
+            self.auto_coin_collection_active = False
+            return
+        ui.delay(self.auto_collect_coins, 5.0)
+
+    def auto_collect_coins(self):
+        if not self.auto_coin_collection_active:
+            return
+        try:
+            position = location.get_location()
+            if position is not None:
+                collected = self._collect_nearby_coins(position)
+                if collected:
+                    self.show_message("🪙 コインを{}枚自動回収しました！".format(collected))
+                    self.refresh()
+        except Exception:
+            pass
+        ui.delay(self.auto_collect_coins, 5.0)
+
+    def will_close(self):
+        self.auto_coin_collection_active = False
+        try:
+            location.stop_updates()
+        except Exception:
+            pass
 
     @staticmethod
     def _distance_m(latitude_a, longitude_a, latitude_b, longitude_b):
