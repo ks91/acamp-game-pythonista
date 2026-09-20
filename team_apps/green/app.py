@@ -30,15 +30,18 @@ class TerritoryMap(ui.View):
         self.web.load_html(r'''<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<style>html,body,#map{height:100%;margin:0;background:#101820}.flag{border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 5px #0008}.flag span{display:block;transform:rotate(45deg);font-size:17px;text-align:center;padding-top:3px}</style>
+<style>html,body,#map{height:100%;margin:0;background:#101820}.dark .leaflet-tile{filter:brightness(.55) saturate(.75)}.flag{border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 5px #0008}.flag span{display:block;transform:rotate(45deg);font-size:17px;text-align:center;padding-top:3px}</style>
 </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
 function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:'#43A047',weight:2,fillColor:'#43A047',fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=p.owner?'#43A047':'#9E9E9E';let symbol=p.is_boss?'★':'⚑';let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.owner?'グリーンの陣地':'未獲得'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}}
-window.render=render;</script></body></html>''')
+function setTheme(mode){document.documentElement.className=mode==='dark'?'dark':'';}
+window.render=render;window.setTheme=setTheme;
+</script></body></html>''')
 
     def update_model(self, model):
         try:
-            self.web.evaluate_javascript("render({});".format(json.dumps(model)))
+            payload = json.dumps(model)
+            self.web.evaluate_javascript("setTheme({});render({});".format(json.dumps(model.get("theme_mode", "dark")), payload))
         except Exception:
             # The WebView may still be loading its HTML/Leaflet assets.
             # The next scheduled refresh will retry rendering.
@@ -55,6 +58,7 @@ window.render=render;</script></body></html>''')
 class GreenTerritoryGame(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 390, 844))
+        self.flex = "WH"
         self.background_color = DARK_BG
         self.name = "グリーン班 戦略陣地戦"
         self.team_id = getattr(config, "TEAM_ID", "green") if config else "green"
@@ -74,18 +78,33 @@ class GreenTerritoryGame(ui.View):
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
         self.add_subview(self.offline_label)
         self.map_view = TerritoryMap(self.select_place)
-        self.map_view.frame = (12, 96, 366, 390)
+        self.map_view.frame = (0, 0, self.width, self.height)
+        self.map_view.flex = "WH"
         self.add_subview(self.map_view)
+        self.map_view.send_to_back()
         self.detail = ui.Label(frame=(16, 500, 358, 92), font=("<system>", 15), number_of_lines=0)
+        self.detail.background_color = (0, 0, 0, 0.72)
+        self.detail.text_color = "white"
         self.add_subview(self.detail)
         self.action_button = ui.Button(frame=(16, 600, 358, 48), font=("<system-bold>", 16), action=self.run_mission)
+        self.action_button.background_color = (0, 0, 0, 0.78)
         self.add_subview(self.action_button)
         self.refresh_view()
         ui.delay(self.refresh_now, 0.2)
 
+    def layout(self):
+        width, height = self.bounds.width, self.bounds.height
+        self.map_view.frame = (0, 0, width, height)
+        self.header.frame = (16, 12, max(220, width - 112), 54)
+        self.theme_button.frame = (width - 90, 12, 38, 34)
+        self.refresh_button.frame = (width - 46, 12, 38, 34)
+        self.offline_label.frame = (16, 66, width - 32, 25)
+        self.detail.frame = (16, max(120, height - 170), width - 32, 88)
+        self.action_button.frame = (16, max(210, height - 76), width - 32, 48)
+
     @staticmethod
     def _offline_model():
-        return {"score": 0, "remaining_seconds": None, "offline": True, "theme_mode": "dark", "places": []}
+        return {"score": 0, "remaining_seconds": None, "offline": False, "connection_status": "connecting", "theme_mode": "dark", "places": []}
 
     def _make_client(self):
         if config is None:
@@ -110,15 +129,17 @@ class GreenTerritoryGame(ui.View):
                 "mission": place.get("mission", place.get("description", "")),
                 "action_label": "状態確認" if owner else "ミッション開始",
             })
-        return {"score": state.get("score", 0), "remaining_seconds": None, "offline": False, "theme_mode": "dark", "places": places}
+        return {"score": state.get("score", 0), "remaining_seconds": None, "offline": False, "connection_status": "online", "theme_mode": "dark", "places": places}
 
     def refresh_view(self):
         remaining = self.model.get("remaining_seconds")
         time_text = "--:--" if remaining is None else "{}:{:02d}".format(max(0, int(remaining)) // 60, max(0, int(remaining)) % 60)
         self.header.text = "得点: {}点\n残り時間: {}".format(self.model.get("score", 0), time_text)
-        offline = self.model.get("offline", True)
-        self.offline_label.text = "● オフライン" if offline else "● オンライン"
-        self.offline_label.text_color = "#FFB300" if offline else "#66BB6A"
+        status = self.model.get("connection_status", "offline" if self.model.get("offline") else "online")
+        labels = {"connecting": "● 接続確認中", "online": "● オンライン", "offline": "● オフライン", "not_configured": "● API設定待ち"}
+        self.offline_label.text = labels.get(status, "● 接続状態不明")
+        self.offline_label.text_color = {"online": "#66BB6A", "connecting": "#90CAF9", "not_configured": "#B0BEC5"}.get(status, "#FFB300")
+        offline = status != "online"
         self.theme_button.title = "☀︎" if self.model.get("theme_mode") == "dark" else "☾"
         self.map_view.update_model(self.model)
         place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
@@ -133,8 +154,12 @@ class GreenTerritoryGame(ui.View):
         self.action_button.enabled = not offline
 
     def refresh_now(self, sender=None):
-        if self.api_client is None or self._refreshing:
+        if self.api_client is None:
+            self.model["offline"] = False
+            self.model["connection_status"] = "not_configured"
             self.refresh_view()
+            return
+        if self._refreshing:
             return
         self._refreshing = True
         self.detail.text = "ゲーム状態を更新しています…"
@@ -158,6 +183,7 @@ class GreenTerritoryGame(ui.View):
             self.model = self._build_model(definition, state, self.team_id)
         else:
             self.model["offline"] = True
+            self.model["connection_status"] = "offline"
         self.refresh_view()
 
     def select_place(self, place_id):
