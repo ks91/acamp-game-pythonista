@@ -56,7 +56,7 @@ class PurpleMockGame(ui.View):
         for index, y in enumerate((168, 280)):
             number = index + 1
             self._label("小腸の地点{}".format(number), (24, y, 150, 30), ("<system-bold>", 17))
-            arrive = self._button("地点{}に到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._arrive(i), "#2E7D32")
+            arrive = self._button("地点{}に到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._arrive(i), "#000000")
             solve = self._button("謎{}を解く (+10pt)".format(number), (24, y + 84, 327, 42), lambda sender, i=index: self._solve(i), "#6A1B9A")
             self.place_buttons.append(arrive)
             self.solve_buttons.append(solve)
@@ -68,16 +68,22 @@ class PurpleMockGame(ui.View):
     def _refresh(self, message=""):
         self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}".format(self.score, self.boss_hp, START_BOSS_HP)
         for index in range(2):
-            self.place_buttons[index].enabled = not self.arrived[index]
-            self.place_buttons[index].alpha = 1.0 if self.place_buttons[index].enabled else 0.45
-            self.solve_buttons[index].enabled = self.arrived[index] and not self.solved[index]
-            self.solve_buttons[index].alpha = 1.0 if self.solve_buttons[index].enabled else 0.45
+            previous_solved = index == 0 or self.solved[index - 1]
+            can_arrive = previous_solved and not self.arrived[index]
+            self.place_buttons[index].enabled = can_arrive
+            self.place_buttons[index].alpha = 1.0 if can_arrive else 0.45
+            can_solve = self.arrived[index] and not self.solved[index]
+            self.solve_buttons[index].enabled = can_solve
+            self.solve_buttons[index].alpha = 1.0 if can_solve else 0.45
         can_attack = self.score >= ATTACK_COST and self.boss_hp > 0
         self.attack_button.enabled = can_attack
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
     def _arrive(self, index):
+        if index > 0 and not self.solved[index - 1]:
+            self._refresh("先に地点{}の謎を解いてください。".format(index))
+            return
         if self.arrived[index]:
             return
         self.arrived[index] = True
