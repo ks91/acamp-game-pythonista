@@ -14,6 +14,7 @@ from toolkit.check_in import CheckInService
 from toolkit.event_queue import EventQueue
 from toolkit.game_view_model import build_game_view_model
 from toolkit.location_payload import make_location_sample
+from toolkit.quest_flow import build_quest_cards, capture_instruction
 
 
 class GameView(ui.View):
@@ -29,6 +30,9 @@ class GameView(ui.View):
         self.add_subview(self.status_label)
         self.scroll = ui.ScrollView(frame=(0, 130, 0, 0), flex="WH")
         self.add_subview(self.scroll)
+        self.definition = None
+        self.state = None
+        self.selected_quest = None
         self.refresh()
 
     def layout(self):
@@ -45,41 +49,102 @@ class GameView(ui.View):
         except OSError as error:
             self.show_message("サーバーへ接続できません。\n{}".format(error))
             return
+        self.definition = definition
+        self.state = state
         model = build_game_view_model(definition, state, config.TEAM_ID)
         theme = model["theme"]
         accent_color = theme["accent_color"]
         self.background_color = theme["background_color"]
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
-        self.show_message(model["status_text"])
+        self.available_quests = build_quest_cards(definition) or [
+            {
+                "id": "find-two-elevators",
+                "name": "エレベーターを2個探せ！",
+                "difficulty": "easy",
+                "reward_coins": 20,
+                "hint": "",
+                "type": "elevator",
+            }
+        ]
+        self.render_location_selection(accent_color)
+        return
+
+    def _clear_content(self):
         for view in list(self.scroll.subviews):
             self.scroll.remove_subview(view)
-        update_button = ui.Button(title="現在地を更新", frame=(16, 0, 220, 44))
-        update_button.action = self.update_location
-        update_button.tint_color = accent_color
-        self.scroll.add_subview(update_button)
-        y = 58
-        for place in model["places"]:
-            title = "✓ " if place["claimed"] else ""
-            button = ui.Button(
-                title="{}{}（{}点）".format(title, place["name"], place["points"]),
-                frame=(16, y, 340, 44),
+
+    def _add_button(self, title, y, action, accent_color):
+        button = ui.Button(title=title, frame=(16, y, self.width - 32, 48))
+        button.action = action
+        button.tint_color = accent_color
+        self.scroll.add_subview(button)
+        return button
+
+    def render_location_selection(self, accent_color):
+        self._clear_content()
+        self.show_message("場所を選んでください")
+        location_button = self._add_button(
+            self.definition.get("name", "オリンピックセンター"),
+            12,
+            self.select_location,
+            accent_color,
+        )
+        location_button.location_id = self.definition.get("id")
+        self.scroll.content_size = (self.width, 80)
+
+    def select_location(self, sender):
+        self.render_quest_selection(self.status_label.text_color)
+
+    def render_quest_selection(self, accent_color):
+        self._clear_content()
+        self.show_message("{}\nクエストを1つ選んでください".format(self.definition.get("name", "")))
+        y = 12
+        for quest in self.available_quests:
+            button = self._add_button(
+                "{}  {} / {}コイン".format(
+                    quest["name"], quest["difficulty"], quest["reward_coins"]
+                ),
+                y,
+                self.select_quest,
+                accent_color,
             )
-            button.place_id = place["id"]
-            button.action = self.claim_place
-            button.tint_color = accent_color
-            self.scroll.add_subview(button)
-            narrative = place["narrative"]
-            if narrative:
-                label = ui.Label(frame=(24, y + 42, 330, 36), flex="W")
-                label.text = narrative
-                label.font = ("<System>", 13)
-                label.number_of_lines = 0
-                self.scroll.add_subview(label)
-                y += 88
-            else:
-                y += 52
-        self.scroll.content_size = (375, y + 16)
+            button.quest = quest
+            y += 60
+        self.scroll.content_size = (self.width, y + 16)
+
+    def select_quest(self, sender):
+        self.selected_quest = sender.quest
+        self.render_capture_screen(self.status_label.text_color)
+
+    def render_capture_screen(self, accent_color):
+        self._clear_content()
+        quest = self.selected_quest
+        self.show_message("{}\n{}".format(quest["name"], capture_instruction(quest)))
+        capture_button = self._add_button("カメラで撮影する", 12, self.capture_photo, accent_color)
+        capture_button.tint_color = accent_color
+        back_button = self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, accent_color)
+        back_button.tint_color = accent_color
+        self.scroll.content_size = (self.width, 140)
+
+    def capture_photo(self, sender):
+        try:
+            import photos
+            image = photos.pick_image(show_albums=True)
+        except (ImportError, OSError) as error:
+            self.show_message("カメラを起動できません。\\n{}".format(error))
+            return
+        if image is None:
+            self.show_message("撮影をキャンセルしました。\\n" + capture_instruction(self.selected_quest))
+            return
+        self.show_message(
+            "撮影画像を受け取りました。\\n"
+            "画像判定サービスへ送信する準備ができました。\\n"
+            + capture_instruction(self.selected_quest)
+        )
+
+    def back_to_quests(self, sender):
+        self.render_quest_selection(self.status_label.text_color)
 
     def update_location(self, sender):
         self.show_message("位置情報を取得しています…")
