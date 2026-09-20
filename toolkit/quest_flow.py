@@ -9,6 +9,8 @@ def build_quest_cards(definition):
             {
                 "id": quest["id"],
                 "name": quest["name"],
+                "type": quest.get("type"),
+                "capture_instruction": quest.get("capture_instruction", ""),
                 "difficulty": quest.get("difficulty", "normal"),
                 "reward_coins": quest.get("reward_coins", 0),
                 "hint": quest.get("hint", ""),
