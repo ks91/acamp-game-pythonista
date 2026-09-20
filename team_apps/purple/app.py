@@ -4,7 +4,9 @@ This file uses local GPS but no server connection or real-world chemicals.
 It is a button-driven UI mock for testing the two-place -> attack loop.
 """
 
+import json
 import math
+import os
 import random
 import ui
 import location
@@ -16,6 +18,7 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
+PLACES_FILE = os.path.join(os.path.dirname(__file__), "places.json")
 
 QUESTIONS = [
     {
@@ -117,7 +120,7 @@ class PurpleMockGame(ui.View):
         self.used_question_indexes = set()
         self.feedback_label = None
         self.current_location = None
-        self.place_locations = [None, None]
+        self.place_locations = self._load_shared_places()
         self._build_ui()
         self._refresh()
 
@@ -206,6 +209,28 @@ class PurpleMockGame(ui.View):
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
+    def _load_shared_places(self):
+        try:
+            with open(PLACES_FILE, "r", encoding="utf-8") as source:
+                data = json.load(source)
+            places = data.get("places", [None, None])
+            if len(places) == 2:
+                return places
+        except (OSError, ValueError, TypeError):
+            pass
+        return [None, None]
+
+    def _save_shared_places(self):
+        temporary_file = PLACES_FILE + ".tmp"
+        with open(temporary_file, "w", encoding="utf-8") as destination:
+            json.dump(
+                {"radius_m": GPS_RADIUS_M, "places": self.place_locations},
+                destination,
+                ensure_ascii=False,
+                indent=2,
+            )
+        os.replace(temporary_file, PLACES_FILE)
+
     def _read_current_location(self):
         self._refresh("GPSを取得しています…")
         location.start_updates()
@@ -234,11 +259,20 @@ class PurpleMockGame(ui.View):
         return 2 * earth_radius_m * math.asin(math.sqrt(value))
 
     def _set_place_here(self, index):
+        if self.place_locations[index] is not None:
+            self._refresh("地点{}はすでに共通設定されています。変更できません。".format(index + 1))
+            return
         current = self._read_current_location()
         if current is None:
             return
         self.place_locations[index] = dict(current)
-        self._refresh("地点{}を現在地に設定しました。半径{}mで判定します。".format(index + 1, int(GPS_RADIUS_M)))
+        try:
+            self._save_shared_places()
+        except OSError as error:
+            self.place_locations[index] = None
+            self._refresh("地点を保存できませんでした。{}".format(error))
+            return
+        self._refresh("地点{}を共通設定しました。半径{}mで判定します。".format(index + 1, int(GPS_RADIUS_M)))
 
     def _update_location(self, sender):
         current = self._read_current_location()
