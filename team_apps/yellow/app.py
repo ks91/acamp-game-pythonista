@@ -32,11 +32,15 @@ SPOT_STORIES = {
     "fan-cafe": {
         "names": {"ファン カフェ", "ファンカフェ"},
         "display_name": "ハチ公スフィンクス",
+        "item_name": "スフィンクス",
+        "photo_label": "2枚目",
         "description": "東京の忠犬ハチ公と、古代エジプトのスフィンクスが合体した守り神。",
     },
     "ycap": {
         "names": {"YCAP"},
         "display_name": "ピラミッド",
+        "item_name": "ピラミッド",
+        "photo_label": "1枚目",
         "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
     },
     "sakura-namiki": {
@@ -47,6 +51,8 @@ SPOT_STORIES = {
     "center-building": {
         "names": {"センター棟"},
         "display_name": "アヌビス",
+        "item_name": "ファラオ",
+        "photo_label": "3枚目",
         "description": "センター棟を、みんなの活動を見守る犬の神アヌビスの神殿に見立てた場所。",
     },
 }
@@ -250,8 +256,8 @@ class YellowEgyptGame(ui.View):
                 continue
             collected += 1
             item_label = self._label(
-                "{}\n{}\n写真：準備中".format(
-                    story["display_name"], story["description"]
+                "{}（{}）\n{}\n写真：{}".format(
+                    story["item_name"], story["display_name"], story["description"], story["photo_label"]
                 ),
                 (24, y, 327, 84),
                 ("<system>", 15),
