@@ -126,19 +126,25 @@ class GreenTerritoryGame(ui.View):
     def _build_model(definition, state, team_id):
         claimed = set(state.get("claimed_places", []))
         territory_by_id = {item.get("place_id"): item for item in state.get("territories", [])}
+        use_demo_opponents = not territory_by_id and getattr(config, "SHOW_TEST_OPPONENTS", True) if config else not territory_by_id
+        opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
-        for place in definition.get("places", []):
+        for index, place in enumerate(definition.get("places", [])):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
+            simulated = False
             if owner is None and place["id"] in claimed:
                 owner = team_id
-            owner_label = "自班（グリーン）" if owner == team_id else ("相手班" if owner else "中立")
+            elif owner is None and use_demo_opponents:
+                owner = opponent_teams[index % len(opponent_teams)]
+                simulated = True
+            owner_label = "自班（グリーン）" if owner == team_id else ("テスト表示: {}班".format(owner) if simulated else ("相手班" if owner else "中立"))
             action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
             places.append({
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
                 "points": territory.get("points", place.get("points", 0)), "owner": owner,
-                "owner_label": owner_label,
+                "owner_label": owner_label, "simulated_owner": simulated,
                 "is_boss": bool(place.get("is_boss", False)),
                 "mission": place.get("mission", place.get("description", "")),
                 "action_label": action_label,
@@ -219,7 +225,7 @@ class GreenTerritoryGame(ui.View):
 
     def _close_mission_overlay(self, sender=None):
         if getattr(self, "mission_overlay", None) is not None:
-            self.mission_overlay.remove_from_superview()
+            self.remove_subview(self.mission_overlay)
             self.mission_overlay = None
 
     def _show_mission_overlay(self, title, message, primary_title, primary_action):
