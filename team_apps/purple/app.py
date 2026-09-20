@@ -19,7 +19,7 @@ GPS_RADIUS_M = 40.0
 # 地点が決まったら、ここに緯度・経度を入れる。
 # 例: {"latitude": 35.000000, "longitude": 139.000000}
 FIXED_PLACES = [
-    None,  # 地点1
+    {"latitude": 35.674652, "longitude": 139.693472},  # 地点1
     None,  # 地点2
 ]
 
