@@ -110,6 +110,38 @@ QUESTIONS = [
 ]
 
 
+MAP_HTML = r"""<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body,#map{margin:0;width:100%;height:100%;}</style>
+</head>
+<body><div id="map"></div>
+<script>
+var map = L.map('map').setView([35.6812,139.7671], 16);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors', maxZoom: 19
+}).addTo(map);
+var currentMarker = null;
+var placeMarkers = [];
+function updatePosition(lat, lon) {
+  var point = [lat, lon];
+  if (!currentMarker) {
+    currentMarker = L.circleMarker(point, {radius:8, color:'#1565C0', fillColor:'#42A5F5', fillOpacity:1}).addTo(map);
+    map.setView(point, 17);
+  } else { currentMarker.setLatLng(point); }
+}
+function setPlace(index, lat, lon) {
+  var point = [lat, lon];
+  if (placeMarkers[index]) { placeMarkers[index].setLatLng(point); return; }
+  placeMarkers[index] = L.marker(point).addTo(map).bindPopup('地点' + (index + 1));
+}
+</script>
+</body></html>"""
+
+
 class PurpleMockGame(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
@@ -164,19 +196,28 @@ class PurpleMockGame(ui.View):
             button.font = ("<system-bold>", 12)
             self.set_place_buttons.append(button)
 
+        self.map_view = ui.WebView(frame=(0, 160, width, 145))
+        self.map_view.load_html(MAP_HTML)
+        self.add_subview(self.map_view)
+        for index, place in enumerate(self.place_locations):
+            if place is not None:
+                self.map_view.eval_js(
+                    "setPlace({},{},{})".format(index, place["latitude"], place["longitude"])
+                )
+
         self.place_buttons = []
         self.solve_buttons = []
-        for index, y in enumerate((168, 280)):
+        for index, y in enumerate((315, 410)):
             number = index + 1
-            self._label("小腸の地点{}".format(number), (24, y, 150, 30), ("<system-bold>", 17))
-            arrive = self._button("地点{}にGPS到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._check_arrival(i), "#000000")
-            solve = self._button("謎{}を解く（ランダム +10pt）".format(number), (24, y + 84, 327, 42), lambda sender, i=index: self._solve(i), "#6A1B9A")
+            self._label("小腸の地点{}".format(number), (24, y, 150, 26), ("<system-bold>", 16))
+            arrive = self._button("地点{}にGPS到着 (+20pt)".format(number), (24, y + 28, 327, 34), lambda sender, i=index: self._check_arrival(i), "#000000")
+            solve = self._button("謎{}を解く（ランダム +10pt）".format(number), (24, y + 66, 327, 34), lambda sender, i=index: self._solve(i), "#6A1B9A")
             self.place_buttons.append(arrive)
             self.solve_buttons.append(solve)
 
-        self.attack_button = self._button("殴る（50pt → 50ダメージ）", (24, 412, 327, 48), self._attack, "#C62828")
-        self.reset_button = self._button("仮試作をリセット", (24, 472, 327, 42), self._reset, "#546E7A")
-        self.log_label = self._label("", (24, 530, 327, 90), ("<system>", 14), "#455A64")
+        self.attack_button = self._button("殴る（50pt → 50ダメージ）", (24, 520, 327, 42), self._attack, "#C62828")
+        self.reset_button = self._button("仮試作をリセット", (24, 570, 327, 36), self._reset, "#546E7A")
+        self.log_label = self._label("", (24, 612, 327, 50), ("<system>", 12), "#455A64")
 
     def _hide_feedback(self):
         if self.feedback_label is not None:
@@ -227,6 +268,15 @@ class PurpleMockGame(ui.View):
             "longitude": float(current["longitude"]),
             "accuracy": float(current.get("horizontal_accuracy", 0.0)),
         }
+        try:
+            self.map_view.eval_js(
+                "updatePosition({},{})".format(
+                    self.current_location["latitude"],
+                    self.current_location["longitude"],
+                )
+            )
+        except Exception:
+            pass
         return self.current_location
 
     def _distance_m(self, first, second):
@@ -247,6 +297,16 @@ class PurpleMockGame(ui.View):
         if current is None:
             return
         self.place_locations[index] = dict(current)
+        try:
+            self.map_view.eval_js(
+                "setPlace({},{},{})".format(
+                    index,
+                    current["latitude"],
+                    current["longitude"],
+                )
+            )
+        except Exception:
+            pass
         self._refresh("地点{}を仮設定しました。確定後はFIXED_PLACESに埋め込みます。".format(index + 1))
 
     def _update_location(self, sender):
