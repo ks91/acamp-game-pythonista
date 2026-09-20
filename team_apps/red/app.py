@@ -21,6 +21,8 @@ STAR_NAMES = {
 }
 
 STAR_HP = {1: 100, 2: 300, 3: 500}
+WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
+WEAPON_USES_PER_ITEM = 10
 
 
 class RedPrototype(ui.View):
@@ -29,6 +31,7 @@ class RedPrototype(ui.View):
         self.name = "レッド班・皇居救出作戦 試作"
         self.background_color = "#FFEBEE"
         self.inventory = []
+        self.weapon_uses = {}
         self.capacity = 3
         self.current_screen = "map"
         self.active_monster = None
@@ -125,7 +128,13 @@ class RedPrototype(ui.View):
             for item in self.inventory:
                 label = ui.Label(frame=(20, y, 335, 44))
                 label.number_of_lines = 0
-                label.text = "・{}\n  {}".format(item, effect_text.get(item, "効果は戦闘で確認"))
+                effect = effect_text.get(item, "効果は戦闘で確認")
+                if item in WEAPON_POWER:
+                    effect = "攻撃：基準{}（残り{}回）".format(
+                        WEAPON_POWER[item],
+                        self.weapon_uses.get(item, WEAPON_USES_PER_ITEM),
+                    )
+                label.text = "・{}\n  {}".format(item, effect)
                 self.content.add_subview(label)
                 y += 58
         back = ui.Button(title="戦う相手を選ぶ", frame=(16, y + 12, 343, 48))
@@ -212,10 +221,14 @@ class RedPrototype(ui.View):
         attack_button.action = self.attack_with_fist
         self.content.add_subview(attack_button)
         y += 62
-        for item in self.inventory:
-            if item in ("木の棒", "剣", "弓"):
-                power = {"木の棒": 50, "剣": 100, "弓": 100}[item]
-                button = ui.Button(title="{}で攻撃（{}）".format(item, power), frame=(16, y, 343, 48))
+        for item in dict.fromkeys(self.inventory):
+            if item in WEAPON_POWER:
+                power = WEAPON_POWER[item]
+                uses = self.weapon_uses.get(item, WEAPON_USES_PER_ITEM)
+                button = ui.Button(
+                    title="{}で攻撃（基準{}／残り{}回）".format(item, power, uses),
+                    frame=(16, y, 343, 48),
+                )
                 button.tint_color = "#C62828"
                 button.item_name = item
                 button.action = self.attack_with_item
@@ -237,9 +250,14 @@ class RedPrototype(ui.View):
         self.resolve_player_attack(10, "素手で攻撃！")
 
     def attack_with_item(self, sender):
-        self.inventory.remove(sender.item_name)
-        power = {"木の棒": 50, "剣": 100, "弓": 100}[sender.item_name]
-        self.resolve_player_attack(power, "{}で攻撃！".format(sender.item_name))
+        item_name = sender.item_name
+        uses_left = self.weapon_uses.get(item_name, WEAPON_USES_PER_ITEM) - 1
+        if uses_left <= 0:
+            self.weapon_uses.pop(item_name, None)
+            self.inventory.remove(item_name)
+        else:
+            self.weapon_uses[item_name] = uses_left
+        self.resolve_player_attack(WEAPON_POWER[item_name], "{}で攻撃！".format(item_name))
 
     def revive_if_possible(self):
         if not self.inventory:
@@ -247,6 +265,8 @@ class RedPrototype(ui.View):
             return ""
         lost_item = random.choice(self.inventory)
         self.inventory.remove(lost_item)
+        if lost_item in WEAPON_POWER:
+            self.weapon_uses.pop(lost_item, None)
         self.player_hp = self.player_max_hp
         return lost_item
 
@@ -307,7 +327,11 @@ class RedPrototype(ui.View):
                 drop_message = "\n{}を自動摂取！最大HP+{}、所持容量+1。".format(drop, food_value)
             elif len(self.inventory) < self.capacity:
                 self.inventory.append(drop)
-                drop_message = "\n{}を自動取得！".format(drop)
+                if drop in WEAPON_POWER:
+                    self.weapon_uses[drop] = self.weapon_uses.get(drop, 0) + WEAPON_USES_PER_ITEM
+                    drop_message = "\n{}を自動取得！使用回数+{}回。".format(drop, WEAPON_USES_PER_ITEM)
+                else:
+                    drop_message = "\n{}を自動取得！".format(drop)
             else:
                 drop_message = "\n容量いっぱいで、{}は入らなかった。".format(drop)
             message += drop_message
