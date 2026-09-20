@@ -22,7 +22,7 @@ def build_quest_cards(definition):
 def capture_instruction(quest):
     if quest.get("type") == "elevator":
         return "扉全体と操作盤が、同じ写真に写るように撮影してください。"
-    return quest.get("capture_instruction", "対象を画面に収めて撮影してください。")
+    return quest.get("capture_instruction") or "対象を画面に収めて撮影してください。"
 
 
 def is_quest_complete(found_group_ids, required_count):

@@ -59,6 +59,12 @@ class QuestFlowTests(unittest.TestCase):
         )[0]
         self.assertEqual("目印を中央に写してください。", capture_instruction(card))
 
+    def test_server_quest_without_instruction_uses_default(self):
+        card = build_quest_cards(
+            {"quests": [{"id": "plain", "name": "通常クエスト"}]}
+        )[0]
+        self.assertIn("対象を画面に収めて", capture_instruction(card))
+
     def test_elevator_capture_instruction_is_specific(self):
         self.assertIn("扉全体", capture_instruction({"type": "elevator"}))
         self.assertIn("操作盤", capture_instruction({"type": "elevator"}))
