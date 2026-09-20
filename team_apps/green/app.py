@@ -26,6 +26,7 @@ class TerritoryMap(ui.View):
         self.on_select = on_select
         self.web = ui.WebView(frame=self.bounds, flex="WH")
         self.web.delegate = self
+        self.last_model = {}
         self.add_subview(self.web)
         self.web.load_html(r'''<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
@@ -33,19 +34,24 @@ class TerritoryMap(ui.View):
 <style>html,body,#map{height:100%;margin:0;background:#101820}.dark .leaflet-tile{filter:brightness(.55) saturate(.75)}.flag{border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 5px #0008}.flag span{display:block;transform:rotate(45deg);font-size:17px;text-align:center;padding-top:3px}</style>
 </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
-function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:'#43A047',weight:2,fillColor:'#43A047',fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=p.owner?'#43A047':'#9E9E9E';let symbol=p.is_boss?'★':'⚑';let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.owner?'グリーンの陣地':'未獲得'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}}
+function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:'#43A047',weight:2,fillColor:'#43A047',fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=p.owner?'#43A047':'#9E9E9E';let symbol=p.is_boss?'★':'⚑';let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.owner?'グリーンの陣地':'未獲得'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
 function setTheme(mode){document.documentElement.className=mode==='dark'?'dark':'';}
 window.render=render;window.setTheme=setTheme;
 </script></body></html>''')
 
     def update_model(self, model):
+        self.last_model = model
         try:
             payload = json.dumps(model)
             self.web.evaluate_javascript("setTheme({});render({});".format(json.dumps(model.get("theme_mode", "dark")), payload))
         except Exception:
             # The WebView may still be loading its HTML/Leaflet assets.
-            # The next scheduled refresh will retry rendering.
+            # webview_did_finish_load will retry with the saved model.
             pass
+
+    def webview_did_finish_load(self, webview):
+        if self.last_model:
+            ui.delay(lambda: self.update_model(self.last_model), 0.1)
 
     def webview_should_start_load(self, webview, url, navigation_type):
         prefix = "pythonista://select/"
@@ -140,7 +146,16 @@ class GreenTerritoryGame(ui.View):
         self.offline_label.text = labels.get(status, "● 接続状態不明")
         self.offline_label.text_color = {"online": "#66BB6A", "connecting": "#90CAF9", "not_configured": "#B0BEC5"}.get(status, "#FFB300")
         offline = status != "online"
-        self.theme_button.title = "☀︎" if self.model.get("theme_mode") == "dark" else "☾"
+        dark = self.model.get("theme_mode") == "dark"
+        primary_text = "white" if dark else "#263238"
+        self.header.text_color = primary_text
+        self.detail.text_color = primary_text
+        self.theme_button.tint_color = primary_text
+        self.refresh_button.tint_color = primary_text
+        self.action_button.tint_color = primary_text
+        self.detail.background_color = (0, 0, 0, 0.72) if dark else (1, 1, 1, 0.84)
+        self.action_button.background_color = (0, 0, 0, 0.78) if dark else (1, 1, 1, 0.88)
+        self.theme_button.title = "☀︎" if dark else "☾"
         self.map_view.update_model(self.model)
         place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
         if place is None:
