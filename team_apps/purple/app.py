@@ -1,11 +1,13 @@
 """Purple team local prototype: Tokyo Man escape game mock.
 
-This file intentionally uses no GPS, API, or real-world chemicals.
+This file uses local GPS but no server connection or real-world chemicals.
 It is a button-driven UI mock for testing the two-place -> attack loop.
 """
 
+import math
 import random
 import ui
+import location
 
 
 START_SCORE = 10
@@ -13,6 +15,7 @@ START_BOSS_HP = 1000
 ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
+GPS_RADIUS_M = 40.0
 
 QUESTIONS = [
     {
@@ -113,6 +116,8 @@ class PurpleMockGame(ui.View):
         self.solved = [False, False]
         self.used_question_indexes = set()
         self.feedback_label = None
+        self.current_location = None
+        self.place_locations = [None, None]
         self._build_ui()
         self._refresh()
 
@@ -139,15 +144,26 @@ class PurpleMockGame(ui.View):
     def _build_ui(self):
         width = self.width
         self._label("パープル班｜東京マン脱出ゲーム", (16, 12, width - 32, 30), ("<system-bold>", 20), align=ui.ALIGN_CENTER)
-        self.mock_label = self._label("仮動作：GPS・サーバー通信なし", (16, 46, width - 32, 24), ("<system-bold>", 13), "#D84315", ui.ALIGN_CENTER)
-        self.status_label = self._label("", (16, 78, width - 32, 72), ("<system-bold>", 17), align=ui.ALIGN_CENTER)
+        self.mock_label = self._label("仮動作：GPSあり・サーバー通信なし", (16, 46, width - 32, 24), ("<system-bold>", 13), "#D84315", ui.ALIGN_CENTER)
+        self.status_label = self._label("", (16, 78, width - 32, 40), ("<system-bold>", 15), align=ui.ALIGN_CENTER)
+        self.gps_button = self._button("GPS更新", (16, 122, 105, 34), self._update_location, "#455A64")
+        self.set_place_buttons = []
+        for index, x in enumerate((130, 244)):
+            button = self._button(
+                "地点{}をここに".format(index + 1),
+                (x, 122, 105, 34),
+                lambda sender, i=index: self._set_place_here(i),
+                "#37474F",
+            )
+            button.font = ("<system-bold>", 12)
+            self.set_place_buttons.append(button)
 
         self.place_buttons = []
         self.solve_buttons = []
         for index, y in enumerate((168, 280)):
             number = index + 1
             self._label("小腸の地点{}".format(number), (24, y, 150, 30), ("<system-bold>", 17))
-            arrive = self._button("地点{}に到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._arrive(i), "#000000")
+            arrive = self._button("地点{}にGPS到着 (+20pt)".format(number), (24, y + 36, 327, 42), lambda sender, i=index: self._check_arrival(i), "#000000")
             solve = self._button("謎{}を解く（ランダム +10pt）".format(number), (24, y + 84, 327, 42), lambda sender, i=index: self._solve(i), "#6A1B9A")
             self.place_buttons.append(arrive)
             self.solve_buttons.append(solve)
@@ -189,6 +205,72 @@ class PurpleMockGame(ui.View):
         self.attack_button.enabled = can_attack
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
+
+    def _read_current_location(self):
+        self._refresh("GPSを取得しています…")
+        location.start_updates()
+        try:
+            current = location.get_location()
+        finally:
+            location.stop_updates()
+        if not current:
+            self._refresh("GPSを取得できません。位置情報の許可を確認してください。")
+            return None
+        self.current_location = {
+            "latitude": float(current["latitude"]),
+            "longitude": float(current["longitude"]),
+            "accuracy": float(current.get("horizontal_accuracy", 0.0)),
+        }
+        return self.current_location
+
+    def _distance_m(self, first, second):
+        earth_radius_m = 6371000.0
+        lat1 = math.radians(first["latitude"])
+        lat2 = math.radians(second["latitude"])
+        dlat = lat2 - lat1
+        dlon = math.radians(second["longitude"] - first["longitude"])
+        value = (math.sin(dlat / 2) ** 2
+                 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2)
+        return 2 * earth_radius_m * math.asin(math.sqrt(value))
+
+    def _set_place_here(self, index):
+        current = self._read_current_location()
+        if current is None:
+            return
+        self.place_locations[index] = dict(current)
+        self._refresh("地点{}を現在地に設定しました。半径{}mで判定します。".format(index + 1, int(GPS_RADIUS_M)))
+
+    def _update_location(self, sender):
+        current = self._read_current_location()
+        if current is None:
+            return
+        next_index = 0 if not self.arrived[0] else 1
+        target = self.place_locations[next_index]
+        if target is None:
+            self._refresh("現在地を更新しました。先に地点{}をここに設定してください。".format(next_index + 1))
+            return
+        distance = self._distance_m(current, target)
+        if distance <= GPS_RADIUS_M:
+            self._arrive(next_index)
+        else:
+            self._refresh("現在地を更新しました。地点{}まで約{:.0f}mです。".format(next_index + 1, distance))
+
+    def _check_arrival(self, index):
+        if index > 0 and not self.arrived[index - 1]:
+            self._refresh("先に地点{}へ到着してください。".format(index))
+            return
+        target = self.place_locations[index]
+        if target is None:
+            self._refresh("先に「地点{}をここに」を押してください。".format(index + 1))
+            return
+        current = self._read_current_location()
+        if current is None:
+            return
+        distance = self._distance_m(current, target)
+        if distance <= GPS_RADIUS_M:
+            self._arrive(index)
+        else:
+            self._refresh("まだ地点{}の範囲外です。約{:.0f}m離れています。".format(index + 1, distance))
 
     def _arrive(self, index):
         if index > 0 and not self.arrived[index - 1]:
