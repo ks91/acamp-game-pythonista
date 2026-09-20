@@ -82,7 +82,6 @@ class GreenTerritoryGame(ui.View):
         self.add_subview(self.action_button)
         self.refresh_view()
         ui.delay(self.refresh_now, 0.2)
-        ui.delay(self._auto_refresh, 10.0)
 
     @staticmethod
     def _offline_model():
@@ -160,10 +159,6 @@ class GreenTerritoryGame(ui.View):
         else:
             self.model["offline"] = True
         self.refresh_view()
-
-    def _auto_refresh(self):
-        self.refresh_now()
-        ui.delay(self._auto_refresh, 10.0)
 
     def select_place(self, place_id):
         self.selected_id = place_id
