@@ -1,5 +1,6 @@
 """Green team's self-contained real-map territory game for Pythonista."""
 import json
+import threading
 import time
 
 import location
@@ -36,7 +37,12 @@ function render(model){layers.clearLayers();let points=model.places||[],owned=po
 window.render=render;</script></body></html>''')
 
     def update_model(self, model):
-        self.web.evaluate_javascript("render({});".format(json.dumps(model)))
+        try:
+            self.web.evaluate_javascript("render({});".format(json.dumps(model)))
+        except Exception:
+            # The WebView may still be loading its HTML/Leaflet assets.
+            # The next scheduled refresh will retry rendering.
+            pass
 
     def webview_should_start_load(self, webview, url, navigation_type):
         prefix = "pythonista://select/"
@@ -49,6 +55,7 @@ window.render=render;</script></body></html>''')
 class GreenTerritoryGame(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 390, 844))
+        self.background_color = DARK_BG
         self.name = "グリーン班 戦略陣地戦"
         self.team_id = getattr(config, "TEAM_ID", "green") if config else "green"
         self.device_id = getattr(config, "DEVICE_ID", "green-ipad") if config else "green-ipad"
@@ -56,6 +63,7 @@ class GreenTerritoryGame(ui.View):
         self.api_client = self._make_client()
         self.model = self._offline_model()
         self.selected_id = None
+        self._refreshing = False
 
         self.header = ui.Label(frame=(16, 12, 280, 54), font=("<system-bold>", 17), number_of_lines=2)
         self.add_subview(self.header)
@@ -126,16 +134,30 @@ class GreenTerritoryGame(ui.View):
         self.action_button.enabled = not offline
 
     def refresh_now(self, sender=None):
-        if self.api_client is None:
-            self.model["offline"] = True
+        if self.api_client is None or self._refreshing:
             self.refresh_view()
             return
+        self._refreshing = True
+        self.detail.text = "ゲーム状態を更新しています…"
+        threading.Thread(target=self._fetch_remote_state, daemon=True).start()
+
+    def _fetch_remote_state(self):
+        definition = None
+        state = None
+        error = None
         try:
             definition = self.api_client.get_game_definition()
             state = self.api_client.get_team_state()
+        except Exception as exc:
+            error = exc
+        ui.delay(lambda: self._apply_remote_state(definition, state, error), 0.0)
+
+    def _apply_remote_state(self, definition, state, error):
+        self._refreshing = False
+        if error is None and definition is not None and state is not None:
             self.session_id = getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id
             self.model = self._build_model(definition, state, self.team_id)
-        except Exception:
+        else:
             self.model["offline"] = True
         self.refresh_view()
 
