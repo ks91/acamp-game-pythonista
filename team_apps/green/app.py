@@ -24,9 +24,15 @@ class TerritoryMap(ui.View):
     def __init__(self, on_select):
         super().__init__()
         self.on_select = on_select
+        self.web = None
+        self.last_model = {}
+        ui.delay(self._create_webview, 0.2)
+
+    def _create_webview(self):
+        if self.web is not None:
+            return
         self.web = ui.WebView(frame=self.bounds, flex="WH")
         self.web.delegate = self
-        self.last_model = {}
         self.add_subview(self.web)
         self.web.load_html(r'''<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
@@ -42,6 +48,8 @@ window.render=render;window.setTheme=setTheme;
 
     def update_model(self, model):
         self.last_model = model
+        if self.web is None:
+            return
         try:
             payload = json.dumps(model)
             self.web.evaluate_javascript("setTheme({});render({});".format(json.dumps(model.get("theme_mode", "dark")), payload))
