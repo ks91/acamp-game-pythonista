@@ -2,6 +2,7 @@
 
 import datetime
 import os
+import random
 import uuid
 from urllib.error import HTTPError
 
@@ -41,6 +42,8 @@ class GameView(ui.View):
         self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
+        self.coins = 0
+        self.tickets = {"スキップチケット": 0, "交換チケット": 0, "ヒントチケット": 0}
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -75,7 +78,14 @@ class GameView(ui.View):
         update_button.action = self.update_location
         update_button.tint_color = accent_color
         self.scroll.add_subview(update_button)
-        y = 58
+        self.coin_label = ui.Label(frame=(16, 48, 170, 30), flex="W")
+        self.coin_label.text = "🪙 コイン: {}枚".format(self.coins)
+        self.scroll.add_subview(self.coin_label)
+        gacha_button = ui.Button(title="🎁 ガチャ（50コイン）", frame=(190, 48, 170, 36))
+        gacha_button.action = self.play_gacha
+        gacha_button.tint_color = accent_color
+        self.scroll.add_subview(gacha_button)
+        y = 94
         for place in model["places"]:
             title = "✓ " if place["claimed"] else ""
             button = ui.Button(
@@ -125,7 +135,27 @@ class GameView(ui.View):
             address_label.font = ("<System>", 13)
             self.scroll.add_subview(address_label)
             y += 84
+        ticket_label = ui.Label(frame=(20, y, 330, 48), flex="W")
+        ticket_label.text = "🎫 チケット: スキップ {} / 交換 {} / ヒント {}".format(
+            self.tickets["スキップチケット"],
+            self.tickets["交換チケット"],
+            self.tickets["ヒントチケット"],
+        )
+        ticket_label.number_of_lines = 0
+        ticket_label.font = ("<System>", 13)
+        self.scroll.add_subview(ticket_label)
+        y += 60
         self.scroll.content_size = (375, y + 16)
+
+    def play_gacha(self, sender):
+        if self.coins < 50:
+            self.show_message("コインが足りません。スポットを獲得してコインを集めよう！")
+            return
+        self.coins -= 50
+        prize = random.choice(list(self.tickets))
+        self.tickets[prize] += 1
+        self.show_message("🎉 {}をゲット！".format(prize))
+        self.refresh()
 
     def reveal_riddle_answer(self, sender):
         sender.title = "答え: {}".format(sender.riddle_answer)
@@ -166,8 +196,11 @@ class GameView(ui.View):
             self.show_message("獲得できません。\n" + error.read().decode("utf-8"))
             return
         if result["claimed"]:
+            self.coins += 10
             self.show_message(
-                "{}班が{}点獲得！".format(config.TEAM_ID, result["score_delta"])
+                "{}班が{}点獲得！\nコインも10枚ゲット！".format(
+                    config.TEAM_ID, result["score_delta"]
+                )
             )
         else:
             self.show_message("この場所は既に獲得済みです。")
