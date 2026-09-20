@@ -333,7 +333,11 @@ class RedPrototype(ui.View):
             self.player_hp = self.player_max_hp
             message += "\n勝利！HP全回復！"
             drop = self.active_monster["drop"]
-            if drop.startswith("成長フード（+"):
+            if drop == "オレンジジュース" and random.random() >= 0.3:
+                drop = None
+            if drop is None:
+                drop_message = "\n今回はアイテムがドロップしなかった。"
+            elif drop.startswith("成長フード（+"):
                 food_value = int(drop.split("+")[1].rstrip("）"))
                 self.player_max_hp += food_value
                 self.capacity += 1
