@@ -333,7 +333,7 @@ class RedPrototype(ui.View):
             self.player_hp = self.player_max_hp
             message += "\n勝利！HP全回復！"
             drop = self.active_monster["drop"]
-            if drop == "オレンジジュース" and random.random() >= 0.5:
+            if drop == "オレンジジュース" and random.random() >= 0.3:
                 drop = None
             if drop is None:
                 drop_message = "\n今回はアイテムがドロップしなかった。"
