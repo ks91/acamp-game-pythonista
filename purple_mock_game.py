@@ -68,10 +68,13 @@ class PurpleMockGame(ui.View):
     def _refresh(self, message=""):
         self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}".format(self.score, self.boss_hp, START_BOSS_HP)
         for index in range(2):
-            self.place_buttons[index].enabled = not self.arrived[index]
-            self.place_buttons[index].alpha = 1.0 if self.place_buttons[index].enabled else 0.45
-            self.solve_buttons[index].enabled = self.arrived[index] and not self.solved[index]
-            self.solve_buttons[index].alpha = 1.0 if self.solve_buttons[index].enabled else 0.45
+            previous_solved = index == 0 or self.solved[index - 1]
+            can_arrive = previous_solved and not self.arrived[index]
+            self.place_buttons[index].enabled = can_arrive
+            self.place_buttons[index].alpha = 1.0 if can_arrive else 0.45
+            can_solve = self.arrived[index] and not self.solved[index]
+            self.solve_buttons[index].enabled = can_solve
+            self.solve_buttons[index].alpha = 1.0 if can_solve else 0.45
         can_attack = self.score >= ATTACK_COST and self.boss_hp > 0
         self.attack_button.enabled = can_attack
         self.attack_button.alpha = 1.0 if can_attack else 0.45
