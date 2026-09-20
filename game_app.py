@@ -44,6 +44,10 @@ class GameView(ui.View):
         except OSError as error:
             self.show_message("サーバーへ接続できません。\n{}".format(error))
             return
+        theme = definition.get("ui", {})
+        accent_color = theme.get("accent_color", "#1565C0")
+        self.background_color = theme.get("background_color", "white")
+        self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
         claimed = set(state.get("claimed_places", []))
         intro = definition.get("intro", "")
@@ -61,6 +65,7 @@ class GameView(ui.View):
             self.scroll.remove_subview(view)
         update_button = ui.Button(title="現在地を更新", frame=(16, 0, 220, 44))
         update_button.action = self.update_location
+        update_button.tint_color = accent_color
         self.scroll.add_subview(update_button)
         y = 58
         for place in definition.get("places", []):
@@ -71,6 +76,7 @@ class GameView(ui.View):
             )
             button.place_id = place["id"]
             button.action = self.claim_place
+            button.tint_color = accent_color
             self.scroll.add_subview(button)
             narrative = place.get("description") or place.get("hint")
             if narrative:
