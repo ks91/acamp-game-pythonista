@@ -141,10 +141,10 @@ class YellowEgyptGame(ui.View):
         self._clear_content()
         claimed_ids = self._claimed_ids()
         target_places = self._target_places()
-        target_count = len(target_places)
+        target_count = len(SPOT_ORDER)
         claimed_count = sum(place[2]["id"] in claimed_ids for place in target_places)
         server_score = (self.state or {}).get("score", 0)
-        bonus_text = "\nコンプリート！ ボーナス{}点の対象".format(COMPLETION_BONUS) if target_count and claimed_count == target_count else ""
+        bonus_text = "\nコンプリート！ ボーナス{}点の対象".format(COMPLETION_BONUS) if claimed_count == target_count else ""
         self.status_label.text = (
             "イエロー班｜東京ご当地エジプト\n"
             "発見: {}/{}　班の得点: {}点{}"
@@ -160,18 +160,21 @@ class YellowEgyptGame(ui.View):
             self.content.add_subview(notice)
             y += 72
 
-        if not target_places:
-            waiting = self._label(
-                "対象スポットの設定待ちです。\n"
-                "スタッフがファンカフェ・YCAP・桜並木・センター棟をシナリオに登録すると、ここに表示されます。",
-                (20, y, 335, 100),
-                ("<system>", 16),
-            )
-            self.content.add_subview(waiting)
-            self.content.content_size = (self.width, y + 120)
-            return
-
-        for key, story, place in target_places:
+        places_by_key = {key: (story, place) for key, story, place in target_places}
+        for key in SPOT_ORDER:
+            story = SPOT_STORIES[key]
+            entry = places_by_key.get(key)
+            if entry is None:
+                button = self._button(
+                    "？？？（設定待ち）",
+                    (16, y, 343, 52),
+                    lambda sender: None,
+                    enabled=False,
+                )
+                self.content.add_subview(button)
+                y += 60
+                continue
+            story, place = entry
             claimed = place["id"] in claimed_ids
             title = story["display_name"] if claimed else "？？？"
             points = place.get("points", 0)
