@@ -259,6 +259,8 @@ class RedPrototype(ui.View):
 
     def finish_battle(self, won, message):
         if won:
+            self.player_hp = self.player_max_hp
+            message += "\n勝利！HP全回復！"
             drop = self.active_monster["drop"]
             if drop.startswith("成長フード（+"):
                 food_value = int(drop.split("+")[1].rstrip("）"))
