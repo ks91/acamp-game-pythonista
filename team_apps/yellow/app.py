@@ -93,7 +93,11 @@ class YellowEgyptGame(ui.View):
                 "スタッフから渡された設定値を入れてください。"
             )
             return
-        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
+        self.api = ApiClient(
+            base_url=config.API_BASE_URL,
+            token=config.GAME_TOKEN,
+            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+        )
         self.refresh()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):

@@ -130,7 +130,11 @@ class GreenTerritoryGame(ui.View):
         token = getattr(config, "GAME_TOKEN", "")
         if not base_url or not token or token == "set-at-game-start":
             return None
-        return ApiClient(base_url=base_url, token=token)
+        return ApiClient(
+            base_url=base_url,
+            token=token,
+            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+        )
 
     @staticmethod
     def _build_model(definition, state, team_id):
