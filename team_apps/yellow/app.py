@@ -1,8 +1,241 @@
-from team_apps.draft import run as run_draft
+"""イエロー班：東京ご当地エジプト探検のDay 2アプリ。"""
+
+import datetime
+import os
+import uuid
+from urllib.error import HTTPError
+
+import location
+import ui
+
+import config
+from toolkit.api_client import ApiClient
+from toolkit.check_in import CheckInService
+from toolkit.event_queue import EventQueue
+from toolkit.location_payload import make_location_sample
+
+
+TEAM_COLOR = "#F9A825"
+COMPLETION_BONUS = 2
+
+SPOT_STORIES = {
+    "fan-cafe": {
+        "names": {"ファン カフェ", "ファンカフェ"},
+        "display_name": "ハチ公スフィンクス",
+        "description": "東京の忠犬ハチ公と、古代エジプトのスフィンクスが合体した守り神。",
+    },
+    "ycap": {
+        "names": {"YCAP"},
+        "display_name": "ピラミッド",
+        "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
+    },
+    "sakura-namiki": {
+        "names": {"桜並木"},
+        "display_name": "ナイル川",
+        "description": "桜の道を、東京の仲間と進むナイル川の探検コースに見立てた場所。",
+    },
+}
+
+SPOT_ORDER = ("fan-cafe", "ycap", "sakura-namiki")
+
+
+def _story_for(place):
+    for key in SPOT_ORDER:
+        story = SPOT_STORIES[key]
+        if place.get("id") == key or place.get("name") in story["names"]:
+            return key, story
+    return None, None
+
+
+class YellowEgyptGame(ui.View):
+    def __init__(self):
+        super().__init__(frame=(0, 0, 375, 667))
+        self.name = "イエロー班 東京ご当地エジプト"
+        self.background_color = "#FFF8E1"
+        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
+        self.repository_directory = os.path.dirname(os.path.abspath(__file__))
+        self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
+        self.definition = None
+        self.state = None
+        self.place_buttons = []
+        self.status_label = self._label(
+            "位置情報を読み込んでいます…", (16, 14, 343, 98), ("<system-bold>", 17), TEAM_COLOR
+        )
+        self.add_subview(self.status_label)
+        self.content = ui.ScrollView(frame=(0, 120, 375, 547), flex="WH")
+        self.add_subview(self.content)
+        self.refresh()
+
+    def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
+        label = ui.Label(frame=frame)
+        label.text = text
+        label.font = font
+        label.text_color = color
+        label.alignment = align
+        label.number_of_lines = 0
+        return label
+
+    def _button(self, title, frame, action, enabled=True):
+        button = ui.Button(frame=frame)
+        button.title = title
+        button.font = ("<system-bold>", 16)
+        button.tint_color = "white"
+        button.background_color = TEAM_COLOR
+        button.corner_radius = 10
+        button.action = action
+        button.enabled = enabled
+        button.alpha = 1.0 if enabled else 0.45
+        return button
+
+    def _clear_content(self):
+        for view in list(self.content.subviews):
+            self.content.remove_subview(view)
+        self.place_buttons = []
+
+    def _target_places(self):
+        places = []
+        for place in (self.definition or {}).get("places", []):
+            key, story = _story_for(place)
+            if key and story:
+                places.append((key, story, place))
+        return sorted(places, key=lambda item: SPOT_ORDER.index(item[0]))
+
+    def _claimed_ids(self):
+        return set((self.state or {}).get("claimed_places", []))
+
+    def refresh(self):
+        try:
+            self.definition = self.api.get_game_definition()
+            self.state = self.api.get_team_state()
+        except OSError as error:
+            self.status_label.text = "サーバーへ接続できません。\n{}".format(error)
+            self._render_message("通信を確認してから、もう一度「現在地を送る」を試してください。")
+            return
+        self._render()
+
+    def _render(self, message=""):
+        self._clear_content()
+        claimed_ids = self._claimed_ids()
+        target_places = self._target_places()
+        claimed_count = sum(place[2]["id"] in claimed_ids for place in target_places)
+        server_score = (self.state or {}).get("score", 0)
+        bonus_text = "\nコンプリート！ ボーナス{}点の対象".format(COMPLETION_BONUS) if claimed_count == 3 else ""
+        self.status_label.text = (
+            "イエロー班｜東京ご当地エジプト\n"
+            "発見: {}/3　班の得点: {}点{}"
+        ).format(claimed_count, server_score, bonus_text)
+
+        y = 12
+        update_button = self._button("現在地を送る（GPS）", (16, y, 343, 48), self.update_location)
+        self.content.add_subview(update_button)
+        y += 64
+
+        if message:
+            notice = self._label(message, (20, y, 335, 60), ("<system-bold>", 16), TEAM_COLOR)
+            self.content.add_subview(notice)
+            y += 72
+
+        if not target_places:
+            waiting = self._label(
+                "3スポットの設定待ちです。\n"
+                "スタッフがファンカフェ・YCAP・桜並木をシナリオに登録すると、ここに表示されます。",
+                (20, y, 335, 100),
+                ("<system>", 16),
+            )
+            self.content.add_subview(waiting)
+            self.content.content_size = (self.width, y + 120)
+            return
+
+        for key, story, place in target_places:
+            claimed = place["id"] in claimed_ids
+            title = story["display_name"] if claimed else "？？？"
+            points = place.get("points", 0)
+            text = "✓ {}（{}点）".format(title, points) if claimed else "？？？（{}点）".format(points)
+            button = self._button(text, (16, y, 343, 52), self.claim_place, enabled=not claimed)
+            button.place_id = place["id"]
+            button.story_key = key
+            self.content.add_subview(button)
+            self.place_buttons.append(button)
+            y += 60
+            if claimed:
+                description = self._label(
+                    "{}\n{}".format(story["display_name"], story["description"]),
+                    (24, y, 327, 62),
+                    ("<system>", 14),
+                )
+                self.content.add_subview(description)
+                y += 76
+
+        if claimed_count == 3:
+            complete = self._label(
+                "3種類コンプリート！\nボーナス{}点の対象".format(COMPLETION_BONUS),
+                (20, y + 8, 335, 56),
+                ("<system-bold>", 18),
+                TEAM_COLOR,
+                ui.ALIGN_CENTER,
+            )
+            self.content.add_subview(complete)
+            y += 72
+        self.content.content_size = (self.width, y + 24)
+
+    def _render_message(self, message):
+        self._clear_content()
+        label = self._label(message, (20, 16, 335, 120), ("<system>", 16))
+        self.content.add_subview(label)
+        retry = self._button("もう一度読み込む", (16, 150, 343, 48), lambda sender: self.refresh())
+        self.content.add_subview(retry)
+        self.content.content_size = (self.width, 220)
+
+    def update_location(self, sender):
+        self.status_label.text = "位置情報を取得しています…"
+        location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            location.stop_updates()
+        if position is None:
+            self.status_label.text = "位置情報を取得できません。"
+            self._render_message("安全な場所で、位置情報の許可と電波を確認して再試行してください。")
+            return
+        sample = make_location_sample(
+            team_id=config.TEAM_ID,
+            device_id=config.DEVICE_ID,
+            client_time=datetime.datetime.now(datetime.timezone.utc).astimezone().isoformat(),
+            sample_id=str(uuid.uuid4()),
+            location=position,
+        )
+        result = CheckInService(self.api, self.queue).submit(sample)
+        if result.get("queued"):
+            self._render_message("通信できないため位置情報を端末に保存しました。\n次回、現在地を送ると再送します。")
+            return
+        self.refresh()
+
+    def claim_place(self, sender):
+        try:
+            result = self.api.claim_place(
+                action_id=str(uuid.uuid4()),
+                game_session_id=config.GAME_SESSION_ID,
+                place_id=sender.place_id,
+                device_id=config.DEVICE_ID,
+            )
+        except HTTPError as error:
+            self._render_message("獲得できません。\n" + error.read().decode("utf-8"))
+            return
+        if result.get("claimed"):
+            story = SPOT_STORIES[sender.story_key]
+            self.refresh()
+            self._render(
+                "{}を発見！\n図鑑に登録されました。\nこのスポットの得点：{}点\n現在の班の得点：{}点".format(
+                    story["display_name"], result["score_delta"], result["team_score"]
+                )
+            )
+        else:
+            self.refresh()
+            self._render("この場所はすでに図鑑へ登録されています。")
 
 
 def run():
-    run_draft("イエロー", "#F9A825", "今日見つけた場所を、どんなゲームの場所に変える？\n一つ選んで試そう。")
+    YellowEgyptGame().present("fullscreen")
 
 
 if __name__ == "__main__":
