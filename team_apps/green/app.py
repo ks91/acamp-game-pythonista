@@ -44,8 +44,8 @@ class TerritoryMap(ui.View):
 </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
 const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
 function ownerColor(owner){return ({green:'#43A047',blue:'#1E88E5',red:'#E53935',yellow:'#FDD835',purple:'#8E24AA',pink:'#D81B60'})[owner]||'#9E9E9E';}
-function roleColor(role,owner){return ({own_home:'#00A86B',enemy_target:'#D32F2F',enemy_base:'#7B1FA2',neutral:'#9E9E9E',own_base:'#43A047'})[role]||ownerColor(owner);}
-function roleSymbol(role){return ({own_home:'⌂',enemy_target:'★',enemy_base:'◆',neutral:'○',own_base:'⚑'})[role]||'⚑';}
+function roleColor(role,owner){return ({own_home:'#00A86B',enemy_target:'#7B1FA2',enemy_base:'#7B1FA2',neutral:'#9E9E9E',own_base:'#43A047'})[role]||ownerColor(owner);}
+function roleSymbol(role){return ({own_home:'⌂',enemy_target:'◆',enemy_base:'◆',neutral:'○',own_base:'⚑'})[role]||'⚑';}
 function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:roleColor(p.role,p.owner),weight:2,fillColor:roleColor(p.role,p.owner),fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=roleColor(p.role,p.owner);let symbol=roleSymbol(p.role);let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.role_label||'地点'}<br>${p.owner_label||'所有者不明'}<br>${p.distance_text||'距離不明'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
 function setTheme(mode){document.documentElement.className=mode==='dark'?'dark':'';}
 window.render=render;window.setTheme=setTheme;
@@ -99,7 +99,7 @@ class GreenTerritoryGame(ui.View):
         self.restart_button.font = ("<system-bold>", 13)
         self.restart_button.background_color = (0.05, 0.18, 0.12, 0.88)
         self.add_subview(self.restart_button)
-        self.legend_label = ui.Label(frame=(156, 94, 360, 32), text="★相手陣地（攻略可能）　◆相手拠点　○未占領　⚑自班陣地　⌂自班拠点", font=("<system>", 11), number_of_lines=2)
+        self.legend_label = ui.Label(frame=(156, 94, 360, 32), text="◆相手陣地（攻略可能）　○未占領　⚑自班陣地　⌂自班拠点", font=("<system>", 11), number_of_lines=2)
         self.legend_label.background_color = (0, 0, 0, 0.68)
         self.add_subview(self.legend_label)
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
@@ -163,8 +163,6 @@ class GreenTerritoryGame(ui.View):
                     simulated_role = "neutral"
                 else:
                     owner = opponent_teams[index % len(opponent_teams)]
-                    if index % 4 == 1:
-                        simulated_role = "enemy_target"
                 simulated = True
             owner_label = "自班（グリーン）" if owner == team_id else ("テスト表示: 未占領" if simulated_role == "neutral" else ("テスト表示: {}班".format(owner) if simulated else ("相手班" if owner else "中立")))
             home_id = state.get("home_place_id") or (getattr(config, "HOME_PLACE_ID", None) if config else None)
@@ -182,7 +180,7 @@ class GreenTerritoryGame(ui.View):
                 role = "own_base"
             else:
                 role = "neutral"
-            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（攻略可能）", "enemy_base": "相手の拠点", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
+            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（攻略可能）", "enemy_base": "相手陣地（攻略可能）", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
             action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
             mission_text = place.get("mission", place.get("description", ""))
             if "猫" in mission_text or "ねこ" in mission_text:
