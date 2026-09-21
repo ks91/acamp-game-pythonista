@@ -476,9 +476,12 @@ class YellowEgyptGame(ui.View):
         self._render("テストを最初からに戻しました。")
 
     def _handle_restart_error(self, error_message):
-        if self.reset_button is not None:
-            self.reset_button.enabled = True
-            self.reset_button.title = "最初からやり直す"
+        if self.reset_button is None:
+            self.refresh()
+            self._render("最初からやり直せませんでした。\n{}".format(error_message))
+            return
+        self.reset_button.enabled = True
+        self.reset_button.title = "最初からやり直す"
         self._render_message("テストを最初からに戻せませんでした。\n{}".format(error_message))
 
     def update_location(self, sender):
