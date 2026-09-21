@@ -90,7 +90,8 @@ class GreenTerritoryGame(ui.View):
         super().__init__(frame=(0, 0, 390, 844))
         self.flex = "WH"
         self.background_color = DARK_BG
-        self.name = "グリーン班 センター棟テスト版"
+        self.game_mode = getattr(config, "SELECTED_GAME_MODE", "center_test") if config else "center_test"
+        self.name = "グリーン班 {}版".format("東京" if self.game_mode == "tokyo" else "センター棟テスト")
         self.team_id = getattr(config, "TEAM_ID", "green") if config else "green"
         self.device_id = getattr(config, "DEVICE_ID", "green-ipad") if config else "green-ipad"
         self.session_id = getattr(config, "GAME_SESSION_ID", "") if config else ""
@@ -154,7 +155,12 @@ class GreenTerritoryGame(ui.View):
         token = getattr(config, "GAME_TOKEN", "")
         if not base_url or not token or token == "set-at-game-start":
             return None
-        return ApiClient(base_url=base_url, token=token)
+        return ApiClient(
+            base_url=base_url,
+            token=token,
+            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
+        )
 
     @staticmethod
     def _build_model(definition, state, team_id):
