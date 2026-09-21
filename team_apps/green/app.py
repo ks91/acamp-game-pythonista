@@ -351,7 +351,7 @@ class GreenTerritoryGame(ui.View):
     def _apply_remote_state(self, definition, state, error):
         self._refreshing = False
         if error is None and definition is not None and state is not None:
-            self.session_id = getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id
+            self.session_id = (state.get("game_session_id") if isinstance(state, dict) else None) or (getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id)
             self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
         else:
