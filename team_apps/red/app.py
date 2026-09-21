@@ -12,7 +12,18 @@ import webbrowser
 import location
 import ui
 
-from team_apps.red.server_game import make_api_client, scenario_from_server
+try:
+    from team_apps.red.server_game import make_api_client, scenario_from_server
+except ImportError:
+    try:
+        from server_game import make_api_client, scenario_from_server
+    except ImportError:
+        def make_api_client(config_module):
+            return None
+
+        def scenario_from_server(game_definition, team_state):
+            return {"places": [], "claimed_place_ids": set(), "game_session_id": "", "boss_place_ids": {}}
+
 
 try:
     import config
@@ -319,6 +330,8 @@ class RedPrototype(ui.View):
 
     def show_splash(self, next_action=None):
         image_path = os.path.join(os.path.dirname(__file__), "god_apocalypse_splash.png")
+        if not os.path.exists(image_path):
+            image_path = os.path.join(os.path.dirname(__file__), "back.png")
         if not os.path.exists(image_path):
             if next_action:
                 next_action()
