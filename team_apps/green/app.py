@@ -1,5 +1,6 @@
 """Green team's self-contained real-map territory game for Pythonista."""
 import json
+import random
 import threading
 import time
 
@@ -164,6 +165,13 @@ class GreenTerritoryGame(ui.View):
                 role = "neutral"
             role_labels = {"own_home": "自班の拠点", "enemy_target": "相手の攻略対象", "enemy_base": "相手の拠点", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
             action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
+            mission_text = place.get("mission", place.get("description", ""))
+            if "猫" in mission_text or "ねこ" in mission_text:
+                mission_kind = "cat"
+            elif "お化け" in mission_text or "ゴースト" in mission_text or "幽霊" in mission_text:
+                mission_kind = "ghost"
+            else:
+                mission_kind = "mash"
             places.append({
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
@@ -172,6 +180,7 @@ class GreenTerritoryGame(ui.View):
                 "role": role, "role_label": role_labels.get(role, "地点"),
                 "is_boss": bool(place.get("is_boss", False)),
                 "mission": place.get("mission", place.get("description", "")),
+                "mission_kind": mission_kind,
                 "action_label": action_label,
             })
         return {"score": state.get("score", 0), "remaining_seconds": None, "offline": False, "connection_status": "online", "theme_mode": "dark", "places": places}
@@ -291,9 +300,62 @@ class GreenTerritoryGame(ui.View):
         if place["owner"] == self.team_id:
             self._show_mission_overlay("陣地の状態", "{}\n所有者: {}\n得点: {}点".format(place["name"], place["owner_label"], place["points"]), "閉じる", self._close_mission_overlay)
             return
-        self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: 地点の範囲内で現在地を送信".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._execute_mission)
+        self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: ミニゲーム成功後、地点の範囲内で現在地を送信".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._start_minigame)
 
-    def _execute_mission(self, sender=None):
+    def _start_minigame(self, sender=None):
+        place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
+        if place is None:
+            return
+        self._close_mission_overlay()
+        kind = place.get("mission_kind", "mash")
+        overlay = ui.View(frame=self.bounds, flex="WH")
+        overlay.background_color = (0, 0, 0, 0.62)
+        card_width = min(430, self.width - 40)
+        card = ui.View(frame=((self.width - card_width) / 2, max(45, (self.height - 400) / 2), card_width, 400))
+        card.background_color = "#17212B" if self.model.get("theme_mode") == "dark" else "#FFFFFF"
+        title = "猫を探せ" if kind == "cat" else ("お化けを倒せ" if kind == "ghost" else "ボタン連打ミッション")
+        instruction = "9マスから猫を1回で見つけよう" if kind == "cat" else ("攻撃ボタンを15回押そう" if kind == "ghost" else "ボタンを10回押そう")
+        label = ui.Label(frame=(18, 18, card_width - 36, 70), text=title + "\n" + instruction, font=("<system-bold>", 20), number_of_lines=2, alignment=ui.ALIGN_CENTER)
+        label.text_color = "white" if self.model.get("theme_mode") == "dark" else "#263238"
+        card.add_subview(label)
+        self._mini_state = {"kind": kind, "count": 0, "target": 15 if kind == "ghost" else 10}
+        if kind == "cat":
+            self._mini_state["cat_index"] = random.randrange(9)
+            for index in range(9):
+                button = ui.Button(frame=(24 + (index % 3) * (card_width - 48) / 3, 105 + (index // 3) * 62, (card_width - 60) / 3, 50), title="？", font=("<system-bold>", 22))
+                button.action = lambda sender, i=index: self._cat_tap(i, sender)
+                card.add_subview(button)
+        else:
+            button = ui.Button(frame=(35, 145, card_width - 70, 100), title="攻撃 0/{}".format(self._mini_state["target"]), font=("<system-bold>", 24))
+            button.action = self._mini_tap
+            card.add_subview(button)
+            self._mini_button = button
+        cancel = ui.Button(frame=(24, 350, card_width - 48, 34), title="やめる", action=self._close_mission_overlay)
+        cancel.tint_color = label.text_color
+        card.add_subview(cancel)
+        overlay.add_subview(card)
+        self.add_subview(overlay)
+        self.mission_overlay = overlay
+
+    def _cat_tap(self, index, sender):
+        if index == self._mini_state.get("cat_index"):
+            self._mini_success()
+        else:
+            sender.title = "×"
+            self.detail.text = "そのマスにはいません。別のマスを探そう。"
+
+    def _mini_tap(self, sender):
+        self._mini_state["count"] += 1
+        count = self._mini_state["count"]
+        sender.title = "攻撃 {} / {}".format(count, self._mini_state["target"])
+        if count >= self._mini_state["target"]:
+            self._mini_success()
+
+    def _mini_success(self):
+        self._close_mission_overlay()
+        self.detail.text = "ミニゲーム成功！\n現在地を確認しています。"
+        self._execute_mission()
+
         self._close_mission_overlay()
         self.action_button.enabled = False
         self.detail.text = "ミッション実行中…\n現在地を確認しています。"
