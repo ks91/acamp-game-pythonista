@@ -335,7 +335,36 @@ class GameView(ui.View):
             return
         self.refresh()
 
+    def _riddle_for_place(self, place_id):
+        """地点ごとの選択式なぞなぞを返す。正解するまで地点は獲得しない。"""
+        place = self.places.get(place_id, {})
+        place_name = place.get("name", "")
+        for riddle_place, question, answer in PINK_RIDDLES:
+            if riddle_place in place_name or place_name in riddle_place:
+                return question, answer
+        # サーバー側の地点名が変わっても、地点ごとに問題を出せるようにする。
+        index = list(self.places).index(place_id) % len(PINK_RIDDLES)
+        _, question, answer = PINK_RIDDLES[index]
+        return question, answer
+
     def claim_place(self, sender):
+        question, answer = self._riddle_for_place(sender.place_id)
+        choices = [answer]
+        for _, _, other_answer in PINK_RIDDLES:
+            if other_answer not in choices:
+                choices.append(other_answer)
+            if len(choices) == 3:
+                break
+        selected = ui.alert(
+            "なぞなぞ",
+            question,
+            *choices,
+            hide_cancel_button=False,
+        )
+        if selected != answer:
+            self.show_message("不正解です。もう一度なぞなぞに答えてください。")
+            return
+
         try:
             result = self.api.claim_place(
                 action_id=str(uuid.uuid4()),
@@ -347,9 +376,8 @@ class GameView(ui.View):
             self.show_message("獲得できません。\n" + error.read().decode("utf-8"))
             return
         if result["claimed"]:
-            self.coins += 10
             self.show_message(
-                "{}班が{}点獲得！\nコインも10枚ゲット！".format(
+                "正解！ {}班が{}点獲得！".format(
                     config.TEAM_ID, result["score_delta"]
                 )
             )
