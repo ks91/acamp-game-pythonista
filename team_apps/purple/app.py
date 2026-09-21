@@ -23,6 +23,8 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
+# テスト時だけ、地点1を起動時の現在地に置き換える。
+TEST_PLACE1_IS_CURRENT = True
 
 
 def dms_to_decimal(degrees, minutes, seconds, direction):
@@ -232,6 +234,9 @@ class PurpleMockGame(ui.View):
         self.checkpoint_state = None
         self._build_ui()
         self._read_current_location()
+        if TEST_PLACE1_IS_CURRENT and self.current_location is not None:
+            self.place_locations[0] = dict(self.current_location)
+            ui.delay(self._load_google_map, 0.2)
         self._refresh()
 
     def _label(self, text, frame, font, color="#263238", align=ui.ALIGN_LEFT):
