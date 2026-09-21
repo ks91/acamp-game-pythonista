@@ -302,21 +302,20 @@ class RedPrototype(ui.View):
             "ゲーム内Googleマップ\n"
             "指で移動・ピンチで拡大縮小できます。"
         )
-        self.content.content_size = (375, 760)
-        y = 8
+        self.content.content_size = (375, 790)
+        self.google_map_view = ui.WebView(frame=(0, 0, 375, 720))
+        self.content.add_subview(self.google_map_view)
+        self.google_map_view.load_url(self.google_map_url(DESTINATIONS[0]))
         for destination in DESTINATIONS:
             button = ui.Button(
                 title=destination["name"],
-                frame=(8 + DESTINATIONS.index(destination) * 123, y, 117, 40),
+                frame=(8 + DESTINATIONS.index(destination) * 123, 8, 117, 40),
             )
             button.tint_color = "#1565C0"
             button.destination = destination
             button.action = self.move_google_map
             self.content.add_subview(button)
-        self.google_map_view = ui.WebView(frame=(0, 56, 375, 620))
-        self.content.add_subview(self.google_map_view)
-        self.google_map_view.load_url(self.google_map_url(DESTINATIONS[0]))
-        back = ui.Button(title="マップを閉じる", frame=(16, 690, 343, 48))
+        back = ui.Button(title="マップを閉じる", frame=(16, 735, 343, 48))
         back.tint_color = "#C62828"
         back.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(back)
