@@ -201,8 +201,7 @@ class GreenTerritoryGame(ui.View):
         if not isinstance(configured_places, (list, tuple)):
             raise ValueError("placesの形式が不正です")
         configured_places = [place for place in configured_places if isinstance(place, dict) and place.get("name")]
-        center_places = [place for place in configured_places if place.get("name") in CENTER_TEST_PLACE_NAMES]
-        scenario_places = center_places if len(center_places) >= 2 else list(LOCAL_CENTER_TEST_PLACES)
+        scenario_places = list(configured_places) if configured_places else list(LOCAL_CENTER_TEST_PLACES)
         for index, place in enumerate(scenario_places):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
