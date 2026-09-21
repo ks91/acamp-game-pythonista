@@ -339,7 +339,7 @@ class RedPrototype(ui.View):
         return """<!doctype html>
 <html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
 <link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>
-<style>html,body,#map{height:100%;margin:0} .monster{font-size:20px}</style></head>
+<style>html,body,#map{height:100%%;margin:0} .monster{font-size:20px}</style></head>
 <body><div id='map'></div>
 <script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
 <script>
