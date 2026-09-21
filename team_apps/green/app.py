@@ -148,7 +148,7 @@ class GreenTerritoryGame(ui.View):
     def _build_model(definition, state, team_id):
         claimed = set(state.get("claimed_places", []))
         territory_by_id = {item.get("place_id"): item for item in (state.get("territories") or [])}
-        use_demo_opponents = not territory_by_id and getattr(config, "SHOW_TEST_OPPONENTS", True) if config else not territory_by_id
+        use_demo_opponents = False
         opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
         for index, place in enumerate(definition.get("places") or []):
