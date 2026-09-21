@@ -32,8 +32,8 @@ def dms_to_decimal(degrees, minutes, seconds, direction):
 # 地点1：センター棟入口。DMS表記からアプリ起動時に小数へ変換する。
 FIXED_PLACES = [
     {
-        "latitude": dms_to_decimal(35, 40, 26.9, "N"),
-        "longitude": dms_to_decimal(139, 41, 35.4, "E"),
+        "latitude": dms_to_decimal(35, 40, 29.8, "N"),
+        "longitude": dms_to_decimal(139, 41, 36.4, "E"),
     },
     None,  # 地点2
 ]
