@@ -15,6 +15,17 @@ BOSS_PLACE_NAMES = {
 }
 
 
+def has_map_coordinates(place):
+    """Return false for the redacted 0,0 placeholder used by local data."""
+    try:
+        return not (
+            float(place.get("latitude")) == 0.0
+            and float(place.get("longitude")) == 0.0
+        )
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
 def make_api_client(config_module, client_class=ApiClient):
     """Build the shared client using the Day 3/Day 4 gallery selection."""
     if config_module is None:
@@ -45,6 +56,8 @@ def _server_place(place):
         latitude = float(latitude)
         longitude = float(longitude)
     except (TypeError, ValueError):
+        return None
+    if not has_map_coordinates({"latitude": latitude, "longitude": longitude}):
         return None
     return {
         "id": str(place_id),
