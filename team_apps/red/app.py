@@ -213,6 +213,77 @@ def distance_meters(latitude, longitude, target):
     return math.sqrt(north * north + east * east)
 
 
+class MonsterLocationMap(ui.View):
+    """Small native GPS map: avoids Pythonista WebView crashes."""
+
+    def __init__(self, frame):
+        super().__init__(frame=frame)
+        self.current_position = None
+        self.destinations = []
+        self.monsters = []
+        self.status = "地点データを読み込み中…"
+
+    def set_data(self, current_position, destinations, monsters, status):
+        self.current_position = current_position
+        self.destinations = [place for place in destinations if has_map_coordinates(place)]
+        self.monsters = monsters
+        self.status = status
+        self.set_needs_display()
+
+    def draw(self):
+        ui.set_color("#E3F2FD")
+        ui.fill_rect(0, 0, self.width, self.height)
+        margin = 30
+        points = list(self.destinations)
+        if self.current_position and self.current_position.get("latitude") and self.current_position.get("longitude"):
+            points.append(self.current_position)
+        if not points:
+            ui.set_color("#455A64")
+            ui.draw_string(self.status, (18, self.height / 2 - 20, self.width - 36, 60), alignment=ui.ALIGN_CENTER, font=("<System>", 17))
+            return
+        latitudes = [float(point["latitude"]) for point in points]
+        longitudes = [float(point["longitude"]) for point in points]
+        minimum_lat, maximum_lat = min(latitudes), max(latitudes)
+        minimum_lon, maximum_lon = min(longitudes), max(longitudes)
+        lat_span = max(maximum_lat - minimum_lat, 0.0005)
+        lon_span = max(maximum_lon - minimum_lon, 0.0005)
+
+        def xy(point):
+            x = margin + (float(point["longitude"]) - minimum_lon) / lon_span * (self.width - margin * 2)
+            y = self.height - margin - (float(point["latitude"]) - minimum_lat) / lat_span * (self.height - margin * 2)
+            return x, y
+
+        ui.set_color("#BBDEFB")
+        for step in range(1, 5):
+            x = margin + (self.width - margin * 2) * step / 5.0
+            y = margin + (self.height - margin * 2) * step / 5.0
+            ui.fill_rect(x, margin, 1, self.height - margin * 2)
+            ui.fill_rect(margin, y, self.width - margin * 2, 1)
+        for destination in self.destinations:
+            x, y = xy(destination)
+            ui.set_color("#7B1FA2")
+            ui.Path.oval(x - 8, y - 8, 16, 16).fill()
+            ui.set_color("#263238")
+            ui.draw_string(destination["name"], (x + 10, y - 12, 130, 28), font=("<System>", 12))
+        for monster in self.monsters:
+            destination = monster.get("destination")
+            if not destination or not has_map_coordinates(destination):
+                continue
+            x, y = xy(destination)
+            ui.set_color("#D32F2F")
+            ui.Path.oval(x - 5, y - 5, 10, 10).fill()
+        if self.current_position and self.current_position.get("latitude") and self.current_position.get("longitude"):
+            x, y = xy(self.current_position)
+            ui.set_color("#1565C0")
+            ui.Path.oval(x - 10, y - 10, 20, 20).fill()
+            ui.set_color("#FFFFFF")
+            ui.Path.oval(x - 3, y - 3, 6, 6).fill()
+            ui.set_color("#263238")
+            ui.draw_string("現在地", (x + 12, y - 12, 90, 28), font=("<System-Bold>", 13))
+        ui.set_color("#37474F")
+        ui.draw_string("青：現在地　赤：モンスター　紫：地点", (12, self.height - 24, self.width - 24, 20), alignment=ui.ALIGN_CENTER, font=("<System>", 12))
+
+
 class RedPrototype(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
@@ -762,11 +833,7 @@ class RedPrototype(ui.View):
         # Native map status panel: Pythonista's embedded WebView was terminating
         # on some iPads when this button was tapped.  Keep the playable GPS
         # flow native and stable rather than opening an external map engine.
-        self.open_map_view = ui.Label(frame=(16, 10, 343, 640))
-        self.open_map_view.number_of_lines = 0
-        self.open_map_view.alignment = ui.ALIGN_CENTER
-        self.open_map_view.font = ("<System>", 17)
-        self.open_map_view.text_color = "#263238"
+        self.open_map_view = MonsterLocationMap(frame=(16, 10, 343, 640))
         self.content.add_subview(self.open_map_view)
         self.refresh_native_map_panel()
         self.location_tracking_button = ui.Button(
@@ -794,15 +861,16 @@ class RedPrototype(ui.View):
         if not self.open_map_view:
             return
         if self.server_scenario_loaded:
-            places = "\n".join("・{}".format(place["name"]) for place in self.destinations)
-            heading = "モンスター出現地点\n{}".format(places or "地点なし")
+            status = "モンスター出現地点"
         else:
-            heading = "地点データを読み込み中…"
-        if self.last_position:
-            position_text = "\n\n現在地を取得しました。\nGPS精度：約{}m".format(self.last_accuracy)
-        else:
-            position_text = "\n\n「現在地を取得」を押すとGPSを更新します。"
-        self.open_map_view.text = heading + position_text
+            status = "地点データを読み込み中…"
+        monsters = []
+        for monster in self.monsters:
+            destination_id = self.monster_destinations.get(monster["name"])
+            destination = next((place for place in self.destinations if place["id"] == destination_id), None)
+            if destination:
+                monsters.append({"destination": destination})
+        self.open_map_view.set_data(self.last_position, self.destinations, monsters, status)
 
     def close_map(self, sender):
         self.stop_location_tracking()

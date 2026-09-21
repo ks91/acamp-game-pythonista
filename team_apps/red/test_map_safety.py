@@ -44,7 +44,10 @@ class RedMapSafetyTests(unittest.TestCase):
         body = SOURCE[start:end]
         self.assertNotIn("ui.WebView", body)
         self.assertNotIn("load_html", body)
+        self.assertIn("MonsterLocationMap", body)
         self.assertIn("refresh_native_map_panel", body)
+        self.assertIn("現在地", SOURCE)
+        self.assertIn("モンスター出現地点", SOURCE)
 
     def test_how_to_play_has_a_visible_home_button(self):
         start = SOURCE.index("def show_how_to_play")
