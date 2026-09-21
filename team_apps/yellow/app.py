@@ -66,6 +66,13 @@ SPOT_STORIES = {
 }
 
 SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
+CHARACTER_CATALOG = (
+    ("ycap", "ピラミッド"),
+    ("fan-cafe", "ハチ公スフィンクス"),
+    ("fan-cafe", "シュバルスフィンクス"),
+    ("center-building", "ファラオ"),
+    ("center-building", "シュバルファラオ"),
+)
 
 
 def _story_for(place):
@@ -202,7 +209,7 @@ class YellowEgyptGame(ui.View):
         self.content.add_subview(update_button)
         y += 64
         reset_button = self._button(
-            "テストを最初から",
+            "最初からやり直す",
             (16, y, self.width - 32, 48),
             self.request_test_session_restart,
         )
@@ -224,6 +231,29 @@ class YellowEgyptGame(ui.View):
             y += 72
 
         places_by_key = {key: (story, place) for key, story, place in target_places}
+        character_title = self._label("キャラクターを獲得", (16, y, self.width - 32, 34), ("<system-bold>", 18), TEAM_COLOR)
+        self.content.add_subview(character_title)
+        y += 44
+        for key, character_name in CHARACTER_CATALOG:
+            entry = places_by_key.get(key)
+            if entry is None:
+                awarded = False
+                place_id = key
+            else:
+                story, place = entry
+                place_id = place["id"]
+                awarded = place_id in claimed_ids and self._effective_story(key, story, place)["display_name"] == character_name
+            character_button = self._button(
+                "✓ {}".format(character_name) if awarded else character_name,
+                (16, y, self.width - 32, 52),
+                self.claim_place,
+                enabled=not (entry and place_id in claimed_ids),
+            )
+            character_button.place_id = place_id
+            character_button.story_key = key
+            self.content.add_subview(character_button)
+            y += 60
+
         for key in SPOT_ORDER:
             story = SPOT_STORIES[key]
             entry = places_by_key.get(key)
@@ -400,7 +430,7 @@ class YellowEgyptGame(ui.View):
             self.reset_confirmation_pending = False
             self.reset_timer = None
             if self.reset_button is not None:
-                self.reset_button.title = "テストを最初から"
+                self.reset_button.title = "最初からやり直す"
         ui.delay(clear, 0)
 
     def _restart_test_session(self):
@@ -424,7 +454,7 @@ class YellowEgyptGame(ui.View):
     def _handle_restart_result(self, result):
         if self.reset_button is not None:
             self.reset_button.enabled = True
-            self.reset_button.title = "テストを最初から"
+            self.reset_button.title = "最初からやり直す"
         if result.get("success", result.get("restarted", True)) is False:
             self._render("テストを最初からに戻せませんでした。\n{}".format(result))
             return
@@ -434,7 +464,7 @@ class YellowEgyptGame(ui.View):
     def _handle_restart_error(self, error):
         if self.reset_button is not None:
             self.reset_button.enabled = True
-            self.reset_button.title = "テストを最初から"
+            self.reset_button.title = "最初からやり直す"
         self._render_message("テストを最初からに戻せませんでした。\n{}".format(error))
 
     def update_location(self, sender):
