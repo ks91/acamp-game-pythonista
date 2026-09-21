@@ -330,7 +330,7 @@ class GameView(ui.View):
         quest_id = self.selected_quest["id"]
         locations = self._location_list(self.registered_quest_locations.get(quest_id))
         already_saved = any(
-            classify_location([saved], registered, threshold_m=10)["kind"] == "same_position_group"
+            classify_location([saved], registered, threshold_m=20)["kind"] == "same_position_group"
             for saved in locations
         )
         if already_saved:
@@ -502,9 +502,9 @@ class GameView(ui.View):
         )
         nearest_distance = self._distance_m(candidate, nearest_target)
         distance_message = "最寄りの保存位置まで約{}m".format(round(nearest_distance))
-        if nearest_distance > 10:
+        if nearest_distance > 20:
             self.render_capture_screen(self.status_label.text_color)
-            self.show_message("{}\n10m以上離れているため失敗です。".format(distance_message))
+            self.show_message("{}\n20mを超えているため失敗です。".format(distance_message))
             return
         quest_id = self.selected_quest["id"]
         found = set(self.quest_progress.get(quest_id, []))
