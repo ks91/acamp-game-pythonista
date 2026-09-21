@@ -253,7 +253,14 @@ class GreenTerritoryGame(ui.View):
                 "mission_kind": mission_kind,
                 "action_label": action_label,
             })
-        return {"score": state.get("score", 0), "remaining_seconds": None, "offline": False, "connection_status": "online", "theme_mode": "dark", "places": places}
+        return {
+            "score": state.get("score", 0),
+            "remaining_seconds": state.get("remaining_seconds"),
+            "offline": False,
+            "connection_status": "online",
+            "theme_mode": "dark",
+            "places": places,
+        }
 
     def refresh_view(self):
         remaining = self.model.get("remaining_seconds")
