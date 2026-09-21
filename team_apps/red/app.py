@@ -878,6 +878,8 @@ class RedPrototype(ui.View):
                 "longitude": self.last_position["longitude"],
             }
             if self.last_position
+            and self.last_position.get("latitude")
+            and self.last_position.get("longitude")
             else None
         )
         return """<!doctype html>
@@ -899,15 +901,9 @@ if (current) {
 } else if (destinations.length) {
   map.fitBounds(destinations.map(d => [d.latitude, d.longitude]), {padding:[24,24]});
 } else {
-  map.setView([0,0], 2);
-  const pending = L.control({position:'topright'});
-  pending.onAdd = function() {
-    const box = L.DomUtil.create('div');
-    box.style.cssText = 'background:white;padding:8px;border-radius:6px;font-size:13px';
-    box.textContent = '現在地を取得中…';
-    return box;
-  };
-  pending.addTo(map);
+  map.remove();
+  document.getElementById('map').style.cssText = 'display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;font:17px sans-serif;color:#555;background:#f4f4f4';
+  document.getElementById('map').textContent = '位置情報を取得中…\n「現在地を取得」を押して、屋外で少し待ってください。';
 }
 destinations.forEach(d => {
   L.marker([d.latitude,d.longitude]).addTo(map).bindPopup('目的地：' + d.name);
