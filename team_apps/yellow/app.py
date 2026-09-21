@@ -75,7 +75,11 @@ def _story_for(place):
 
 class YellowEgyptGame(ui.View):
     def __init__(self):
-        super().__init__(frame=(0, 0, 667, 375))
+        screen_width, screen_height = ui.get_screen_size()
+        if screen_width < screen_height:
+            screen_width, screen_height = screen_height, screen_width
+        super().__init__(frame=(0, 0, screen_width, screen_height))
+        self.flex = "WH"
         self.name = "とうエジGO!"
         self.background_color = "#FFF8E1"
         self.api = None
@@ -85,10 +89,10 @@ class YellowEgyptGame(ui.View):
         self.state = None
         self.place_buttons = []
         self.status_label = self._label(
-            "位置情報を読み込んでいます…", (16, 14, 315, 84), ("<system-bold>", 17), TEAM_COLOR
+            "位置情報を読み込んでいます…", (16, 14, screen_width - 32, 84), ("<system-bold>", 17), TEAM_COLOR
         )
         self.add_subview(self.status_label)
-        self.content = ui.ScrollView(frame=(0, 105, 330, 255), flex="H")
+        self.content = ui.ScrollView(frame=(0, 105, screen_width, screen_height - 105), flex="WH")
         self.add_subview(self.content)
         if config is None:
             self.status_label.text = "設定ファイル config.py が見つかりません。"
@@ -188,12 +192,12 @@ class YellowEgyptGame(ui.View):
         ).format(claimed_count, target_count, server_score, bonus_text)
 
         y = 12
-        update_button = self._button("位置情報を更新（GPS）", (16, y, 298, 48), self.update_location)
+        update_button = self._button("位置情報を更新（GPS）", (16, y, self.width - 32, 48), self.update_location)
         self.content.add_subview(update_button)
         y += 64
         reset_button = self._button(
             "最初からやり直す（表示のみ）",
-            (16, y, 298, 48),
+            (16, y, self.width - 32, 48),
             self.show_reset_notice,
         )
         reset_button.background_color = "#8D6E63"
@@ -201,7 +205,7 @@ class YellowEgyptGame(ui.View):
         y += 64
         items_button = self._button(
             "獲得済みアイテムを見る",
-            (16, y, 298, 48),
+            (16, y, self.width - 32, 48),
             self.show_collected_items,
         )
         items_button.background_color = "#6D4C41"
@@ -219,7 +223,7 @@ class YellowEgyptGame(ui.View):
             if entry is None:
                 button = self._button(
                     "？？？（設定待ち）",
-                    (16, y, 298, 52),
+                    (16, y, self.width - 32, 52),
                     lambda sender: None,
                     enabled=False,
                 )
@@ -238,7 +242,7 @@ class YellowEgyptGame(ui.View):
                 text = "？？？（{}点）".format(points)
             else:
                 text = "✓ {}（{}点）".format(title, points) if claimed else "{}（{}点）".format(title, points)
-            button = self._button(text, (16, y, 298, 52), self.claim_place, enabled=not claimed)
+            button = self._button(text, (16, y, self.width - 32, 52), self.claim_place, enabled=not claimed)
             button.place_id = place["id"]
             button.story_key = key
             self.content.add_subview(button)
@@ -283,6 +287,9 @@ class YellowEgyptGame(ui.View):
         self._clear_content()
         claimed_ids = self._claimed_ids()
         target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
+        left_width = int(self.width * 0.45)
+        right_x = left_width + 24
+        right_width = self.width - right_x - 24
         catalog = [
             ("ycap", "ピラミッド", "pyramid.jpeg"),
             ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
@@ -291,13 +298,13 @@ class YellowEgyptGame(ui.View):
             ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
         ]
         self.status_label.text = "ご当地エジプト図鑑"
-        back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
+        back_button = self._button("ゲーム画面にもどる", (16, 12, self.width - 32, 44), lambda button: self._render())
         self.content.add_subview(back_button)
 
-        preview = ui.ImageView(frame=(16, 72, 290, 220))
+        preview = ui.ImageView(frame=(16, 72, left_width, 300))
         preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
         self.content.add_subview(preview)
-        detail = self._label("図鑑からキャラクターを選んでください。", (16, 300, 290, 140), ("<system>", 14))
+        detail = self._label("図鑑からキャラクターを選んでください。", (16, 385, left_width, 160), ("<system>", 16))
         self.content.add_subview(detail)
 
         def select_item(button):
@@ -342,7 +349,7 @@ class YellowEgyptGame(ui.View):
         y = 72
         for entry in entries:
             title = entry["name"]
-            button = self._button(title, (330, y, 320, 48), self.activate_encyclopedia_entry)
+            button = self._button(title, (right_x, y, right_width, 56), self.activate_encyclopedia_entry)
             button.entry = entry
             self.content.add_subview(button)
             y += 58
