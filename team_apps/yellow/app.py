@@ -35,6 +35,8 @@ SPOT_STORIES = {
         "display_name": "ハチ公スフィンクス",
         "item_name": "スフィンクス",
         "photo_label": "2枚目",
+        "image_filename": "sphinx.png",
+        "rare_image_filename": "shubaru-sphinx.jpeg",
         "description": "東京の忠犬ハチ公と、古代エジプトのスフィンクスが合体した守り神。",
     },
     "ycap": {
@@ -42,6 +44,7 @@ SPOT_STORIES = {
         "display_name": "ピラミッド",
         "item_name": "ピラミッド",
         "photo_label": "1枚目",
+        "image_filename": "pyramid.jpeg",
         "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
     },
     "sakura-namiki": {
@@ -54,6 +57,7 @@ SPOT_STORIES = {
         "display_name": "アヌビス",
         "item_name": "ファラオ",
         "photo_label": "3枚目",
+        "image_filename": "pharaoh.jpeg",
         "description": "センター棟を、みんなの活動を見守る犬の神アヌビスの神殿に見立てた場所。",
     },
 }
@@ -146,6 +150,8 @@ class YellowEgyptGame(ui.View):
         if self._is_rare(key, place.get("id", key)):
             effective["display_name"] = "シュバル" + effective["display_name"]
             effective["item_name"] = "シュバル" + effective["item_name"]
+            if effective.get("rare_image_filename"):
+                effective["image_filename"] = effective["rare_image_filename"]
         return effective
 
     def _story_for_claim(self, story_key, place_id):
@@ -266,44 +272,53 @@ class YellowEgyptGame(ui.View):
         self.content.add_subview(retry)
         self.content.content_size = (self.width, 220)
 
+    def _asset_image(self, story):
+        filename = story.get("image_filename")
+        if not filename:
+            return None
+        return ui.Image.named(os.path.join(self.repository_directory, "assets", filename))
+
     def show_collected_items(self, sender):
         self._clear_content()
         claimed_ids = self._claimed_ids()
-        target_places = self._target_places()
-        places_by_key = {key: (story, place) for key, story, place in target_places}
-        self.status_label.text = "獲得済みアイテム"
-        y = 12
-        back_button = self._button("ゲーム画面にもどる", (16, y, 343, 48), lambda button: self._render())
+        collected = []
+        for key, story, place in self._target_places():
+            if place["id"] in claimed_ids:
+                collected.append(self._effective_story(key, story, place))
+        self.status_label.text = "獲得済みアイテム図鑑"
+        back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
         self.content.add_subview(back_button)
-        y += 68
-        collected = 0
-        for key in SPOT_ORDER:
-            entry = places_by_key.get(key)
-            if entry is None:
-                continue
-            story, place = entry
-            story = self._effective_story(key, story, place)
-            if place["id"] not in claimed_ids:
-                continue
-            collected += 1
-            item_label = self._label(
-                "{}（{}）\n{}\n写真：{}".format(
-                    story["item_name"], story["display_name"], story["description"], story["photo_label"]
-                ),
-                (24, y, 327, 84),
-                ("<system>", 15),
-            )
-            self.content.add_subview(item_label)
-            y += 98
-        if collected == 0:
+        if not collected:
             empty_label = self._label(
                 "まだ獲得済みアイテムはありません。\nスポットをチェックインして集めよう！",
-                (24, y, 327, 70),
+                (24, 72, 327, 70),
                 ("<system>", 16),
             )
             self.content.add_subview(empty_label)
-            y += 84
-        self.content.content_size = (self.width, y + 24)
+            self.content.content_size = (self.width, 160)
+            return
+
+        preview = ui.ImageView(frame=(16, 72, 210, 220))
+        preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        self.content.add_subview(preview)
+        detail = self._label("", (16, 300, 210, 130), ("<system>", 14))
+        self.content.add_subview(detail)
+
+        def select_item(button):
+            story = button.story
+            preview.image = self._asset_image(story)
+            detail.text = "{}\n{}\n{}".format(
+                story["item_name"], story["display_name"], story["description"]
+            )
+
+        y = 72
+        for story in collected:
+            button = self._button(story["item_name"], (238, y, 121, 48), select_item)
+            button.story = story
+            self.content.add_subview(button)
+            y += 58
+        select_item(self.content.subviews[-1])
+        self.content.content_size = (self.width, max(450, y + 24))
 
     def show_restart_notice(self, sender):
         self._render(
