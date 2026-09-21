@@ -39,7 +39,22 @@ def weapon_uses_for(item_name):
     return WEAPON_USES_PER_ITEM.get(item_name, 10)
 
 
-CENTER_TARGET = {"name": "センター棟", "latitude": 35.67437387858118, "longitude": 139.69314002932387}
+DESTINATIONS = [
+    {
+        "id": "center-building",
+        "name": "センター棟",
+        "plus_code": None,
+        "latitude": 35.67437387858118,
+        "longitude": 139.69314002932387,
+    },
+    {
+        "id": "cafeteria-fuji",
+        "name": "カフェテリアふじ",
+        "plus_code": "MMFV+WF",
+        "latitude": 35.67484017956108,
+        "longitude": 139.6936804736062,
+    },
+]
 
 
 def distance_meters(latitude, longitude, target):
@@ -110,11 +125,18 @@ class RedPrototype(ui.View):
         inventory_button.tint_color = "#6A1B9A"
         inventory_button.action = self.show_inventory
         self.content.add_subview(inventory_button)
-        location_button = ui.Button(title="センター棟で位置テスト", frame=(16, 58, 343, 42))
-        location_button.tint_color = "#1565C0"
-        location_button.action = self.check_center_location
-        self.content.add_subview(location_button)
-        y = 112
+        y = 58
+        for destination in DESTINATIONS:
+            location_button = ui.Button(
+                title="{}で位置テスト".format(destination["name"]),
+                frame=(16, y, 343, 42),
+            )
+            location_button.tint_color = "#1565C0"
+            location_button.destination = destination
+            location_button.action = self.check_destination_location
+            self.content.add_subview(location_button)
+            y += 50
+        y += 4
         for index, monster in enumerate(self.monsters):
             card = ui.Label(frame=(16, y, 343, 58))
             card.number_of_lines = 0
@@ -156,8 +178,9 @@ class RedPrototype(ui.View):
         self.active_monster = self.monsters[sender.monster_index]
         self.start_battle(sender)
 
-    def check_center_location(self, sender):
-        self.set_status("位置情報を取得中…\n屋外で少し待ってください。")
+    def check_destination_location(self, sender):
+        destination = sender.destination
+        self.set_status("{}の位置情報を取得中…\n屋外で少し待ってください。".format(destination["name"]))
         location.start_updates()
         try:
             position = location.get_location()
@@ -167,15 +190,20 @@ class RedPrototype(ui.View):
             self.set_status("位置情報を取得できませんでした。\n位置情報の許可を確認してください。")
             return
         distance = distance_meters(
-            position["latitude"], position["longitude"], CENTER_TARGET
+            position["latitude"], position["longitude"], destination
         )
         accuracy = position.get("horizontal_accuracy", "不明")
         if distance <= 50:
-            result = "センター棟のテスト範囲内！"
+            result = "{}のテスト範囲内！".format(destination["name"])
         else:
-            result = "センター棟まで約{}m。もう少し近づこう。".format(round(distance))
+            result = "{}まで約{}m。もう少し近づこう。".format(
+                destination["name"], round(distance)
+            )
+        plus_code = destination.get("plus_code") or "登録済み座標"
         self.set_status(
-            "位置テスト結果\n{}\nGPS精度：約{}m".format(result, accuracy)
+            "位置テスト結果\n{}\nPlus Code：{}\nGPS精度：約{}m".format(
+                result, plus_code, accuracy
+            )
         )
 
     def show_inventory(self, sender=None):
