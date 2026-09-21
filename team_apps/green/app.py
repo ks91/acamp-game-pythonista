@@ -43,6 +43,17 @@ class TerritoryMap(ui.View):
         ui.delay(self._create_webview, 0.2)
 
     def _create_webview(self):
+        try:
+            self._create_webview_inner()
+        except Exception as exc:
+            trace = traceback.format_exc()
+            print("[green] WebView生成例外: " + trace)
+            try:
+                ui.alert("Green WebViewエラー", "{}\n\n{}".format(exc, trace), "閉じる")
+            except Exception:
+                pass
+
+    def _create_webview_inner(self):
         if self.web is not None:
             return
         self.web = ui.WebView(frame=self.bounds, flex="WH")
