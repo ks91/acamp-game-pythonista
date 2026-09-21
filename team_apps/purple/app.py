@@ -9,7 +9,11 @@ import random
 import ui
 import location
 
-import config
+try:
+    import config
+except ImportError:
+    # The shared repository intentionally does not contain each iPad's config.py.
+    config = None
 
 
 START_SCORE = 10
