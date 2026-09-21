@@ -168,10 +168,17 @@ class GreenTerritoryGame(ui.View):
         token = getattr(config, "GAME_TOKEN", "")
         if not base_url or not token or token == "set-at-game-start":
             return None
-        return ApiClient(
-            base_url=base_url,
-            token=token,
-        )
+        try:
+            return ApiClient(
+                base_url=base_url,
+                token=token,
+                game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+                game_mode=getattr(config, "SELECTED_GAME_MODE", None),
+            )
+        except TypeError:
+            # An iPad with an incomplete Pull may still have the old shared
+            # client. It can open safely, but must Pull main before mode tests.
+            return ApiClient(base_url=base_url, token=token)
 
     @staticmethod
     def _build_model(definition, state, team_id):
