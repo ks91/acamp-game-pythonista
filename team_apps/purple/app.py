@@ -24,6 +24,7 @@ except ImportError:
 
 START_SCORE = 10
 START_BOSS_HP = 1000
+GOOD_BACTERIA_HP = 50
 ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
@@ -258,6 +259,8 @@ class PurpleMockGame(ui.View):
         self.chest_items = [None, None]
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.item_popup = None
+        self.good_bacteria_visible = False
+        self.good_bacteria_hp = GOOD_BACTERIA_HP
         self._build_ui()
         self._read_current_location()
         if TEST_PLACE1_IS_CURRENT and self.current_location is not None:
@@ -373,6 +376,19 @@ class PurpleMockGame(ui.View):
         ui.delay(self._hide_feedback, seconds)
 
     def _update_tokyoman_art(self):
+        if self.good_bacteria_visible:
+            if self.good_bacteria_hp <= 0:
+                self.character_image.image = None
+            else:
+                filename = "zen_dama.jpeg"
+                path = os.path.join(APP_DIR, "assets", filename)
+                try:
+                    with open(path, "rb") as source:
+                        self.character_image.image = ui.Image.from_data(source.read())
+                except OSError:
+                    self.character_image.image = None
+            self.character_health_label.text = "善玉くん体力\n{}/{}".format(self.good_bacteria_hp, GOOD_BACTERIA_HP)
+            return
         if self.boss_hp <= 0:
             filename = "tokyoman_defeated.jpeg"
         elif self.boss_hp <= START_BOSS_HP / 2:
@@ -398,7 +414,8 @@ class PurpleMockGame(ui.View):
             can_solve = self.arrived[index] and not self.solved[index]
             self.solve_buttons[index].enabled = can_solve
             self.solve_buttons[index].alpha = 1.0 if can_solve else 0.45
-        can_attack = self.score >= ATTACK_COST and self.boss_hp > 0
+        can_attack = (self.good_bacteria_visible and self.good_bacteria_hp > 0) or (not self.good_bacteria_visible and self.score >= ATTACK_COST and self.boss_hp > 0)
+        self.attack_button.title = "善玉くんを殴る 50pt" if self.good_bacteria_visible else "殴る 50pt"
         self.attack_button.enabled = can_attack
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         for button in self.item_buttons:
@@ -639,6 +656,9 @@ class PurpleMockGame(ui.View):
             return
         self.arrived[index] = True
         self.score += 20
+        if index == 1:
+            self.good_bacteria_visible = True
+            self.good_bacteria_hp = GOOD_BACTERIA_HP
         chest_message = self._maybe_spawn_chest(index, CHEST_LOCATION_CHANCE, "location")
         message = "地点{}に到着！ +20pt".format(index + 1)
         if chest_message:
@@ -776,6 +796,12 @@ class PurpleMockGame(ui.View):
         self._reset(None)
 
     def _attack(self, sender):
+        if self.good_bacteria_visible:
+            if self.good_bacteria_hp <= 0:
+                return
+            self.good_bacteria_hp = 0
+            self._refresh("善玉くんを一発で倒した！")
+            return
         if self.score < ATTACK_COST or self.boss_hp <= 0:
             return
         if not TEST_INFINITE_POINTS:
@@ -799,6 +825,8 @@ class PurpleMockGame(ui.View):
         self.chest_riddle_checked = [False, False]
         self.chest_items = [None, None]
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
+        self.good_bacteria_visible = False
+        self.good_bacteria_hp = GOOD_BACTERIA_HP
         self._refresh("仮試作をリセットしました。")
 
 
