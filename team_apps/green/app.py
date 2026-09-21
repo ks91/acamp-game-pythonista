@@ -12,6 +12,7 @@ import ui
 
 from toolkit.api_client import ApiClient
 from toolkit.location_payload import make_location_sample
+from team_apps.green.stop_game import MissionMiniGame
 
 try:
     import config
@@ -416,7 +417,7 @@ class GreenTerritoryGame(ui.View):
         ui.delay(lambda: self._apply_remote_state(definition, state, error), 0.0)
 
     def _assign_random_missions(self):
-        mission_kinds = ("cat", "mash", "ghost")
+        mission_kinds = ("stop", "flag", "riddle")
         for place in self.model.get("places", []):
             place_id = place["id"]
             if place_id not in self._mission_assignments:
@@ -586,49 +587,14 @@ class GreenTerritoryGame(ui.View):
         if place is None:
             return
         self._close_mission_overlay()
-        kind = place.get("mission_kind", "mash")
-        overlay = ui.View(frame=self.bounds, flex="WH")
-        overlay.background_color = (0, 0, 0, 0.62)
-        card_width = min(430, self.width - 40)
-        card = ui.View(frame=((self.width - card_width) / 2, max(45, (self.height - 400) / 2), card_width, 400))
-        card.background_color = "#17212B" if self.model.get("theme_mode") == "dark" else "#FFFFFF"
-        title = "猫を探せ" if kind == "cat" else ("お化けを倒せ" if kind == "ghost" else "ボタン連打ミッション")
-        instruction = "9マスから猫を1回で見つけよう" if kind == "cat" else ("攻撃ボタンを15回押そう" if kind == "ghost" else "ボタンを10回押そう")
-        label = ui.Label(frame=(18, 18, card_width - 36, 70), text=title + "\n" + instruction, font=("<system-bold>", 20), number_of_lines=2, alignment=ui.ALIGN_CENTER)
-        label.text_color = "white" if self.model.get("theme_mode") == "dark" else "#263238"
-        card.add_subview(label)
-        self._mini_state = {"kind": kind, "count": 0, "target": 15 if kind == "ghost" else 10}
-        if kind == "cat":
-            self._mini_state["cat_index"] = random.randrange(9)
-            for index in range(9):
-                button = ui.Button(frame=(24 + (index % 3) * (card_width - 48) / 3, 105 + (index // 3) * 62, (card_width - 60) / 3, 50), title="？", font=("<system-bold>", 22))
-                button.action = lambda sender, i=index: self._cat_tap(i, sender)
-                card.add_subview(button)
-        else:
-            button = ui.Button(frame=(35, 145, card_width - 70, 100), title="攻撃 0/{}".format(self._mini_state["target"]), font=("<system-bold>", 24))
-            button.action = self._mini_tap
-            card.add_subview(button)
-            self._mini_button = button
-        cancel = ui.Button(frame=(24, 350, card_width - 48, 34), title="やめる", action=self._close_mission_overlay)
-        cancel.tint_color = label.text_color
-        card.add_subview(cancel)
-        overlay.add_subview(card)
+        overlay = MissionMiniGame(
+            kind=place.get("mission_kind", "stop"),
+            on_success=self._mini_success,
+            on_cancel=self._close_mission_overlay,
+            frame=self.bounds,
+        )
         self.add_subview(overlay)
         self.mission_overlay = overlay
-
-    def _cat_tap(self, index, sender):
-        if index == self._mini_state.get("cat_index"):
-            self._mini_success()
-        else:
-            sender.title = "×"
-            self.detail.text = "そのマスにはいません。別のマスを探そう。"
-
-    def _mini_tap(self, sender):
-        self._mini_state["count"] += 1
-        count = self._mini_state["count"]
-        sender.title = "攻撃 {} / {}".format(count, self._mini_state["target"])
-        if count >= self._mini_state["target"]:
-            self._mini_success()
 
     def _mini_success(self):
         self._close_mission_overlay()
