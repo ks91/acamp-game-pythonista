@@ -29,11 +29,10 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
-# "test"なら地点1を現在地にし、ポイント無限で試遊する。
-# 本番に切り替えるときは、ここを "production" にする。
-GAME_MODE = "test"
-TEST_PLACE1_IS_CURRENT = GAME_MODE == "test"
-TEST_INFINITE_POINTS = GAME_MODE == "test"
+# テスト時だけ、地点1を起動時の現在地に置き換える。
+TEST_PLACE1_IS_CURRENT = False
+# テスト時は攻撃ポイントを消費しない。
+TEST_INFINITE_POINTS = False
 CHEST_LOCATION_CHANCE = 0.20
 CHEST_RIDDLE_CHANCE = 0.80
 ITEM_COSTS = {
