@@ -1,6 +1,7 @@
 """イエロー班：東京ご当地エジプト探検のDay 2アプリ。"""
 
 import datetime
+import hashlib
 import os
 import sys
 import uuid
@@ -93,11 +94,7 @@ class YellowEgyptGame(ui.View):
                 "スタッフから渡された設定値を入れてください。"
             )
             return
-        self.api = ApiClient(
-            base_url=config.API_BASE_URL,
-            token=config.GAME_TOKEN,
-            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
-        )
+        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
         self.refresh()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
@@ -136,6 +133,26 @@ class YellowEgyptGame(ui.View):
 
     def _claimed_ids(self):
         return set((self.state or {}).get("claimed_places", []))
+
+    def _is_rare(self, key, place_id):
+        team_id = getattr(config, "TEAM_ID", "yellow") if config is not None else "yellow"
+        session_id = getattr(config, "GAME_SESSION_ID", "prototype-yellow-1") if config is not None else "prototype-yellow-1"
+        seed = "{}:{}:{}".format(team_id, session_id, key or place_id)
+        value = int(hashlib.sha256(seed.encode("utf-8")).hexdigest()[:8], 16) % 100
+        return value < 40
+
+    def _effective_story(self, key, story, place):
+        effective = dict(story)
+        if self._is_rare(key, place.get("id", key)):
+            effective["display_name"] = "シュバル" + effective["display_name"]
+            effective["item_name"] = "シュバル" + effective["item_name"]
+        return effective
+
+    def _story_for_claim(self, story_key, place_id):
+        for key, story, place in self._target_places():
+            if key == story_key and place["id"] == place_id:
+                return self._effective_story(key, story, place)
+        return SPOT_STORIES[story_key]
 
     def refresh(self):
         try:
@@ -180,6 +197,14 @@ class YellowEgyptGame(ui.View):
         items_button.background_color = "#6D4C41"
         self.content.add_subview(items_button)
         y += 64
+        restart_button = self._button(
+            "はじめから",
+            (16, y, 343, 48),
+            self.show_restart_notice,
+        )
+        restart_button.background_color = "#455A64"
+        self.content.add_subview(restart_button)
+        y += 64
 
         if message:
             notice = self._label(message, (20, y, 335, 60), ("<system-bold>", 16), TEAM_COLOR)
@@ -201,6 +226,7 @@ class YellowEgyptGame(ui.View):
                 y += 60
                 continue
             story, place = entry
+            story = self._effective_story(key, story, place)
             claimed = place["id"] in claimed_ids
             title = story["display_name"] if claimed else "？？？"
             points = place.get("points", 0)
@@ -256,6 +282,7 @@ class YellowEgyptGame(ui.View):
             if entry is None:
                 continue
             story, place = entry
+            story = self._effective_story(key, story, place)
             if place["id"] not in claimed_ids:
                 continue
             collected += 1
@@ -277,6 +304,12 @@ class YellowEgyptGame(ui.View):
             self.content.add_subview(empty_label)
             y += 84
         self.content.content_size = (self.width, y + 24)
+
+    def show_restart_notice(self, sender):
+        self._render(
+            "はじめから始めるには、スタッフが新しいゲームセッションを作ります。\n"
+            "今の得点や獲得記録はそのまま残ります。"
+        )
 
     def show_reset_notice(self, sender):
         self._render(
@@ -320,7 +353,7 @@ class YellowEgyptGame(ui.View):
             self._render_message("獲得できません。\n" + error.read().decode("utf-8"))
             return
         if result.get("claimed"):
-            story = SPOT_STORIES[sender.story_key]
+            story = self._story_for_claim(sender.story_key, sender.place_id)
             self.refresh()
             self._render(
                 "{}を発見！\n図鑑に登録されました。\nこのスポットの得点：{}点\n現在の班の得点：{}点".format(
