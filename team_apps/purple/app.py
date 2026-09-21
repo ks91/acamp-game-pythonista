@@ -326,6 +326,13 @@ class PurpleMockGame(ui.View):
 
         self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
         self.gps_button.font = ("<system-bold>", 11)
+        self.test_solve_button = self._button(
+            "テスト用：謎を解いた",
+            (6, 202, panel_width - 12, 30),
+            self._test_solve_riddle,
+            "#EF6C00",
+        )
+        self.test_solve_button.font = ("<system-bold>", 10)
 
         self.place_buttons = []
         self.solve_buttons = []
@@ -703,6 +710,19 @@ class PurpleMockGame(ui.View):
         if chest_message:
             message += "\n" + chest_message
         self._refresh(message)
+
+    def _test_solve_riddle(self, sender):
+        """謎解き後の宝箱演出を、GPSやクイズなしで確認する。"""
+        index = 0
+        self.arrived[index] = True
+        self.solved[index] = True
+        self.chest_riddle_checked[index] = False
+        if self.chest_items[index] is None:
+            # 出現率100%で通常の「謎を解いた」宝箱処理を通す。
+            self._maybe_spawn_chest(index, 1.0, "riddle")
+        else:
+            self._show_chest_found(self.chest_items[index])
+        self._refresh("テスト：謎を解いた！ 宝箱を開けます。")
 
     def _solve(self, index):
         if not self.arrived[index] or self.solved[index] or self.quiz_active:
