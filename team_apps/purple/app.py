@@ -29,10 +29,10 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
-# テスト中は現在地を地点1にする。
-TEST_PLACE1_IS_CURRENT = True
-# テスト中はポイントを無限にする。
-TEST_INFINITE_POINTS = True
+# テスト時だけ、地点1を起動時の現在地に置き換える。
+TEST_PLACE1_IS_CURRENT = False
+# テスト時は攻撃ポイントを消費しない。
+TEST_INFINITE_POINTS = False
 CHEST_LOCATION_CHANCE = 0.20
 CHEST_RIDDLE_CHANCE = 0.80
 ITEM_COSTS = {
