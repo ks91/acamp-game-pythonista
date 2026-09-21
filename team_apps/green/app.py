@@ -1,5 +1,6 @@
 """Green team's self-contained real-map territory game for Pythonista."""
 import json
+import math
 import random
 import threading
 import time
@@ -300,7 +301,45 @@ class GreenTerritoryGame(ui.View):
         if place["owner"] == self.team_id:
             self._show_mission_overlay("陣地の状態", "{}\n所有者: {}\n得点: {}点".format(place["name"], place["owner_label"], place["points"]), "閉じる", self._close_mission_overlay)
             return
-        self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: ミニゲーム成功後、地点の範囲内で現在地を送信".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._start_minigame)
+        self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: 先にGPSで地点範囲を確認し、その後ミニゲームをクリア".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._check_location_before_minigame)
+
+    def _check_location_before_minigame(self, sender=None):
+        place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
+        if place is None:
+            return
+        self._close_mission_overlay()
+        self.action_button.enabled = False
+        self.detail.text = "GPSで現在地を確認中…"
+        try:
+            current = location.get_location()
+            if not current:
+                raise RuntimeError("現在地を取得できませんでした")
+            latitude = current.get("latitude")
+            longitude = current.get("longitude")
+            if latitude is None or longitude is None:
+                raise RuntimeError("GPSの緯度・経度を取得できませんでした")
+            if place.get("latitude") is None or place.get("longitude") is None:
+                raise RuntimeError("地点の座標が設定されていません")
+            distance = self._distance_meters(latitude, longitude, place["latitude"], place["longitude"])
+            radius = float(place.get("capture_radius_meters", 100))
+            if distance > radius:
+                self._show_mission_overlay("ミッション開始不可", "地点の範囲外です。\n地点まで約{:.0f}m\n必要範囲: {:.0f}m\n範囲内に移動してから再試行してください。".format(distance, radius), "再確認", self._check_location_before_minigame)
+                return
+            self.detail.text = "GPS確認OK（約{:.0f}m）\nミニゲームを開始します。".format(distance)
+            self._start_minigame()
+        except Exception as error:
+            self._show_mission_overlay("GPS確認失敗", "{}\nミニゲームは開始しません。".format(error), "再確認", self._check_location_before_minigame)
+        finally:
+            self.action_button.enabled = True
+
+    @staticmethod
+    def _distance_meters(latitude1, longitude1, latitude2, longitude2):
+        radius = 6371000.0
+        lat1, lat2 = math.radians(float(latitude1)), math.radians(float(latitude2))
+        dlat = lat2 - lat1
+        dlon = math.radians(float(longitude2) - float(longitude1))
+        value = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        return 2 * radius * math.asin(math.sqrt(value))
 
     def _start_minigame(self, sender=None):
         place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
@@ -356,6 +395,7 @@ class GreenTerritoryGame(ui.View):
         self.detail.text = "ミニゲーム成功！\n現在地を確認しています。"
         self._execute_mission()
 
+    def _execute_mission(self, sender=None):
         self._close_mission_overlay()
         self.action_button.enabled = False
         self.detail.text = "ミッション実行中…\n現在地を確認しています。"
