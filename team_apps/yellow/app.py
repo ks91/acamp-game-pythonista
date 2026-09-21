@@ -100,8 +100,6 @@ class YellowEgyptGame(ui.View):
         self.add_subview(self.status_label)
         self.content = ui.ScrollView(frame=(0, 105, screen_width, screen_height - 105), flex="WH")
         self.add_subview(self.content)
-        self.map_view = None
-        self.map_last_location = None
         if config is None:
             self.status_label.text = "設定ファイル config.py が見つかりません。"
             self._render_message(
@@ -207,53 +205,7 @@ class YellowEgyptGame(ui.View):
             return
         self._render()
 
-    def _map_html(self):
-        return """<!doctype html>
-<html><head><meta name='viewport' content='initial-scale=1.0, maximum-scale=1.0'>
-<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>
-<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
-<style>html,body,#map{height:100%;margin:0} #map{background:#eee}</style></head>
-<body><div id='map'></div><script>
-var map=L.map('map').setView([0,0],2);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-var marker=null;
-function setPosition(lat,lon){
-  var p=[lat,lon];
-  if(!marker){ marker=L.marker(p).addTo(map).bindPopup('現在地'); }
-  else { marker.setLatLng(p); }
-  map.setView(p,17);
-}
-</script></body></html>"""
-
-    def _show_map(self):
-        if self.map_view is None:
-            self.map_view = ui.WebView(frame=(self.width * 0.5 + 8, 105, self.width * 0.5 - 16, self.height - 121), flex="WRH")
-            self.map_view.load_html(self._map_html(), base_url="https://tile.openstreetmap.org/")
-            self.add_subview(self.map_view)
-        self.map_view.hidden = False
-        self.content.frame = (0, 105, self.width * 0.5, self.height - 121)
-
-    def _hide_map(self):
-        if self.map_view is not None:
-            self.map_view.hidden = True
-        self.content.frame = (0, 105, self.width, self.height - 121)
-
-    def _update_map_location(self, position):
-        if self.map_view is None or not position:
-            return
-        latitude = position.get("latitude")
-        longitude = position.get("longitude")
-        if latitude is None or longitude is None:
-            return
-        self.map_last_location = (latitude, longitude)
-        javascript = "setPosition({}, {});".format(latitude, longitude)
-        try:
-            self.map_view.evaluate_javascript(javascript)
-        except Exception:
-            pass
-
     def _render(self, message=""):
-        self._show_map()
         self._clear_content()
         claimed_ids = self._claimed_ids()
         target_places = self._target_places()
@@ -303,8 +255,7 @@ function setPosition(lat,lon){
         self.content.add_subview(character_title)
         y += 60
 
-        # スタッフ決定の2地点だけを獲得ボタンとして表示する。
-        # 実際の半径判定は、現在地を受け取るサーバー側で行う。
+        # スタッフ決定の2地点を獲得状況と場所名として表示する。
         for key in SPOT_ORDER:
             entry = places_by_key.get(key)
             if entry is None:
@@ -315,20 +266,17 @@ function setPosition(lat,lon){
             location_name = place.get("name", "指定スポット")
             points = place.get("points", 0)
             text = (
-                "✓ {}を獲得済み\n{}"
+                "✓ {}（獲得済み）\n{}"
                 if claimed
-                else "{}（位置情報更新で獲得判定）\n{}"
+                else "{}（未獲得）\n{}"
             ).format(story["display_name"], location_name)
-            button = self._button(
+            character_label = self._label(
                 text,
                 (16, y, panel_width - 32, 62),
-                self.claim_place,
-                enabled=False,
+                ("<system-bold>", 16),
+                "#4E342E",
             )
-            button.place_id = place["id"]
-            button.story_key = key
-            self.content.add_subview(button)
-            self.place_buttons.append(button)
+            self.content.add_subview(character_label)
             y += 70
             if claimed:
                 description = self._label(
@@ -352,7 +300,6 @@ function setPosition(lat,lon){
         self.content.content_size = (self.width, y + 24)
 
     def _render_message(self, message):
-        self._hide_map()
         self._clear_content()
         label = self._label(message, (20, 16, 335, 120), ("<system>", 16))
         self.content.add_subview(label)
@@ -367,7 +314,6 @@ function setPosition(lat,lon){
         return ui.Image.named(os.path.join(self.repository_directory, "assets", filename))
 
     def show_collected_items(self, sender):
-        self._hide_map()
         self._clear_content()
         claimed_ids = self._claimed_ids()
         target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
@@ -541,7 +487,6 @@ function setPosition(lat,lon){
             self.status_label.text = "位置情報を取得できません。"
             self._render_message("安全な場所で、位置情報の許可と電波を確認して再試行してください。")
             return
-        self._update_map_location(position)
         sample = make_location_sample(
             team_id=config.TEAM_ID,
             device_id=config.DEVICE_ID,
