@@ -177,6 +177,7 @@ class GreenTerritoryGame(ui.View):
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
                 "points": territory.get("points", place.get("points", 0)), "owner": owner,
+                "capture_radius_meters": place.get("capture_radius_meters", place.get("radius_m", 100)),
                 "owner_label": owner_label, "simulated_owner": simulated,
                 "role": role, "role_label": role_labels.get(role, "地点"),
                 "is_boss": bool(place.get("is_boss", False)),
