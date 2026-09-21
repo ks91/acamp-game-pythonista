@@ -55,7 +55,7 @@ SPOT_STORIES = {
         "item_name": "ファラオ",
         "photo_label": "3枚目",
         "image_filename": "pharaoh.jpeg",
-        "rare_image_filename": "shubaru-pharaoh.jpeg",
+        "rare_image_filename": "shubaru-pharaoh.png",
         "rare_display_name": "シュバルファラオ",
         "rare_item_name": "シュバルファラオ",
         "description": "センター棟を、みんなの活動を見守るファラオの神殿に見立てた場所。"
@@ -325,7 +325,7 @@ class YellowEgyptGame(ui.View):
             ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
             ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
             ("center-building", "ファラオ", "pharaoh.jpeg"),
-            ("center-building", "シュバルファラオ", "shubaru-pharaoh.jpeg"),
+            ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
         ]
         self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
