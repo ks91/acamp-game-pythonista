@@ -22,22 +22,25 @@ except ImportError:
 
 
 START_SCORE = 10
-START_BOSS_HP = 1000
+START_BOSS_HP = 100
 GOOD_BACTERIA_HP = 50
+ARRIVAL_REWARD_POINTS = 20
+GOOD_BACTERIA_REWARD_POINTS = 60
 ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
 SERVER_PLACE_COUNT = 2
-CHEST_LOCATION_CHANCE = 0.20
-CHEST_RIDDLE_CHANCE = 0.80
+CHEST_REWARD_POINTS = 10
+CHEST_LOCATION_CHANCE = 0.0
+CHEST_RIDDLE_CHANCE = 1.0
 ITEM_COSTS = {
-    "液体窒素＆硫酸": 100,
-    "亜硝酸ナトリウム爆弾": 70,
+    "液体窒素＆硫酸": 50,
+    "亜硝酸ナトリウム爆弾": 20,
 }
 ITEM_DAMAGE = {
-    "液体窒素＆硫酸": 150,
-    "亜硝酸ナトリウム爆弾": 100,
+    "液体窒素＆硫酸": 50,
+    "亜硝酸ナトリウム爆弾": 50,
 }
 ITEM_IMAGES = {
     "液体窒素＆硫酸": "liquid_nitrogen.jpeg",
@@ -167,7 +170,7 @@ MAP_HTML = r"""<!doctype html>
 </head>
 <body><div id="map"></div>
 <script>
-var map = L.map('map').setView([35.6812,139.7671], 16);
+var map = L.map('map').setView([0.0,0.0], 16);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors', maxZoom: 19
 }).addTo(map);
@@ -203,7 +206,7 @@ GOOGLE_MAP_HTML = r"""<!doctype html>
 var map, currentMarker, placeMarkers = [];
 function initMap() {
   map = new google.maps.Map(document.getElementById('map'), {
-    center: {lat: 35.674652, lng: 139.693472}, zoom: 17,
+    center: {lat: 0.0, lng: 0.0}, zoom: 17,
     streetViewControl: false, fullscreenControl: false, mapTypeControl: false
   });
 }
@@ -246,6 +249,7 @@ class PurpleMockGame(ui.View):
         self.background_color = "#FFF8E1"
         self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
+        self.boss_defeat_transition = False
         self.lives = START_LIVES
         self.arrived = [False, False]
         self.solved = [False, False]
@@ -264,7 +268,6 @@ class PurpleMockGame(ui.View):
         self.chest_arrival_checked = [False, False]
         self.chest_riddle_checked = [False, False]
         self.chest_items = [None, None]
-        self.test_solve_count = 0
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.item_popup = None
         self.good_bacteria_popup = None
@@ -326,18 +329,11 @@ class PurpleMockGame(ui.View):
         if self.maps_key and self.maps_key != "set-at-game-start":
             self.map_view.load_html(GOOGLE_MAP_HTML.replace("__API_KEY__", self.maps_key))
         else:
-            self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
+            self.map_view.load_url("https://www.google.com/maps/@0.0,0.0,17z")
         self.add_subview(self.map_view)
 
         self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
         self.gps_button.font = ("<system-bold>", 11)
-        self.test_solve_button = self._button(
-            "テスト用：謎を解いた",
-            (6, 202, panel_width - 12, 30),
-            self._test_solve_riddle,
-            "#EF6C00",
-        )
-        self.test_solve_button.font = ("<system-bold>", 10)
 
         self.place_buttons = []
         self.solve_buttons = []
@@ -345,7 +341,7 @@ class PurpleMockGame(ui.View):
             number = index + 1
             self._label("小腸の地点{}".format(number), (6, y, panel_width - 12, 22), ("<system-bold>", 13), align=ui.ALIGN_CENTER)
             arrive = self._button("地点{} GPS到着".format(number), (6, y + 24, panel_width - 12, 30), lambda sender, i=index: self._check_arrival(i), "#000000")
-            solve = self._button("謎{}を解く +10pt".format(number), (6, y + 58, panel_width - 12, 30), lambda sender, i=index: self._solve(i), "#6A1B9A")
+            solve = self._button("謎{}を解く +20pt".format(number), (6, y + 58, panel_width - 12, 30), lambda sender, i=index: self._solve(i), "#6A1B9A")
             arrive.font = ("<system-bold>", 10)
             solve.font = ("<system-bold>", 10)
             self.place_buttons.append(arrive)
@@ -402,9 +398,9 @@ class PurpleMockGame(ui.View):
                     self.character_image.image = None
             self.character_health_label.text = "善玉くん体力\n{}/{}".format(self.good_bacteria_hp, GOOD_BACTERIA_HP)
             return
-        if self.boss_hp <= 0:
+        if self.boss_hp <= 0 and not self.boss_defeat_transition:
             filename = "tokyoman_defeated.jpeg"
-        elif self.boss_hp <= START_BOSS_HP / 2:
+        elif self.boss_hp <= START_BOSS_HP / 2 or self.boss_defeat_transition:
             filename = "tokyoman_half.jpeg"
         else:
             filename = "tokyoman_full.jpeg"
@@ -469,27 +465,32 @@ class PurpleMockGame(ui.View):
             button.title = "{} {}pt".format(item_name, ITEM_COSTS[item_name]) if offered else ""
             if owned:
                 button.title = "{} ×{}".format(item_name, owned)
-            button.enabled = offered and self.score >= ITEM_COSTS[item_name] and self.boss_hp > 0
+            button.enabled = (offered or owned > 0) and self.boss_hp > 0
             button.alpha = 1.0 if button.enabled else 0.35
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
     def _maybe_spawn_chest(self, index, chance, source):
+        if source == "riddle":
+            if self.chest_riddle_checked[index]:
+                return ""
+            self.chest_riddle_checked[index] = True
+            item_name = CHEST_REWARDS[index]
+            self.chest_items[index] = item_name
+            self.score += CHEST_REWARD_POINTS
+            self._show_chest_found(item_name)
+            return "宝箱が開いた！ {}を入手。 +{}pt".format(item_name, CHEST_REWARD_POINTS)
         if self.chest_items[index] is not None:
             return ""
         if source == "location":
             if self.chest_arrival_checked[index]:
                 return ""
             self.chest_arrival_checked[index] = True
-        else:
-            if self.chest_riddle_checked[index]:
-                return ""
-            self.chest_riddle_checked[index] = True
         if random.random() >= chance:
             return ""
         item_name = CHEST_REWARDS[index]
         self.chest_items[index] = item_name
         self._show_chest_found(item_name)
-        return "宝箱が出た！ {}（{}pt）を購入できます。".format(item_name, ITEM_COSTS[item_name])
+        return "宝箱が出た！ {}".format(item_name)
 
     def _show_chest_found(self, item_name):
         if self.item_popup is not None:
@@ -562,21 +563,20 @@ class PurpleMockGame(ui.View):
 
     def _buy_item(self, sender):
         item_name = sender.item_name
-        if item_name not in self.chest_items:
-            return
-        if self.item_inventory[item_name] > 0:
-            self.item_inventory[item_name] -= 1
-            damage = ITEM_DAMAGE[item_name]
-            self.boss_hp = max(0, self.boss_hp - damage)
-            self._refresh("{}を使った！ 東京マンに{}ダメージ。".format(item_name, damage))
+        if not isinstance(item_name, str) or item_name not in self.chest_items:
             return
         cost = ITEM_COSTS[item_name]
         if self.score < cost:
-            self._refresh("ポイントが足りません。")
+            self._refresh("ptが足りません。{}pt必要です。".format(cost))
             return
         self.score -= cost
-        self.item_inventory[item_name] += 1
-        self._refresh("{}を購入した！".format(item_name))
+        damage = ITEM_DAMAGE[item_name]
+        self.boss_hp = max(0, self.boss_hp - damage)
+        for index, offered_item in enumerate(self.chest_items):
+            if offered_item == item_name:
+                self.chest_items[index] = None
+                break
+        self._refresh("{}を使った！ 東京マンに{}ダメージ。".format(item_name, damage))
 
     def _load_google_map(self):
         if not self.maps_key or self.maps_key == "set-at-game-start":
@@ -764,28 +764,6 @@ class PurpleMockGame(ui.View):
             message += "\n" + chest_message
         self._refresh(message)
 
-    def _test_solve_riddle(self, sender):
-        """1回目は地点1、2回目は地点2の到着後を確認する。"""
-        index = min(self.test_solve_count, 1)
-        if index > 0:
-            self.arrived[index - 1] = True
-        if not self.arrived[index]:
-            self.arrived[index] = True
-            self.score += 20
-            if index == 1:
-                self.good_bacteria_visible = True
-                self.good_bacteria_hp = GOOD_BACTERIA_HP
-                self._show_good_bacteria_arrival()
-        self.solved[index] = True
-        self.chest_riddle_checked[index] = False
-        self.test_solve_count += 1
-        if self.chest_items[index] is None:
-            # 出現率100%で通常の「謎を解いた」宝箱処理を通す。
-            self._maybe_spawn_chest(index, 1.0, "riddle")
-        else:
-            self._show_chest_found(self.chest_items[index])
-        self._refresh("テスト：地点{}に到着して謎を解いた！ 宝箱を開けます。".format(index + 1))
-
     def _solve(self, index):
         if not self.arrived[index] or self.solved[index] or self.quiz_active:
             return
@@ -887,16 +865,16 @@ class PurpleMockGame(ui.View):
 
         if not timed_out and selected == question["answer"]:
             self.solved[index] = True
-            self.score += 10
+            self.score += 20
             chest_message = self._maybe_spawn_chest(index, CHEST_RIDDLE_CHANCE, "riddle")
-            message = "正解！ 謎{}を解いた！ +10pt".format(index + 1)
+            message = "正解！ 謎{}を解いた！ +20pt".format(index + 1)
             if chest_message:
                 message += "\n" + chest_message
             if chest_message:
                 self._refresh(chest_message)
                 return
             self._refresh(message)
-            self._show_feedback("正解！\n+10pt", "#2E7D32", 3)
+            self._show_feedback("正解！\n+20pt", "#2E7D32", 3)
             return
 
         self.lives -= 1
@@ -922,24 +900,35 @@ class PurpleMockGame(ui.View):
     def _attack(self, sender):
         if self.good_bacteria_visible:
             if self.good_bacteria_hp <= 0:
+                self.good_bacteria_visible = False
+                self._refresh("善玉くんは倒されています。東京マンを攻撃できます。")
                 return
             self.good_bacteria_hp = 0
-            self._refresh("善玉くんを一発で倒した！")
+            self.good_bacteria_visible = False
+            self.score += GOOD_BACTERIA_REWARD_POINTS
+            self._refresh("善玉くんを一発で倒した！ +{}pt".format(GOOD_BACTERIA_REWARD_POINTS))
             return
         if self.score < ATTACK_COST or self.boss_hp <= 0:
             return
         self.score -= ATTACK_COST
         self.boss_hp = max(0, self.boss_hp - ATTACK_DAMAGE)
         if self.boss_hp == 0:
-            message = "東京マンを倒した！脱出成功！"
-        else:
-            message = "殴った！ 東京マンに50ダメージ。"
+            self.boss_defeat_transition = True
+            self._refresh("東京マンにとどめの一撃！")
+            ui.delay(self._finish_boss_defeat, 3.0)
+            return
+        message = "殴った！ 東京マンに{}ダメージ。".format(ATTACK_DAMAGE)
         self._refresh(message)
+
+    def _finish_boss_defeat(self):
+        self.boss_defeat_transition = False
+        self._refresh("東京マンを倒した！脱出成功！")
 
     def _reset(self, sender=None):
         self._hide_feedback()
         self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
+        self.boss_defeat_transition = False
         self.lives = START_LIVES
         self.arrived = [False, False]
         self.solved = [False, False]
@@ -947,7 +936,6 @@ class PurpleMockGame(ui.View):
         self.chest_arrival_checked = [False, False]
         self.chest_riddle_checked = [False, False]
         self.chest_items = [None, None]
-        self.test_solve_count = 0
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.good_bacteria_visible = False
         self.good_bacteria_hp = GOOD_BACTERIA_HP

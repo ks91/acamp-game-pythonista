@@ -38,8 +38,9 @@ class PurpleServerModeIntegrationTests(unittest.TestCase):
         self.assertIn("get_game_definition", self.source)
         self.assertIn('definition.get("places", [])', self.source)
 
-    def test_keeps_the_published_chest_test_action(self):
-        self.assertIn("テスト用：謎を解いた", self.source)
+    def test_has_no_local_test_action_or_infinite_point_path(self):
+        self.assertNotIn("テスト用：謎を解いた", self.source)
+        self.assertNotIn("TEST_INFINITE_POINTS", self.source)
 
 
 if __name__ == "__main__":
