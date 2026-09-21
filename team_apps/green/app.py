@@ -99,7 +99,7 @@ class GreenTerritoryGame(ui.View):
         self.restart_button.font = ("<system-bold>", 13)
         self.restart_button.background_color = (0.05, 0.18, 0.12, 0.88)
         self.add_subview(self.restart_button)
-        self.legend_label = ui.Label(frame=(156, 94, 360, 32), text="◆相手陣地（攻略可能）　○未占領　⚑自班陣地　⌂自班拠点", font=("<system>", 11), number_of_lines=2)
+        self.legend_label = ui.Label(frame=(180, 66, 300, 30), text="◆相手陣地（攻略可能）　○未占領　⚑自班　⌂自班拠点", font=("<system>", 10), number_of_lines=2)
         self.legend_label.background_color = (0, 0, 0, 0.68)
         self.add_subview(self.legend_label)
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
@@ -127,7 +127,7 @@ class GreenTerritoryGame(ui.View):
         self.refresh_button.frame = (width - 46, 12, 38, 34)
         self.offline_label.frame = (16, 66, width - 32, 25)
         self.restart_button.frame = (16, 94, min(150, width - 32), 32)
-        self.legend_label.frame = (min(174, width - 180), 94, max(170, width - min(174, width - 180) - 16), 32)
+        self.legend_label.frame = (max(180, width - 320), 66, min(304, width - max(180, width - 320) - 16), 30)
         self.detail.frame = (16, max(120, height - 170), width - 32, 88)
         self.action_button.frame = (16, max(210, height - 76), width - 32, 48)
 
