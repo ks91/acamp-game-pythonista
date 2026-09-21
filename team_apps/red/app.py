@@ -406,11 +406,11 @@ class RedPrototype(ui.View):
         map_button.tint_color = "#2E7D32"
         map_button.action = self.show_map
         self.content.add_subview(map_button)
-        inventory_button = ui.Button(title="アイテムを見る", frame=(16, 58, 343, 42))
-        inventory_button.tint_color = "#6A1B9A"
-        inventory_button.action = self.show_inventory
-        self.content.add_subview(inventory_button)
-        y = 108
+        profile_button = ui.Button(title="マイページ（主人公）", frame=(16, 108, 343, 42))
+        profile_button.tint_color = "#AD1457"
+        profile_button.action = self.show_profile
+        self.content.add_subview(profile_button)
+        y = 158
         if self.unlocked_destinations:
             boss_title = ui.Label(frame=(16, y + 8, 343, 44))
             boss_title.text = "中ボス・ボス"
@@ -531,6 +531,47 @@ class RedPrototype(ui.View):
                 result, plus_code, accuracy
             )
         )
+
+    def show_profile(self, sender=None):
+        self.current_screen = "profile"
+        self.clear_content()
+        self.set_status("マイページ\nぼくの主人公")
+        image_path = os.path.join(os.path.dirname(__file__), "player_character.png")
+        if os.path.exists(image_path):
+            character_image = ui.ImageView(frame=(16, 12, 343, 330))
+            with open(image_path, "rb") as image_file:
+                character_image.image = ui.Image.from_data(image_file.read())
+            self.content.add_subview(character_image)
+            y = 356
+        else:
+            missing = ui.Label(frame=(20, 30, 335, 80))
+            missing.number_of_lines = 0
+            missing.alignment = ui.ALIGN_CENTER
+            missing.text = "player_character.png が\nまだ見つかりません。"
+            self.content.add_subview(missing)
+            y = 128
+        info = ui.Label(frame=(20, y, 335, 70))
+        info.number_of_lines = 0
+        info.alignment = ui.ALIGN_CENTER
+        info.font = ("<System-Bold>", 17)
+        info.text = "ゼウスに立ち向かう主人公！\n戦闘で勝利して強くなろう。"
+        self.content.add_subview(info)
+        item_title = ui.Label(frame=(20, y + 78, 335, 28))
+        item_title.text = "アイテムリスト"
+        item_title.font = ("<System-Bold>", 18)
+        item_title.text_color = "#6A1B9A"
+        self.content.add_subview(item_title)
+        counts = self.inventory_counts()
+        item_lines = ["{} ×{}".format(item, count) for item, count in counts.items()]
+        item_list = ui.Label(frame=(20, y + 110, 335, 90))
+        item_list.number_of_lines = 0
+        item_list.text = "\n".join(item_lines) if item_lines else "まだアイテムはないよ"
+        self.content.add_subview(item_list)
+        back = ui.Button(title="ホームにもどる", frame=(16, y + 214, 343, 46))
+        back.action = self.show_battle_selection
+        self.content.add_subview(back)
+        self.style_buttons()
+        self.content.content_size = (375, y + 280)
 
     def show_inventory(self, sender=None):
         self.current_screen = "inventory"
@@ -917,6 +958,21 @@ monsters.forEach(m => {
             )
         )
         y = 18
+        player_image_path = os.path.join(os.path.dirname(__file__), "player_character.png")
+        if os.path.exists(player_image_path):
+            player_image = ui.ImageView(frame=(16, y, 343, 180))
+            with open(player_image_path, "rb") as image_file:
+                player_image.image = ui.Image.from_data(image_file.read())
+            self.content.add_subview(player_image)
+            y += 194
+        if monster and monster.get("boss") and monster["name"] == "ゼウス":
+            zeus_image_path = os.path.join(os.path.dirname(__file__), "zeus_boss.png")
+            if os.path.exists(zeus_image_path):
+                zeus_image = ui.ImageView(frame=(16, y, 343, 180))
+                with open(zeus_image_path, "rb") as image_file:
+                    zeus_image.image = ui.Image.from_data(image_file.read())
+                self.content.add_subview(zeus_image)
+                y += 194
         attack_button = ui.Button(title="素手で攻撃（10）", frame=(16, y, 343, 48))
         attack_button.tint_color = "#B71C1C"
         attack_button.action = self.attack_with_fist
