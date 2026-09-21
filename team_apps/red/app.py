@@ -36,21 +36,6 @@ STAR_HP = {1: 100, 2: 300, 3: 500}
 MAX_HP_GAIN_BY_STAR = {1: 10, 2: 30, 3: 50}
 CAPACITY_GAIN_INTERVAL = {1: 5, 2: 3, 3: 1}
 LOCATION_TRIGGER_RADIUS_M = 40
-MONSTER_COUNT = 100
-GAME_VARIANTS = {
-    "day3": {
-        "name": "ゴット・アプライアンス Day 3 センター棟テスト版",
-        "destination_ids": ["center-building", "cafeteria-fuji", "linkeee"],
-        "monster_count": 6,
-        "include_bosses": False,
-    },
-    "day4": {
-        "name": "ゴット・アプライアンス Day 4 東京全区版",
-        "destination_ids": "all",
-        "monster_count": 100,
-        "include_bosses": True,
-    },
-}
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
 WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
@@ -184,7 +169,7 @@ class RedPrototype(ui.View):
         self.player_hp = 100
         self.enemy_hp = 0
         self.monsters = []
-        for index in range(MONSTER_COUNT):
+        for index in range(100):
             monster = random.choice(MONSTERS).copy()
             monster["name"] = "{} #{:03d}".format(monster["name"], index + 1)
             self.monsters.append(monster)
