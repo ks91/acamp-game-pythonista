@@ -2,6 +2,7 @@
 
 import json
 import math
+import os
 import random
 import time
 import webbrowser
@@ -240,6 +241,40 @@ class RedPrototype(ui.View):
             self.monster_destinations[monster["name"]] = random.choice(random_destinations)
         self.build_header()
         self.show_battle_selection()
+        self.splash_view = None
+        self.splash_button = None
+        self.splash_next_action = None
+        self.show_splash(self.show_battle_selection)
+
+    def show_splash(self, next_action=None):
+        image_path = os.path.join(os.path.dirname(__file__), "god_apocalypse_splash.png")
+        if not os.path.exists(image_path):
+            if next_action:
+                next_action()
+            return
+        self.splash_next_action = next_action
+        self.splash_view = ui.ImageView(frame=self.bounds, flex="WH")
+        self.splash_view.image = ui.Image.from_path(image_path)
+        self.splash_view.content_mode = ui.CONTENT_SCALE_ASPECT_FILL
+        self.add_subview(self.splash_view)
+        self.splash_button = ui.Button(title="タップして続ける", frame=(32, self.height - 82, self.width - 64, 52), flex="WT")
+        self.splash_button.tint_color = "#B71C1C"
+        self.splash_button.font = ("<System-Bold>", 18)
+        self.splash_button.corner_radius = 12
+        self.splash_button.action = self.dismiss_splash
+        self.add_subview(self.splash_button)
+
+    def dismiss_splash(self, sender):
+        if self.splash_view:
+            self.splash_view.remove_from_superview()
+        if self.splash_button:
+            self.splash_button.remove_from_superview()
+        next_action = self.splash_next_action
+        self.splash_view = None
+        self.splash_button = None
+        self.splash_next_action = None
+        if next_action:
+            next_action()
 
     def build_header(self):
         self.title = ui.Label(frame=(12, 12, 351, 34))
@@ -806,7 +841,7 @@ monsters.forEach(m => {
         monster = self.active_monster
         self.enemy_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
         self.player_hp = min(self.player_hp, self.player_max_hp)
-        self.show_battle("モンスターが現れた！")
+        self.show_splash(lambda: self.show_battle("モンスターが現れた！"))
 
     def show_battle(self, message):
         self.clear_content()
@@ -1041,6 +1076,7 @@ monsters.forEach(m => {
         self.content.add_subview(again)
         self.style_buttons()
         self.content.content_size = (375, 240)
+        self.show_splash()
 
 
 def run():
