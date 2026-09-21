@@ -325,6 +325,7 @@ class GreenTerritoryGame(ui.View):
             if distance > radius:
                 self._show_mission_overlay("ミッション開始不可", "地点の範囲外です。\n地点まで約{:.0f}m\n必要範囲: {:.0f}m\n範囲内に移動してから再試行してください。".format(distance, radius), "再確認", self._check_location_before_minigame)
                 return
+            self._mission_location = current
             self.detail.text = "GPS確認OK（約{:.0f}m）\nミニゲームを開始します。".format(distance)
             self._start_minigame()
         except Exception as error:
@@ -403,7 +404,7 @@ class GreenTerritoryGame(ui.View):
 
     def _execute_mission_worker(self):
         try:
-            current = location.get_location()
+            current = getattr(self, "_mission_location", None) or location.get_location()
             if not current:
                 raise RuntimeError("現在地を取得できませんでした")
             sample = make_location_sample(team_id=self.team_id, device_id=self.device_id, client_time=time.strftime("%Y-%m-%dT%H:%M:%S%z"), location=current)
@@ -424,7 +425,7 @@ class GreenTerritoryGame(ui.View):
         self.refresh_view()
 
     def _mission_error(self, error):
-        self._show_mission_overlay("ミッション失敗", "{}\n得点と陣地は変化しません。".format(error), "もう一度挑戦", self._check_location_before_minigame)
+        self._show_mission_overlay("ミニゲーム成功後の陣地獲得失敗", "{}\nミニゲームは成功しています。\n得点と陣地は変化しません。".format(error), "GPSから再試行", self._check_location_before_minigame)
         self.action_button.enabled = True
         self.refresh_view()
 
