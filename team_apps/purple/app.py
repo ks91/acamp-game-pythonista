@@ -11,6 +11,10 @@ import time
 import ui
 import location
 
+APP_DIR = os.path.dirname(
+    globals().get("__file__", os.path.join(os.getcwd(), "team_apps", "purple", "app.py"))
+)
+
 try:
     import config
 except ImportError:
@@ -344,7 +348,7 @@ class PurpleMockGame(ui.View):
             filename = "tokyoman_half.jpeg"
         else:
             filename = "tokyoman_full.jpeg"
-        path = os.path.join(os.path.dirname(__file__), "assets", filename)
+        path = os.path.join(APP_DIR, "assets", filename)
         try:
             with open(path, "rb") as source:
                 self.character_image.image = ui.Image.from_data(source.read())
