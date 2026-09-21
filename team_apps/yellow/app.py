@@ -33,52 +33,45 @@ TEAM_COLOR = "#F9A825"
 COMPLETION_BONUS = 2
 
 SPOT_STORIES = {
-    "fan-cafe": {
-        "names": {"ファン カフェ", "ファンカフェ"},
-        "display_name": "ハチ公スフィンクス",
+    "sphinx": {
+        "names": {"ファン カフェ", "ファンカフェ", "513研修室", "渋谷ハチ公前"},
+        "ids": {"fan-cafe", "sphinx"},
+        "display_name": "スフィンクス",
         "item_name": "スフィンクス",
         "photo_label": "2枚目",
-        "image_filename": "sphinx.png",
+        "image_filename": "sphinx.jpeg",
         "rare_image_filename": "shubaru-sphinx.jpeg",
         "rare_display_name": "シュバルスフィンクス",
         "rare_item_name": "シュバルスフィンクス",
-        "description": "東京の忠犬ハチ公と、古代エジプトのスフィンクスが合体した守り神。",
+        "description": "センター棟テスト版では513研修室、東京版では渋谷ハチ公前を守るスフィンクス。",
     },
-    "ycap": {
-        "names": {"YCAP"},
+    "pyramid": {
+        "names": {"YCAP", "正面玄関", "ガラスのピラミッド"},
+        "ids": {"ycap", "pyramid"},
         "display_name": "ピラミッド",
         "item_name": "ピラミッド",
         "photo_label": "1枚目",
         "image_filename": "pyramid.jpeg",
-        "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
-    },
-    "center-building": {
-        "names": {"センター棟"},
-        "display_name": "ファラオ",
-        "item_name": "ファラオ",
-        "photo_label": "3枚目",
-        "image_filename": "pharaoh.jpeg",
-        "rare_image_filename": "shubaru-pharaoh.png",
-        "rare_display_name": "シュバルファラオ",
-        "rare_item_name": "シュバルファラオ",
-        "description": "センター棟を、みんなの活動を見守るファラオの神殿に見立てた場所。"
+        "rare_image_filename": "shubaru-pyramid.jpeg",
+        "rare_display_name": "シュバルピラミッド",
+        "rare_item_name": "シュバルピラミッド",
+        "description": "センター棟テスト版では正面玄関、東京版ではガラスのピラミッドを探す。",
     },
 }
 
-SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
+SPOT_ORDER = ("pyramid", "sphinx")
 CHARACTER_CATALOG = (
-    ("ycap", "ピラミッド"),
-    ("fan-cafe", "ハチ公スフィンクス"),
-    ("fan-cafe", "シュバルスフィンクス"),
-    ("center-building", "ファラオ"),
-    ("center-building", "シュバルファラオ"),
+    ("pyramid", "シュバルピラミッド"),
+    ("sphinx", "シュバルスフィンクス"),
+    ("pyramid", "ピラミッド"),
+    ("sphinx", "スフィンクス"),
 )
 
 
 def _story_for(place):
     for key in SPOT_ORDER:
         story = SPOT_STORIES[key]
-        if place.get("id") == key or place.get("name") in story["names"]:
+        if place.get("id") in story.get("ids", set()) or place.get("name") in story["names"]:
             return key, story
     return None, None
 
@@ -116,7 +109,8 @@ class YellowEgyptGame(ui.View):
             )
             return
         self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
-        self.refresh()
+        self.status_label.text = "ゲームを最初の状態に戻しています…"
+        threading.Thread(target=self._restart_test_session, daemon=True).start()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
         label = ui.Label(frame=frame)
@@ -327,11 +321,10 @@ class YellowEgyptGame(ui.View):
         right_x = left_width + 24
         right_width = self.width - right_x - 24
         catalog = [
-            ("ycap", "ピラミッド", "pyramid.jpeg"),
-            ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
-            ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
-            ("center-building", "ファラオ", "pharaoh.jpeg"),
-            ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
+            ("pyramid", "シュバルピラミッド", "shubaru-pyramid.jpeg"),
+            ("sphinx", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
+            ("pyramid", "ピラミッド", "pyramid.jpeg"),
+            ("sphinx", "スフィンクス", "sphinx.jpeg"),
         ]
         self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, self.width - 32, 44), lambda button: self._render())
@@ -448,8 +441,21 @@ class YellowEgyptGame(ui.View):
             with urlopen(request, timeout=15) as response:
                 result = json.loads(response.read().decode("utf-8"))
             ui.delay(lambda: self._handle_restart_result(result), 0)
-        except (HTTPError, URLError, OSError, ValueError) as error:
-            ui.delay(lambda: self._handle_restart_error(error), 0)
+        except HTTPError as error:
+            try:
+                body = error.read().decode("utf-8").strip()
+            except Exception:
+                body = ""
+            detail = body or getattr(error, "reason", "") or "詳細なし"
+            error_text = "HTTP {}: {}".format(error.code, detail)
+            ui.delay(lambda message=error_text: self._handle_restart_error(message), 0)
+        except URLError as error:
+            reason = getattr(error, "reason", "") or "詳細なし"
+            error_text = "通信エラー: {}".format(reason)
+            ui.delay(lambda message=error_text: self._handle_restart_error(message), 0)
+        except (OSError, ValueError) as error:
+            error_text = "{}: {}".format(type(error).__name__, str(error) or "詳細なし")
+            ui.delay(lambda message=error_text: self._handle_restart_error(message), 0)
 
     def _handle_restart_result(self, result):
         if self.reset_button is not None:
@@ -461,11 +467,14 @@ class YellowEgyptGame(ui.View):
         self.refresh()
         self._render("テストを最初からに戻しました。")
 
-    def _handle_restart_error(self, error):
-        if self.reset_button is not None:
-            self.reset_button.enabled = True
-            self.reset_button.title = "最初からやり直す"
-        self._render_message("テストを最初からに戻せませんでした。\n{}".format(error))
+    def _handle_restart_error(self, error_message):
+        if self.reset_button is None:
+            self.refresh()
+            self._render("最初からやり直せませんでした。\n{}".format(error_message))
+            return
+        self.reset_button.enabled = True
+        self.reset_button.title = "最初からやり直す"
+        self._render_message("テストを最初からに戻せませんでした。\n{}".format(error_message))
 
     def update_location(self, sender):
         self.status_label.text = "位置情報を取得しています…"
