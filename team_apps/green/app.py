@@ -4,6 +4,7 @@ import math
 import random
 import threading
 import time
+import traceback
 from urllib.request import Request, urlopen
 
 import location
@@ -42,6 +43,17 @@ class TerritoryMap(ui.View):
         ui.delay(self._create_webview, 0.2)
 
     def _create_webview(self):
+        try:
+            self._create_webview_inner()
+        except Exception as exc:
+            trace = traceback.format_exc()
+            print("[green] WebView生成例外: " + trace)
+            try:
+                ui.alert("Green WebViewエラー", "{}\n\n{}".format(exc, trace), "閉じる")
+            except Exception:
+                pass
+
+    def _create_webview_inner(self):
         if self.web is not None:
             return
         self.web = ui.WebView(frame=self.bounds, flex="WH")
@@ -100,6 +112,7 @@ class GreenTerritoryGame(ui.View):
         self.selected_id = None
         self._refreshing = False
         self._last_api_error = ""
+        self._debug_log = []
         self._mission_assignments = {}
 
         self.header = ui.Label(frame=(16, 12, 280, 54), font=("<system-bold>", 17), number_of_lines=2)
@@ -158,18 +171,29 @@ class GreenTerritoryGame(ui.View):
         return ApiClient(
             base_url=base_url,
             token=token,
-            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
-            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
         )
 
     @staticmethod
     def _build_model(definition, state, team_id):
-        claimed = set(state.get("claimed_places", []))
-        territory_by_id = {item.get("place_id"): item for item in (state.get("territories") or [])}
+        if not isinstance(definition, dict):
+            raise ValueError("ゲーム定義が辞書ではありません")
+        if not isinstance(state, dict):
+            raise ValueError("チーム状態が辞書ではありません")
+        claimed_places = state.get("claimed_places") or []
+        if not isinstance(claimed_places, (list, tuple, set)):
+            raise ValueError("claimed_placesの形式が不正です")
+        claimed = set(claimed_places)
+        territories = state.get("territories") or []
+        if not isinstance(territories, (list, tuple)):
+            raise ValueError("territoriesの形式が不正です")
+        territory_by_id = {item.get("place_id"): item for item in territories if isinstance(item, dict) and item.get("place_id")}
         use_demo_opponents = False
         opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
         configured_places = definition.get("places") or []
+        if not isinstance(configured_places, (list, tuple)):
+            raise ValueError("placesの形式が不正です")
+        configured_places = [place for place in configured_places if isinstance(place, dict) and place.get("name")]
         center_places = [place for place in configured_places if place.get("name") in CENTER_TEST_PLACE_NAMES]
         scenario_places = center_places if len(center_places) >= 2 else list(LOCAL_CENTER_TEST_PLACES)
         for index, place in enumerate(scenario_places):
@@ -201,8 +225,8 @@ class GreenTerritoryGame(ui.View):
                 role = "own_base"
             else:
                 role = "neutral"
-            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（攻略可能）", "enemy_base": "相手陣地（攻略可能）", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
-            action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
+            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（上書き不可）", "enemy_base": "相手陣地（上書き不可）", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
+            action_label = "状態確認" if owner == team_id else ("上書き不可" if owner else "ミッション開始")
             mission_text = place.get("mission", place.get("description", ""))
             if "猫" in mission_text or "ねこ" in mission_text:
                 mission_kind = "cat"
@@ -282,6 +306,13 @@ class GreenTerritoryGame(ui.View):
     def _selected_place_distance_text(self, place):
         return place.get("distance_text", "GPS取得不可")
 
+    def _debug(self, message):
+        """Keep a short, secret-free trace visible after a failed refresh."""
+        entry = "{} {}".format(time.strftime("%H:%M:%S"), message)
+        self._debug_log.append(entry)
+        self._debug_log = self._debug_log[-24:]
+        print("[green] " + entry)
+
     def refresh_now(self, sender=None):
         if self.api_client is None:
             self.model["offline"] = False
@@ -349,11 +380,21 @@ class GreenTerritoryGame(ui.View):
         definition = None
         state = None
         error = None
+        self._debug_log = []
+        self._debug("状態更新開始")
         try:
+            self._debug("ゲーム定義を取得中")
             definition = self.api_client.get_game_definition()
+            self._debug("ゲーム定義を取得完了")
+            self._debug("チーム状態を取得中")
             state = self.api_client.get_team_state()
+            self._debug("チーム状態を取得完了")
         except Exception as exc:
             error = exc
+            trace = traceback.format_exc()
+            self._debug("例外: {}".format(type(exc).__name__))
+            for line in trace.rstrip().splitlines():
+                self._debug(line)
         ui.delay(lambda: self._apply_remote_state(definition, state, error), 0.0)
 
     def _assign_random_missions(self):
@@ -365,13 +406,31 @@ class GreenTerritoryGame(ui.View):
             place["mission_kind"] = self._mission_assignments[place_id]
 
     def _apply_remote_state(self, definition, state, error):
+        try:
+            self._apply_remote_state_inner(definition, state, error)
+        except Exception as exc:
+            trace = traceback.format_exc()
+            self._debug("画面反映中の例外: {}".format(type(exc).__name__))
+            for line in trace.rstrip().splitlines():
+                self._debug(line)
+            self._refreshing = False
+            self._last_api_error = "{}\n{}".format(exc, "\n".join(self._debug_log))
+            self.model = self._offline_model()
+            self.model["offline"] = True
+            self.model["connection_status"] = "offline"
+            self.detail.text = "状態反映エラー\n{}".format(self._last_api_error)
+            self.action_button.title = "ログを確認してください"
+            self.action_button.enabled = False
+
+    def _apply_remote_state_inner(self, definition, state, error):
         self._refreshing = False
         if error is None and definition is not None and state is not None:
             self.session_id = (state.get("game_session_id") if isinstance(state, dict) else None) or (getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id)
             self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
         else:
-            self._last_api_error = str(error) if error is not None else "APIからゲーム状態を取得できませんでした"
+            trace_text = "\n".join(self._debug_log)
+            self._last_api_error = "{}\n{}".format(str(error) if error is not None else "APIからゲーム状態を取得できませんでした", trace_text)
             fallback_state = {"score": self.model.get("score", 0), "territories": [], "claimed_places": []}
             self.model = self._build_model({"places": list(LOCAL_CENTER_TEST_PLACES)}, fallback_state, self.team_id)
             self._assign_random_missions()
@@ -429,6 +488,9 @@ class GreenTerritoryGame(ui.View):
             return
         if place["owner"] == self.team_id:
             self._show_mission_overlay("陣地の状態", "{}\n所有者: {}\n得点: {}点".format(place["name"], place["owner_label"], place["points"]), "閉じる", self._close_mission_overlay)
+            return
+        if place["owner"] and place["owner"] != self.team_id:
+            self._show_mission_overlay("相手陣地（上書き不可）", "{}\n所有者: {}\nこのテストでは相手陣地を上書きできません。".format(place["name"], place["owner_label"]), "閉じる", self._close_mission_overlay)
             return
         self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: 先にGPSで地点範囲を確認し、その後ミニゲームをクリア".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._check_location_before_minigame)
 
@@ -583,7 +645,15 @@ class GreenTerritoryGame(ui.View):
 
 
 def run():
-    GreenTerritoryGame().present("fullscreen")
+    try:
+        GreenTerritoryGame().present("fullscreen")
+    except Exception as exc:
+        trace = traceback.format_exc()
+        print("[green] 起動例外: " + trace)
+        try:
+            ui.alert("Green起動エラー", "{}\n\n{}".format(exc, trace), "閉じる")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
