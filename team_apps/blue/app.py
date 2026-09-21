@@ -1,6 +1,7 @@
 """Pythonista 3 one-screen interface for a team's location game."""
 
 import datetime
+import json
 import os
 import uuid
 from urllib.error import HTTPError
@@ -14,6 +15,7 @@ from toolkit.check_in import CheckInService
 from toolkit.event_queue import EventQueue
 from toolkit.game_view_model import build_game_view_model
 from toolkit.location_payload import make_location_sample
+from team_apps.blue.elevator_locations import classify_location
 from toolkit.quest_flow import build_quest_cards, capture_instruction
 
 
@@ -29,6 +31,8 @@ class GameView(ui.View):
         )
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
+        self.elevator_locations_path = os.path.join(self.repository_directory, "confirmed-elevators.json")
+        self.confirmed_elevators = self._load_confirmed_elevators()
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -45,6 +49,18 @@ class GameView(ui.View):
 
     def show_message(self, message):
         self.status_label.text = message
+
+    def _load_confirmed_elevators(self):
+        try:
+            with open(self.elevator_locations_path, "r") as source:
+                locations = json.load(source)
+            return locations if isinstance(locations, list) else []
+        except (OSError, ValueError):
+            return []
+
+    def _save_confirmed_elevators(self):
+        with open(self.elevator_locations_path, "w") as destination:
+            json.dump(self.confirmed_elevators, destination)
 
     def refresh(self):
         try:
@@ -171,10 +187,49 @@ class GameView(ui.View):
         self._photo_received(image, "撮影した写真")
 
     def _photo_received(self, image, source_label):
+        self._clear_content()
         self.show_message(
             "{}を受け取りました。\n".format(source_label)
-            + "画像判定とサーバー送信は未実装です。\n"
-            + capture_instruction(self.selected_quest)
+            + "人がエレベーターだと確認したら、GPSで同じ位置か調べます。\n"
+            + "写真はサーバーへ送信しません。"
+        )
+        self._add_button(
+            "人が確認した → GPSで位置を比べる",
+            12,
+            self.confirm_elevator_position,
+            self.status_label.text_color,
+        )
+        self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, self.status_label.text_color)
+        self.scroll.content_size = (self.width, 140)
+
+    def confirm_elevator_position(self, sender):
+        self.show_message("GPS位置を取得しています…")
+        location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            location.stop_updates()
+        if position is None:
+            self.show_message("位置情報を取得できません。屋外で位置情報の許可と電波を確認してください。")
+            return
+        candidate = {
+            "latitude": position["latitude"],
+            "longitude": position["longitude"],
+        }
+        result = classify_location(self.confirmed_elevators, candidate, threshold_m=10)
+        if result["kind"] == "same_position_group":
+            self.show_message(
+                "同じ位置グループのエレベーターです。\n"
+                "階違いの可能性があります。新しい発見には数えません。"
+            )
+            return
+        self.confirmed_elevators.append(candidate)
+        self._save_confirmed_elevators()
+        self.show_message(
+            "別の位置グループのエレベーターを発見！\n"
+            "現在 {} か所。GPS記録はこのiPad内に保存しました。".format(
+                len(self.confirmed_elevators)
+            )
         )
 
     def back_to_quests(self, sender):
