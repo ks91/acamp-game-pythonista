@@ -6,6 +6,10 @@ SOURCE = Path(__file__).with_name("app.py").read_text(encoding="utf-8")
 
 
 class RedMapSafetyTests(unittest.TestCase):
+    def test_gallery_launch_does_not_load_splash_artwork(self):
+        init = SOURCE[SOURCE.index("def __init__"):SOURCE.index("def refresh_server_scenario")]
+        self.assertNotIn("self.show_splash(", init)
+
     def test_callback_targets_accept_the_sender_argument(self):
         import ast
         tree = ast.parse(SOURCE)
