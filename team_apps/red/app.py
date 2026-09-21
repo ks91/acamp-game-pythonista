@@ -122,6 +122,16 @@ class RedPrototype(ui.View):
         self.content = ui.ScrollView(frame=(0, 112, 375, 555), flex="WH")
         self.add_subview(self.content)
 
+    def style_buttons(self):
+        for button in self.content.subviews:
+            if not isinstance(button, ui.Button):
+                continue
+            button.font = ("<System-Bold>", 16)
+            button.corner_radius = 10
+            button.border_width = 1
+            button.border_color = "#FFFFFF"
+            button.alpha = 0.96
+
     def clear_content(self):
         for view in list(self.content.subviews):
             self.content.remove_subview(view)
@@ -202,6 +212,7 @@ class RedPrototype(ui.View):
             locked.alignment = ui.ALIGN_CENTER
             locked.font = ("<System-Bold>", 17)
             self.content.add_subview(locked)
+            self.style_buttons()
             self.content.content_size = (375, y + 90)
             return
         for monster in self.monsters:
@@ -245,6 +256,7 @@ class RedPrototype(ui.View):
                 boss_button.action = self.start_miniboss
                 self.content.add_subview(boss_button)
                 y += 62
+        self.style_buttons()
         self.content.content_size = (375, y + 12)
 
     def start_selected_battle(self, sender):
@@ -327,6 +339,7 @@ class RedPrototype(ui.View):
         back.tint_color = "#C62828"
         back.action = lambda button: self.show_battle_selection()
         self.content.add_subview(back)
+        self.style_buttons()
         self.content.content_size = (375, y + 80)
 
     def show_interactive_map(self):
@@ -334,6 +347,7 @@ class RedPrototype(ui.View):
             "ゲーム内OpenStreetMap\n"
             "指で移動・ピンチで拡大縮小できます。敵の位置も表示します。"
         )
+        self.style_buttons()
         self.content.content_size = (375, 790)
         self.open_map_view = ui.WebView(frame=(0, 0, 375, 720))
         self.content.add_subview(self.open_map_view)
@@ -355,6 +369,7 @@ class RedPrototype(ui.View):
         back.tint_color = "#C62828"
         back.action = self.close_map
         self.content.add_subview(back)
+        self.style_buttons()
 
     def close_map(self, sender):
         self.stop_location_tracking()
@@ -563,6 +578,7 @@ monsters.forEach(m => {
         back.tint_color = "#C62828"
         back.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(back)
+        self.style_buttons()
         self.content.content_size = (375, y + 70)
 
     def open_google_maps(self, sender):
@@ -606,6 +622,7 @@ monsters.forEach(m => {
         back = ui.Button(title="マップに戻る", frame=(16, y, 343, 46))
         back.action = lambda sender: self.show_map()
         self.content.add_subview(back)
+        self.style_buttons()
         self.content.content_size = (375, y + 70)
 
     def start_monster_from_map(self, sender):
@@ -634,6 +651,7 @@ monsters.forEach(m => {
         back_button = ui.Button(title="地図にもどる", frame=(16, 245, 343, 44))
         back_button.action = lambda sender: self.show_map()
         self.content.add_subview(back_button)
+        self.style_buttons()
         self.content.content_size = (375, 310)
 
     def start_miniboss(self, sender):
@@ -712,6 +730,7 @@ monsters.forEach(m => {
             len(self.inventory), self.capacity, ", ".join(summary) or "なし"
         )
         self.content.add_subview(inventory_label)
+        self.style_buttons()
         self.content.content_size = (375, y + 80)
 
     def use_artifact(self, sender):
@@ -872,6 +891,7 @@ monsters.forEach(m => {
         again.tint_color = "#C62828"
         again.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(again)
+        self.style_buttons()
         self.content.content_size = (375, 240)
 
 
