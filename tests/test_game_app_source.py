@@ -46,6 +46,31 @@ class GameAppSourceTests(unittest.TestCase):
         self.assertIn("select_photo", attributes)
         self.assertIn("take_photo", attributes)
 
+    def test_received_photo_is_previewed_before_human_confirmation(self):
+        methods = {
+            node.name: node
+            for node in ast.walk(self.tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        received = methods["_photo_received"]
+        attributes = {
+            node.attr
+            for node in ast.walk(received)
+            if isinstance(node, ast.Attribute)
+        }
+        calls = {
+            node.func.attr
+            for node in ast.walk(received)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        }
+        names = {
+            node.id
+            for node in ast.walk(received)
+            if isinstance(node, ast.Name)
+        }
+        self.assertIn("ImageView", attributes)
+        self.assertIn("add_subview", calls)
+
     def test_capture_status_does_not_claim_unimplemented_upload_is_ready(self):
         string_values = {
             node.value
