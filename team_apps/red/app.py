@@ -3,6 +3,7 @@
 import json
 import math
 import random
+import time
 import webbrowser
 
 import location
@@ -87,6 +88,7 @@ class RedPrototype(ui.View):
         self.current_screen = "map"
         self.unlocked_destinations = set()
         self.defeated_bosses = set()
+        self.defeated_monsters = {}
         self.active_monster = None
         self.last_position = None
         self.last_accuracy = None
@@ -132,6 +134,15 @@ class RedPrototype(ui.View):
         for item in self.inventory:
             counts[item] = counts.get(item, 0) + 1
         return counts
+
+    def monster_is_active(self, monster):
+        respawn_at = self.defeated_monsters.get(monster["name"])
+        if respawn_at is None:
+            return True
+        if time.time() >= respawn_at:
+            self.defeated_monsters.pop(monster["name"], None)
+            return True
+        return False
 
     def show_battle_selection(self):
         self.current_screen = "battle_selection"
@@ -181,6 +192,8 @@ class RedPrototype(ui.View):
             self.content.content_size = (375, y + 90)
             return
         for monster in self.monsters:
+            if not self.monster_is_active(monster):
+                continue
             if self.monster_destinations[monster["name"]] not in self.unlocked_destinations:
                 continue
             card = ui.Label(frame=(16, y, 343, 58))
@@ -424,6 +437,8 @@ class RedPrototype(ui.View):
         ]
         markers = []
         for index, monster in enumerate(self.monsters):
+            if not self.monster_is_active(monster):
+                continue
             destination_id = self.monster_destinations[monster["name"]]
             destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
             offset = (index % 3 - 1) * 0.00012
@@ -550,7 +565,8 @@ monsters.forEach(m => {
         destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
         monsters = [
             monster for monster in self.monsters
-            if self.monster_destinations[monster["name"]] == destination_id
+            if self.monster_is_active(monster)
+            and self.monster_destinations[monster["name"]] == destination_id
         ]
         self.clear_content()
         self.set_status("{}の足跡\n少しずつ見つかった！".format(destination["name"]))
@@ -789,6 +805,8 @@ monsters.forEach(m => {
         if won:
             if self.active_monster.get("boss"):
                 self.defeated_bosses.add(self.active_monster["name"])
+            else:
+                self.defeated_monsters[self.active_monster["name"]] = time.time() + 180
             hp_gain = 0 if self.active_monster.get("boss") else MAX_HP_GAIN_BY_STAR[self.active_monster["stars"]]
             self.player_max_hp += hp_gain
             self.player_hp = self.player_max_hp
