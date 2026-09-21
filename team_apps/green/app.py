@@ -126,7 +126,7 @@ class GreenTerritoryGame(ui.View):
         self.restart_button.font = ("<system-bold>", 13)
         self.restart_button.background_color = (0.05, 0.18, 0.12, 0.88)
         self.add_subview(self.restart_button)
-        self.legend_label = ui.Label(frame=(180, 66, 300, 30), text="◆相手陣地（攻略可能）　○未占領　⚑自班　⌂自班拠点", font=("<system>", 10), number_of_lines=2)
+        self.legend_label = ui.Label(frame=(180, 66, 300, 30), text="◆相手陣地（上書き不可）　○未占領　⚑自班　⌂自班拠点", font=("<system>", 10), number_of_lines=2)
         self.legend_label.background_color = (0, 0, 0, 0.68)
         self.add_subview(self.legend_label)
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
@@ -169,17 +169,10 @@ class GreenTerritoryGame(ui.View):
         token = getattr(config, "GAME_TOKEN", "")
         if not base_url or not token or token == "set-at-game-start":
             return None
-        try:
-            return ApiClient(
-                base_url=base_url,
-                token=token,
-                game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
-                game_mode=getattr(config, "SELECTED_GAME_MODE", None),
-            )
-        except TypeError:
-            # An iPad with an incomplete Pull may still have the old shared
-            # client. It can open safely, but must Pull main before mode tests.
-            return ApiClient(base_url=base_url, token=token)
+        return ApiClient(
+            base_url=base_url,
+            token=token,
+        )
 
     @staticmethod
     def _build_model(definition, state, team_id, game_mode="center_test"):
