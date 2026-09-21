@@ -289,9 +289,11 @@ class GreenTerritoryGame(ui.View):
         if place is None:
             if status == "offline" and self._last_api_error:
                 self.detail.text = "API接続エラー\n{}".format(self._last_api_error)
+            elif self.game_mode == "tokyo" and not self.model.get("places"):
+                self.detail.text = "東京版の地点が未登録です。\nAPIに地点が登録されると、地図上から選択できます。"
             else:
                 self.detail.text = "{}\n地図上の旗をタップすると地点の詳細を表示します。".format(self._diagnostic_text) if self._diagnostic_text else "地図上の旗をタップすると地点の詳細を表示します。"
-            self.action_button.title = "地点を選択してください"
+            self.action_button.title = "東京版の地点が未登録" if self.game_mode == "tokyo" and not self.model.get("places") else "地点を選択してください"
             self.action_button.enabled = False
             return
         kind = "★ボス地点" if place["is_boss"] else "通常地点"
