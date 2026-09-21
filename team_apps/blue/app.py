@@ -21,6 +21,9 @@ from team_apps.blue.elevator_locations import classify_location
 from toolkit.quest_flow import build_quest_cards, capture_instruction
 
 
+LOCATION_MATCH_THRESHOLD_M = 30
+
+
 class GameView(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
@@ -51,6 +54,8 @@ class GameView(ui.View):
         self.definition = None
         self.state = None
         self.selected_quest = None
+        self.pending_photo = None
+        self.pending_photo_location = None
         self.in_test_game = False
         self.refresh()
 
@@ -330,7 +335,7 @@ class GameView(ui.View):
         quest_id = self.selected_quest["id"]
         locations = self._location_list(self.registered_quest_locations.get(quest_id))
         already_saved = any(
-            classify_location([saved], registered, threshold_m=20)["kind"] == "same_position_group"
+            classify_location([saved], registered, threshold_m=LOCATION_MATCH_THRESHOLD_M)["kind"] == "same_position_group"
             for saved in locations
         )
         if already_saved:
@@ -420,6 +425,16 @@ class GameView(ui.View):
         back_button.tint_color = accent_color
         self.scroll.content_size = (self.width, 200)
 
+    def _get_current_location(self):
+        location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            location.stop_updates()
+        if position is None:
+            return None
+        return {"latitude": position["latitude"], "longitude": position["longitude"]}
+
     def select_photo(self, sender):
         try:
             import photos
@@ -430,7 +445,11 @@ class GameView(ui.View):
         if image is None:
             self.show_message("写真の選択をキャンセルしました。\n" + capture_instruction(self.selected_quest))
             return
-        self._photo_received(image, "選択した写真")
+        captured_location = self._get_current_location()
+        if captured_location is None:
+            self.show_message("写真は選択できましたが、位置情報を取得できませんでした。")
+            return
+        self._photo_received(image, "選択した写真", captured_location)
 
     def take_photo(self, sender):
         try:
@@ -442,7 +461,11 @@ class GameView(ui.View):
         if image is None:
             self.show_message("写真の撮影をキャンセルしました。\n" + capture_instruction(self.selected_quest))
             return
-        self._photo_received(image, "撮影した写真")
+        captured_location = self._get_current_location()
+        if captured_location is None:
+            self.show_message("写真は撮影できましたが、位置情報を取得できませんでした。")
+            return
+        self._photo_received(image, "撮影した写真", captured_location)
 
     @staticmethod
     def _preview_image(image):
@@ -453,7 +476,9 @@ class GameView(ui.View):
         image.save(buffer, format="PNG")
         return ui.Image.from_data(buffer.getvalue())
 
-    def _photo_received(self, image, source_label):
+    def _photo_received(self, image, source_label, captured_location):
+        self.pending_photo = image
+        self.pending_photo_location = captured_location
         self._clear_content()
         self.show_message(
             "{}を受け取りました。\n".format(source_label)
@@ -471,18 +496,32 @@ class GameView(ui.View):
             self.confirm_elevator_position,
             self.status_label.text_color,
         )
-        self._add_button("クエスト画面にもどる", 264, self.back_to_capture, self.status_label.text_color)
-        self.scroll.content_size = (self.width, 332)
+        self._add_button(
+            "写真を端末に保存",
+            264,
+            self.save_pending_photo,
+            self.status_label.text_color,
+        )
+        self._add_button("クエスト画面にもどる", 324, self.back_to_capture, self.status_label.text_color)
+        self.scroll.content_size = (self.width, 392)
+
+    def save_pending_photo(self, sender):
+        if self.pending_photo is None:
+            self.show_message("保存する写真がありません。")
+            return
+        try:
+            import photos
+            photos.save_image(self.pending_photo)
+        except (ImportError, OSError) as error:
+            self.show_message("写真を保存できません。\n{}".format(error))
+            return
+        self.show_message("写真を端末の写真アプリに保存しました。")
 
     def confirm_elevator_position(self, sender):
-        self.show_message("GPS位置を取得しています…")
-        location.start_updates()
-        try:
-            position = location.get_location()
-        finally:
-            location.stop_updates()
+        self.show_message("写真を撮った時点のGPS位置で判定しています…")
+        position = self.pending_photo_location
         if position is None:
-            self.show_message("位置情報を取得できません。屋外で位置情報の許可と電波を確認してください。")
+            self.show_message("写真撮影時の位置情報がありません。もう一度撮影してください。")
             return
         candidate = {
             "latitude": position["latitude"],
@@ -502,9 +541,9 @@ class GameView(ui.View):
         )
         nearest_distance = self._distance_m(candidate, nearest_target)
         distance_message = "最寄りの保存位置まで約{}m".format(round(nearest_distance))
-        if nearest_distance > 20:
+        if nearest_distance > LOCATION_MATCH_THRESHOLD_M:
             self.render_capture_screen(self.status_label.text_color)
-            self.show_message("{}\n20mを超えているため失敗です。".format(distance_message))
+            self.show_message("{}\n{}mを超えているため失敗です。".format(distance_message, LOCATION_MATCH_THRESHOLD_M))
             return
         quest_id = self.selected_quest["id"]
         found = set(self.quest_progress.get(quest_id, []))
