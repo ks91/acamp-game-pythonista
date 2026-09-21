@@ -332,30 +332,29 @@ class GreenTerritoryGame(ui.View):
         self._close_mission_overlay()
         self.action_button.enabled = False
         self.detail.text = "GPSを更新中…範囲内か確認しています。"
-        threading.Thread(target=self._fresh_location_worker, args=(place,), daemon=True).start()
-
-    def _fresh_location_worker(self, place):
-        current = None
-        error = None
         try:
             location.start_updates()
-            time.sleep(3.0)
+            self._location_check_place = place
+            ui.delay(self._finish_location_check_on_main, 3.0)
+        except Exception as error:
+            self._show_mission_overlay("GPS開始失敗", "{}\nミニゲームは開始しません。".format(error), "再確認", self._check_location_before_minigame)
+            self.action_button.enabled = True
+
+    def _finish_location_check_on_main(self):
+        place = getattr(self, "_location_check_place", None)
+        try:
             current = location.get_location()
-        except Exception as exc:
-            error = exc
+            self._evaluate_location_for_minigame(place, current)
+        except Exception as error:
+            self._show_mission_overlay("GPS確認失敗", "{}\nミニゲームは開始しません。".format(error), "再確認", self._check_location_before_minigame)
+            self.action_button.enabled = True
         finally:
             try:
                 location.stop_updates()
             except Exception:
                 pass
-        ui.delay(lambda current=current, error=error: self._finish_location_check(place, current, error), 0)
+            self._location_check_place = None
 
-    def _finish_location_check(self, place, current, error=None):
-        if error is not None:
-            self._show_mission_overlay("GPS確認失敗", "{}\nミニゲームは開始しません。".format(error), "再確認", self._check_location_before_minigame)
-            self.action_button.enabled = True
-            return
-        self._evaluate_location_for_minigame(place, current)
     def _evaluate_location_for_minigame(self, place, current):
         try:
             if not current:
