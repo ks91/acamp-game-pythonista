@@ -77,20 +77,7 @@ class GameView(ui.View):
         with open(self.quest_locations_path, "w") as destination:
             json.dump(self.registered_quest_locations, destination)
 
-    def _ensure_test_game_locations(self):
-        defaults = {
-            "513研修室": {"latitude": 35.67407073059871, "longitude": 139.69317184609355},
-            "事務所側入口": {"latitude": 35.67465399946227, "longitude": 139.69315284937827},
-            "カフェテリアふじ出口": {"latitude": 35.675026446445194, "longitude": 139.6939601327121},
-            "正面入口": {"latitude": 35.67492708549511, "longitude": 139.69340021778783},
-        }
-        changed = False
-        for name, location_value in defaults.items():
-            if not self._location_list(self.registered_quest_locations.get(name)):
-                self.registered_quest_locations[name] = [location_value]
-                changed = True
-        if changed:
-            self._save_registered_quest_locations()
+    def _load_registered_quest_locations(self):
         paths = [self.quest_locations_path, self.legacy_quest_locations_path]
         for path in paths:
             try:
@@ -108,6 +95,22 @@ class GameView(ui.View):
             except (OSError, ValueError):
                 continue
         return {}
+
+    def _ensure_test_game_locations(self):
+        defaults = {
+            "513研修室": {"latitude": 35.67407073059871, "longitude": 139.69317184609355},
+            "事務所側入口": {"latitude": 35.67465399946227, "longitude": 139.69315284937827},
+            "カフェテリアふじ出口": {"latitude": 35.675026446445194, "longitude": 139.6939601327121},
+            "正面入口": {"latitude": 35.67492708549511, "longitude": 139.69340021778783},
+        }
+        changed = False
+        for name, location_value in defaults.items():
+            if not self._location_list(self.registered_quest_locations.get(name)):
+                self.registered_quest_locations[name] = [location_value]
+                changed = True
+        if changed:
+            self._save_registered_quest_locations()
+
 
     def _load_completed_quests(self):
         try:
