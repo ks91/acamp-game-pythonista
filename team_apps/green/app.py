@@ -4,6 +4,7 @@ import math
 import random
 import threading
 import time
+from urllib.request import Request, urlopen
 
 import location
 import ui
