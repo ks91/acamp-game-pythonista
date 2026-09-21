@@ -262,12 +262,30 @@ class PurpleMockGame(ui.View):
 
     def _build_ui(self):
         width = self.width
-        panel_width = width * 0.5
-        map_x = panel_width
-        map_width = width - panel_width
+        left_width = width * 0.25
+        character_width = width * 0.25
+        map_x = left_width + character_width
+        map_width = width - map_x
+        panel_width = left_width
         self._label("東京マン腸脱出ゲーム", (6, 8, panel_width - 12, 28), ("<system-bold>", 16), align=ui.ALIGN_CENTER)
         self.mock_label = self._label("仮動作：GPSあり\nサーバー通信なし", (6, 38, panel_width - 12, 32), ("<system-bold>", 10), "#D84315", ui.ALIGN_CENTER)
         self.status_label = self._label("", (6, 74, panel_width - 12, 52), ("<system-bold>", 12), align=ui.ALIGN_CENTER)
+
+        self.character_panel = ui.View(frame=(left_width, 0, character_width, self.height))
+        self.character_panel.background_color = "#F3F0F4"
+        self.add_subview(self.character_panel)
+        self.character_health_label = ui.Label(frame=(8, 8, character_width - 16, 38))
+        self.character_health_label.text = "東京マン体力\n{}/{}".format(self.boss_hp, START_BOSS_HP)
+        self.character_health_label.font = ("<system-bold>", 15)
+        self.character_health_label.text_color = "white"
+        self.character_health_label.background_color = "#45205C"
+        self.character_health_label.alignment = ui.ALIGN_CENTER
+        self.character_health_label.number_of_lines = 0
+        self.character_panel.add_subview(self.character_health_label)
+        self.character_image = ui.ImageView(frame=(8, 54, character_width - 16, self.height - 62))
+        self.character_image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        self.character_panel.add_subview(self.character_image)
+        self._update_tokyoman_art()
 
         self.map_view = ui.WebView(frame=(map_x, 0, map_width, self.height))
         self.maps_key = getattr(config, "GOOGLE_MAPS_API_KEY", "")
@@ -276,14 +294,6 @@ class PurpleMockGame(ui.View):
         else:
             self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
         self.add_subview(self.map_view)
-        self.map_view.hidden = True
-        self.boss_bar = ui.Label(frame=(map_x + 12, 16, map_width - 24, 34), font=("<system-bold>", 16), alignment=ui.ALIGN_CENTER)
-        self.boss_bar.background_color = "#4A148C"
-        self.boss_bar.text_color = "white"
-        self.add_subview(self.boss_bar)
-        self.boss_image = ui.ImageView(frame=(map_x + 12, 58, map_width - 24, self.height - 70), flex="H")
-        self.boss_image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
-        self.add_subview(self.boss_image)
 
         self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
         self.gps_button.font = ("<system-bold>", 11)
@@ -335,10 +345,10 @@ class PurpleMockGame(ui.View):
         path = os.path.join(os.path.dirname(__file__), "assets", filename)
         try:
             with open(path, "rb") as source:
-                self.boss_image.image = ui.Image.from_data(source.read())
+                self.character_image.image = ui.Image.from_data(source.read())
         except OSError:
-            self.boss_image.image = None
-        self.boss_bar.text = "東京マン体力: {}/{}".format(self.boss_hp, START_BOSS_HP)
+            self.character_image.image = None
+        self.character_health_label.text = "東京マン体力\n{}/{}".format(self.boss_hp, START_BOSS_HP)
 
     def _refresh(self, message=""):
         self._update_tokyoman_art()
