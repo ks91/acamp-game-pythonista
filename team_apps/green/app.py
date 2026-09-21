@@ -203,9 +203,10 @@ class GreenTerritoryGame(ui.View):
             self.action_button.enabled = False
             return
         kind = "★ボス地点" if place["is_boss"] else "通常地点"
-        self.detail.text = "{} [{}]\n{}　得点: {}点\nミッション: {}".format(place["name"], kind, place["role_label"], place["points"], place["mission"] or "詳細を確認")
-        self.action_button.title = place["action_label"] if not offline else "オフラインのためプレイ不可"
-        self.action_button.enabled = not offline
+        mission_text = place["mission"] or "この地点に到着してミッションを達成する"
+        self.detail.text = "{} [{}]\n{}　得点: {}点\nミッション: {}\n成功条件: 地点の範囲内で開始".format(place["name"], kind, place["role_label"], place["points"], mission_text)
+        self.action_button.title = place["action_label"] if not offline else "接続が必要です"
+        self.action_button.enabled = True
 
     def refresh_now(self, sender=None):
         if self.api_client is None:
@@ -280,12 +281,17 @@ class GreenTerritoryGame(ui.View):
 
     def run_mission(self, sender):
         place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
-        if place is None or self.model.get("connection_status") != "online":
+        if place is None:
+            self.detail.text = "先に地図上の地点を選択してください。"
+            return
+        if self.model.get("connection_status") != "online":
+            status = self.model.get("connection_status", "接続状態不明")
+            self._show_mission_overlay("接続が必要です", "現在の状態: {}\nゲーム状態を取得できるまでミッションを開始できません。".format(status), "閉じる", self._close_mission_overlay)
             return
         if place["owner"] == self.team_id:
             self._show_mission_overlay("陣地の状態", "{}\n所有者: {}\n得点: {}点".format(place["name"], place["owner_label"], place["points"]), "閉じる", self._close_mission_overlay)
             return
-        self._show_mission_overlay("ミッション開始確認", "{}\n{}\n成功すると自動で陣地を獲得します。".format(place["name"], place["mission"] or "地点ミッション"), "開始する", self._execute_mission)
+        self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: 地点の範囲内で現在地を送信".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._execute_mission)
 
     def _execute_mission(self, sender=None):
         self._close_mission_overlay()
