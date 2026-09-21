@@ -190,38 +190,47 @@ class PurpleMockGame(ui.View):
 
     def _build_ui(self):
         width = self.width
-        self._label("東京マン腸脱出ゲーム", (16, 12, width - 32, 30), ("<system-bold>", 20), align=ui.ALIGN_CENTER)
-        self.mock_label = self._label("仮動作：GPSあり・サーバー通信なし", (16, 46, width - 32, 24), ("<system-bold>", 13), "#D84315", ui.ALIGN_CENTER)
-        self.status_label = self._label("", (16, 78, width - 32, 40), ("<system-bold>", 15), align=ui.ALIGN_CENTER)
-        self.gps_button = self._button("GPS更新", (16, 122, 105, 34), self._update_location, "#455A64")
-        self.set_place_buttons = []
-        for index, x in enumerate((130, 244)):
-            button = self._button(
-                "地点{}をここに".format(index + 1),
-                (x, 122, 105, 34),
-                lambda sender, i=index: self._set_place_here(i),
-                "#37474F",
-            )
-            button.font = ("<system-bold>", 12)
-            self.set_place_buttons.append(button)
+        panel_width = min(150, max(132, width * 0.38))
+        map_x = panel_width
+        map_width = width - panel_width
+        self._label("東京マン腸脱出ゲーム", (6, 8, panel_width - 12, 28), ("<system-bold>", 16), align=ui.ALIGN_CENTER)
+        self.mock_label = self._label("仮動作：GPSあり\nサーバー通信なし", (6, 38, panel_width - 12, 32), ("<system-bold>", 10), "#D84315", ui.ALIGN_CENTER)
+        self.status_label = self._label("", (6, 74, panel_width - 12, 52), ("<system-bold>", 12), align=ui.ALIGN_CENTER)
 
-        self.map_view = ui.WebView(frame=(0, 160, width, 145))
+        self.map_view = ui.WebView(frame=(map_x, 0, map_width, self.height))
         self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
         self.add_subview(self.map_view)
 
+        self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
+        self.gps_button.font = ("<system-bold>", 11)
+        self.set_place_buttons = []
+        for index, y in enumerate((166, 200)):
+            button = self._button(
+                "地点{}をここに".format(index + 1),
+                (6, y, panel_width - 12, 30),
+                lambda sender, i=index: self._set_place_here(i),
+                "#37474F",
+            )
+            button.font = ("<system-bold>", 10)
+            self.set_place_buttons.append(button)
+
         self.place_buttons = []
         self.solve_buttons = []
-        for index, y in enumerate((315, 410)):
+        for index, y in enumerate((244, 326)):
             number = index + 1
-            self._label("小腸の地点{}".format(number), (24, y, 150, 26), ("<system-bold>", 16))
-            arrive = self._button("地点{}にGPS到着 (+20pt)".format(number), (24, y + 28, 327, 34), lambda sender, i=index: self._check_arrival(i), "#000000")
-            solve = self._button("謎{}を解く（ランダム +10pt）".format(number), (24, y + 66, 327, 34), lambda sender, i=index: self._solve(i), "#6A1B9A")
+            self._label("小腸の地点{}".format(number), (6, y, panel_width - 12, 22), ("<system-bold>", 13), align=ui.ALIGN_CENTER)
+            arrive = self._button("地点{} GPS到着".format(number), (6, y + 24, panel_width - 12, 30), lambda sender, i=index: self._check_arrival(i), "#000000")
+            solve = self._button("謎{}を解く +10pt".format(number), (6, y + 58, panel_width - 12, 30), lambda sender, i=index: self._solve(i), "#6A1B9A")
+            arrive.font = ("<system-bold>", 10)
+            solve.font = ("<system-bold>", 10)
             self.place_buttons.append(arrive)
             self.solve_buttons.append(solve)
 
-        self.attack_button = self._button("殴る（50pt → 50ダメージ）", (24, 520, 327, 42), self._attack, "#C62828")
-        self.reset_button = self._button("仮試作をリセット", (24, 570, 327, 36), self._reset, "#546E7A")
-        self.log_label = self._label("", (24, 612, 327, 50), ("<system>", 12), "#455A64")
+        self.attack_button = self._button("殴る 50pt", (6, 410, panel_width - 12, 34), self._attack, "#C62828")
+        self.attack_button.font = ("<system-bold>", 11)
+        self.reset_button = self._button("リセット", (6, 450, panel_width - 12, 30), self._reset, "#546E7A")
+        self.reset_button.font = ("<system-bold>", 11)
+        self.log_label = self._label("", (6, 486, panel_width - 12, 120), ("<system>", 11), "#455A64", ui.ALIGN_CENTER)
 
     def _hide_feedback(self):
         if self.feedback_label is not None:
