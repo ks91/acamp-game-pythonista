@@ -1,6 +1,14 @@
 """Choose a team game without changing config.py or Git branches."""
 
 import importlib
+import os
+import sys
+
+# Pythonista may execute a file without adding its repository directory to
+# sys.path. Keep shared `toolkit/` imports available for every gallery team.
+REPOSITORY_ROOT = os.path.dirname(os.path.abspath(__file__))
+if REPOSITORY_ROOT not in sys.path:
+    sys.path.insert(0, REPOSITORY_ROOT)
 
 import ui
 
