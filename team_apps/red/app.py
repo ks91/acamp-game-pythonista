@@ -310,10 +310,33 @@ class RedPrototype(ui.View):
         self.open_map_view = ui.WebView(frame=(0, 0, 375, 720))
         self.content.add_subview(self.open_map_view)
         self.open_map_view.load_html(self.leaflet_map_html())
+        location_button = ui.Button(title="現在地を更新", frame=(8, 675, 170, 40))
+        location_button.tint_color = "#D32F2F"
+        location_button.action = self.update_current_location
+        self.content.add_subview(location_button)
         back = ui.Button(title="マップを閉じる", frame=(16, 735, 343, 48))
         back.tint_color = "#C62828"
         back.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(back)
+
+    def update_current_location(self, sender):
+        self.set_status("現在地を取得中…\n屋外で少し待ってください。")
+        location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            location.stop_updates()
+        if not position:
+            self.set_status("現在地を取得できませんでした。\n位置情報の許可を確認してください。")
+            return
+        self.last_position = position
+        self.last_accuracy = position.get("horizontal_accuracy", "不明")
+        self.open_map_view.load_html(self.leaflet_map_html())
+        self.set_status(
+            "現在地を更新しました。\nGPS精度：約{}m\n赤いマーカーが現在地です。".format(
+                self.last_accuracy
+            )
+        )
 
     def leaflet_map_html(self):
         destinations = [
@@ -340,6 +363,14 @@ class RedPrototype(ui.View):
             )
         destination_json = json.dumps(destinations, ensure_ascii=False)
         marker_json = json.dumps(markers, ensure_ascii=False)
+        current_json = json.dumps(
+            {
+                "latitude": self.last_position["latitude"],
+                "longitude": self.last_position["longitude"],
+            }
+            if self.last_position
+            else None
+        )
         return """<!doctype html>
 <html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
 <link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>
@@ -349,6 +380,7 @@ class RedPrototype(ui.View):
 <script>
 const destinations = %s;
 const monsters = %s;
+const current = %s;
 const map = L.map('map', {zoomControl:true}).setView([35.6745,139.6934], 18);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 21, attribution: '&copy; OpenStreetMap contributors'
@@ -356,12 +388,18 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 destinations.forEach(d => {
   L.marker([d.latitude,d.longitude]).addTo(map).bindPopup('目的地：' + d.name);
 });
+if (current) {
+  L.circleMarker([current.latitude,current.longitude], {
+    radius: 9, color: '#D32F2F', fillColor: '#F44336', fillOpacity: 0.9
+  }).addTo(map).bindPopup('現在地');
+  map.setView([current.latitude,current.longitude], 18);
+}
 monsters.forEach(m => {
   const icon = L.divIcon({className:'monster', html:'👾', iconSize:[28,28]});
   L.marker([m.latitude,m.longitude], {icon:icon}).addTo(map)
     .bindPopup('<b>' + m.rank + ' ' + m.name + '</b><br>系統：' + m.kind);
 });
-</script></body></html>""" % (destination_json, marker_json)
+</script></body></html>""" % (destination_json, marker_json, current_json)
 
     def google_map_url(self, destination):
         return (
