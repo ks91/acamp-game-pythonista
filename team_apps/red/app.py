@@ -31,6 +31,7 @@ STAR_NAMES = {
 STAR_HP = {1: 100, 2: 300, 3: 500}
 MAX_HP_GAIN_BY_STAR = {1: 10, 2: 30, 3: 50}
 CAPACITY_GAIN_INTERVAL = {1: 5, 2: 3, 3: 1}
+LOCATION_TRIGGER_RADIUS_M = 20
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
 WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
@@ -54,6 +55,13 @@ DESTINATIONS = [
         "latitude": 35.67484017956108,
         "longitude": 139.6936804736062,
     },
+    {
+        "id": "linkeee",
+        "name": "運動教室（LinKeee）",
+        "plus_code": "MMFV+X9",
+        "latitude": 35.67437387858118,
+        "longitude": 139.69314002932387,
+    },
 ]
 
 
@@ -75,12 +83,17 @@ class RedPrototype(ui.View):
         self.capacity = 5
         self.defeated_by_stars = {1: 0, 2: 0, 3: 0}
         self.current_screen = "map"
+        self.unlocked_destinations = set()
         self.active_monster = None
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
         self.monsters = list(MONSTERS)
         random.shuffle(self.monsters)
+        self.monster_destinations = {
+            monster["name"]: random.choice(DESTINATIONS)["id"]
+            for monster in self.monsters
+        }
         self.build_header()
         self.show_battle_selection()
 
@@ -121,11 +134,15 @@ class RedPrototype(ui.View):
             "戦いたいモンスターを選ぼう。星が高いほど強い。\n"
             "所持: {}/{}個".format(len(self.inventory), self.capacity)
         )
-        inventory_button = ui.Button(title="アイテムを見る", frame=(16, 8, 343, 42))
+        map_button = ui.Button(title="ゲーム内マップを見る", frame=(16, 8, 343, 42))
+        map_button.tint_color = "#2E7D32"
+        map_button.action = self.show_map
+        self.content.add_subview(map_button)
+        inventory_button = ui.Button(title="アイテムを見る", frame=(16, 58, 343, 42))
         inventory_button.tint_color = "#6A1B9A"
         inventory_button.action = self.show_inventory
         self.content.add_subview(inventory_button)
-        y = 58
+        y = 108
         for destination in DESTINATIONS:
             location_button = ui.Button(
                 title="{}で位置テスト".format(destination["name"]),
@@ -137,7 +154,18 @@ class RedPrototype(ui.View):
             self.content.add_subview(location_button)
             y += 50
         y += 4
-        for index, monster in enumerate(self.monsters):
+        if not self.unlocked_destinations:
+            locked = ui.Label(frame=(20, y, 335, 70))
+            locked.number_of_lines = 0
+            locked.text = "目的地から20m以内に入ると\nモンスターを発見できます。"
+            locked.alignment = ui.ALIGN_CENTER
+            locked.font = ("<System-Bold>", 17)
+            self.content.add_subview(locked)
+            self.content.content_size = (375, y + 90)
+            return
+        for monster in self.monsters:
+            if self.monster_destinations[monster["name"]] not in self.unlocked_destinations:
+                continue
             card = ui.Label(frame=(16, y, 343, 58))
             card.number_of_lines = 0
             card.font = ("<System>", 14)
@@ -151,7 +179,7 @@ class RedPrototype(ui.View):
             self.content.add_subview(card)
             fight_button = ui.Button(title="このモンスターと戦う", frame=(16, y + 60, 343, 42))
             fight_button.tint_color = "#C62828"
-            fight_button.monster_index = index
+            fight_button.monster = monster
             fight_button.action = self.start_selected_battle
             self.content.add_subview(fight_button)
             y += 112
@@ -193,13 +221,15 @@ class RedPrototype(ui.View):
             position["latitude"], position["longitude"], destination
         )
         accuracy = position.get("horizontal_accuracy", "不明")
-        if distance <= 50:
-            result = "{}のテスト範囲内！".format(destination["name"])
+        plus_code = destination.get("plus_code") or "登録済み座標"
+        if distance <= LOCATION_TRIGGER_RADIUS_M:
+            self.unlocked_destinations.add(destination["id"])
+            result = "{}の20m以内！モンスター発見！".format(destination["name"])
+            self.show_battle_selection()
         else:
             result = "{}まで約{}m。もう少し近づこう。".format(
                 destination["name"], round(distance)
             )
-        plus_code = destination.get("plus_code") or "登録済み座標"
         self.set_status(
             "位置テスト結果\n{}\nPlus Code：{}\nGPS精度：約{}m".format(
                 result, plus_code, accuracy
@@ -252,29 +282,88 @@ class RedPrototype(ui.View):
         self.current_screen = "map"
         self.clear_content()
         self.set_status(
-            "皇居を占拠したモンスターを探そう。\n"
-            "マークで系統、星で強さが分かる。詳しいアイテムは秘密！\n"
-            "所持: {}/{}個".format(len(self.inventory), self.capacity)
+            "ゲーム内マップ\n"
+            "目的地ごとにモンスターの系統を確認できます。\n"
+            "20m以内に入ると足跡をたどれます。"
         )
         y = 8
-        for index, monster in enumerate(self.monsters):
-            card = ui.Label(frame=(16, y, 343, 58))
+        map_label = ui.Label(frame=(16, y, 343, 42))
+        map_label.text = "【オリンピックセンター探索マップ】"
+        map_label.font = ("<System-Bold>", 18)
+        map_label.text_color = "#2E7D32"
+        self.content.add_subview(map_label)
+        y += 54
+        for destination in DESTINATIONS:
+            destination_id = destination["id"]
+            unlocked = destination_id in self.unlocked_destinations
+            card = ui.Label(frame=(16, y, 343, 74))
             card.number_of_lines = 0
+            assigned = [
+                monster for monster in self.monsters
+                if self.monster_destinations[monster["name"]] == destination_id
+            ]
+            if unlocked:
+                kinds = "、".join(sorted({monster["kind"] for monster in assigned})) or "なし"
+                card.text = "📍 {}\n系統：{}\nモンスター{}体".format(
+                    destination["name"], kinds, len(assigned)
+                )
+            else:
+                card.text = "🔒 {}\n20m以内に入るとモンスターの系統が分かります".format(
+                    destination["name"]
+                )
             card.font = ("<System>", 14)
-            card.text = "{}  {}  {}\nおおまかな位置：中央広場から約{}歩".format(
-                "★" * monster["stars"],
-                monster["kind"],
-                STAR_NAMES[monster["stars"]],
-                10 + index * 2,
-            )
             self.content.add_subview(card)
-            find_button = ui.Button(title="ARで探す", frame=(16, y + 60, 343, 42))
-            find_button.tint_color = "#C62828"
-            find_button.monster_index = index
-            find_button.action = self.begin_search
-            self.content.add_subview(find_button)
-            y += 112
-        self.content.content_size = (375, y + 12)
+            y += 78
+            if unlocked:
+                footprints = ui.Button(title="足跡をたどる", frame=(16, y, 343, 42))
+                footprints.tint_color = "#6A1B9A"
+                footprints.destination_id = destination_id
+                footprints.action = self.show_destination_footprints
+                self.content.add_subview(footprints)
+                y += 54
+        back = ui.Button(title="戦う相手を選ぶ", frame=(16, y, 343, 46))
+        back.tint_color = "#C62828"
+        back.action = lambda sender: self.show_battle_selection()
+        self.content.add_subview(back)
+        self.content.content_size = (375, y + 70)
+
+    def show_destination_footprints(self, sender):
+        destination_id = sender.destination_id
+        destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
+        monsters = [
+            monster for monster in self.monsters
+            if self.monster_destinations[monster["name"]] == destination_id
+        ]
+        self.clear_content()
+        self.set_status("{}の足跡\n少しずつ見つかった！".format(destination["name"]))
+        y = 20
+        trail = ui.Label(frame=(20, y, 335, 100))
+        trail.number_of_lines = 0
+        trail.alignment = ui.ALIGN_CENTER
+        trail.font = ("<System>", 22)
+        trail.text = "・   ・     ・   ・\n\n足跡の先にモンスターがいる…"
+        self.content.add_subview(trail)
+        y += 120
+        for monster in monsters:
+            button = ui.Button(
+                title="{}  {}（{}系）を発見".format(
+                    "★" * monster["stars"], monster["name"], monster["kind"]
+                ),
+                frame=(16, y, 343, 48),
+            )
+            button.tint_color = "#C62828"
+            button.monster = monster
+            button.action = self.start_monster_from_map
+            self.content.add_subview(button)
+            y += 62
+        back = ui.Button(title="マップに戻る", frame=(16, y, 343, 46))
+        back.action = lambda sender: self.show_map()
+        self.content.add_subview(back)
+        self.content.content_size = (375, y + 70)
+
+    def start_monster_from_map(self, sender):
+        self.active_monster = sender.monster
+        self.start_battle(sender)
 
     def begin_search(self, sender):
         monster = self.monsters[sender.monster_index]
