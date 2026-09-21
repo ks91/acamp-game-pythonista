@@ -357,7 +357,8 @@ class RedPrototype(ui.View):
         url = "https://www.google.com/maps/search/?api=1&query={},{}".format(
             destination["latitude"], destination["longitude"]
         )
-        webbrowser.open(url)
+        self.set_status("Googleマップで{}を開いています…".format(destination["name"]))
+        webbrowser.open(url, new=2, autoraise=True)
 
     def show_destination_footprints(self, sender):
         destination_id = sender.destination_id
