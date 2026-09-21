@@ -126,7 +126,7 @@ class GreenTerritoryGame(ui.View):
         self.restart_button.font = ("<system-bold>", 13)
         self.restart_button.background_color = (0.05, 0.18, 0.12, 0.88)
         self.add_subview(self.restart_button)
-        self.legend_label = ui.Label(frame=(180, 66, 300, 30), text="◆相手陣地（上書き不可）　○未占領　⚑自班　⌂自班拠点", font=("<system>", 10), number_of_lines=2)
+        self.legend_label = ui.Label(frame=(180, 66, 300, 30), text="◆相手陣地（攻略可能）　○未占領　⚑自班　⌂自班拠点", font=("<system>", 10), number_of_lines=2)
         self.legend_label.background_color = (0, 0, 0, 0.68)
         self.add_subview(self.legend_label)
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
@@ -169,13 +169,20 @@ class GreenTerritoryGame(ui.View):
         token = getattr(config, "GAME_TOKEN", "")
         if not base_url or not token or token == "set-at-game-start":
             return None
-        return ApiClient(
-            base_url=base_url,
-            token=token,
-        )
+        try:
+            return ApiClient(
+                base_url=base_url,
+                token=token,
+                game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+                game_mode=getattr(config, "SELECTED_GAME_MODE", None),
+            )
+        except TypeError:
+            # An iPad with an incomplete Pull may still have the old shared
+            # client. It can open safely, but must Pull main before mode tests.
+            return ApiClient(base_url=base_url, token=token)
 
     @staticmethod
-    def _build_model(definition, state, team_id, game_mode="center_test"):
+    def _build_model(definition, state, team_id):
         if not isinstance(definition, dict):
             raise ValueError("ゲーム定義が辞書ではありません")
         if not isinstance(state, dict):
@@ -195,7 +202,7 @@ class GreenTerritoryGame(ui.View):
         if not isinstance(configured_places, (list, tuple)):
             raise ValueError("placesの形式が不正です")
         configured_places = [place for place in configured_places if isinstance(place, dict) and place.get("name")]
-        scenario_places = list(configured_places) if configured_places else ([] if game_mode == "tokyo" else list(LOCAL_CENTER_TEST_PLACES))
+        scenario_places = list(configured_places) if configured_places else list(LOCAL_CENTER_TEST_PLACES)
         for index, place in enumerate(scenario_places):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
@@ -282,11 +289,9 @@ class GreenTerritoryGame(ui.View):
         if place is None:
             if status == "offline" and self._last_api_error:
                 self.detail.text = "API接続エラー\n{}".format(self._last_api_error)
-            elif self.game_mode == "tokyo" and not self.model.get("places"):
-                self.detail.text = "東京版の地点が未登録です。\nAPIに地点が登録されると、地図上から選択できます。"
             else:
                 self.detail.text = "{}\n地図上の旗をタップすると地点の詳細を表示します。".format(self._diagnostic_text) if self._diagnostic_text else "地図上の旗をタップすると地点の詳細を表示します。"
-            self.action_button.title = "東京版の地点が未登録" if self.game_mode == "tokyo" and not self.model.get("places") else "地点を選択してください"
+            self.action_button.title = "地点を選択してください"
             self.action_button.enabled = False
             return
         kind = "★ボス地点" if place["is_boss"] else "通常地点"
@@ -439,7 +444,7 @@ class GreenTerritoryGame(ui.View):
         self._refreshing = False
         if error is None and definition is not None and state is not None:
             self.session_id = (state.get("game_session_id") if isinstance(state, dict) else None) or (getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id)
-            self.model = self._build_model(definition, state, self.team_id, self.game_mode)
+            self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
             api_count = len(definition.get("places", [])) if isinstance(definition.get("places", []), list) else "不正"
             model_names = [place.get("name") for place in self.model.get("places", [])]
@@ -449,8 +454,7 @@ class GreenTerritoryGame(ui.View):
             trace_text = "\n".join(self._debug_log)
             self._last_api_error = "{}\n{}".format(str(error) if error is not None else "APIからゲーム状態を取得できませんでした", trace_text)
             fallback_state = {"score": self.model.get("score", 0), "territories": [], "claimed_places": []}
-            fallback_places = [] if self.game_mode == "tokyo" else list(LOCAL_CENTER_TEST_PLACES)
-            self.model = self._build_model({"places": fallback_places}, fallback_state, self.team_id, self.game_mode)
+            self.model = self._build_model({"places": list(LOCAL_CENTER_TEST_PLACES)}, fallback_state, self.team_id)
             self._assign_random_missions()
             self.model["offline"] = True
             self.model["connection_status"] = "offline"
