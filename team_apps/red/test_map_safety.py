@@ -6,6 +6,12 @@ SOURCE = Path(__file__).with_name("app.py").read_text(encoding="utf-8")
 
 
 class RedMapSafetyTests(unittest.TestCase):
+    def test_callback_targets_accept_the_sender_argument(self):
+        import ast
+        tree = ast.parse(SOURCE)
+        methods = {node.name: node for node in ast.walk(tree) if isinstance(node, ast.FunctionDef)}
+        self.assertGreaterEqual(len(methods["show_battle_selection"].args.args), 2)
+
     def test_map_never_initializes_at_zero_coordinate(self):
         self.assertNotIn("setView([0,0]", SOURCE)
         self.assertNotIn("setView([0.0,0.0]", SOURCE)

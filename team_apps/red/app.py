@@ -477,7 +477,7 @@ class RedPrototype(ui.View):
 
         return sorted(self.monsters, key=distance_for)
 
-    def show_battle_selection(self):
+    def show_battle_selection(self, sender=None):
         self.current_screen = "battle_selection"
         self.clear_content()
         self.set_status(
