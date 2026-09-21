@@ -50,6 +50,7 @@ class GameView(ui.View):
         self.definition = None
         self.state = None
         self.selected_quest = None
+        self.in_test_game = False
         self.refresh()
 
     def layout(self):
@@ -206,41 +207,53 @@ class GameView(ui.View):
             ("カフェテリアふじ出口", ("ふじ", "カフェテリア")),
             ("正面入口", ("正面", "main")),
         ]
-        selected = []
-        labels = []
+        pairs = []
         for label, keywords in preferred:
             for key, value in self.registered_quest_locations.items():
                 key_text = str(key).lower()
                 if any(keyword.lower() in key_text for keyword in keywords):
                     locations = self._location_list(value)
                     if locations:
-                        selected.append(locations[0])
-                        labels.append(label)
+                        pairs.append((label, locations[0]))
                         break
-        if len(selected) < 4:
+        if len(pairs) < 4:
             all_locations = []
             for value in self.registered_quest_locations.values():
                 all_locations.extend(self._location_list(value))
             if len(all_locations) >= 4:
-                selected = all_locations[:4]
-                labels = [label for label, _ in preferred]
-        if len(selected) < 4:
+                pairs = [(label, location) for (label, _), location in zip(preferred, all_locations[:4])]
+        if len(pairs) < 4:
             self._clear_content()
-            self.show_message("テストゲームには4地点の保存済み座標が必要です。\n現在：{}地点".format(len(selected)))
+            self.show_message("テストゲームには4地点の保存済み座標が必要です。\n現在：{}地点".format(len(pairs)))
             self._add_button("ホームにもどる", 12, self.back_to_title, self.status_label.text_color)
             self.scroll.content_size = (self.width, 80)
             return
-        self.selected_quest = {
-            "id": "test-game-registered-four-places",
-            "name": "テストゲーム：4地点を撮影！",
-            "difficulty": "test",
-            "reward_coins": 0,
-            "required_count": 4,
-            "target_locations": selected,
-            "capture_instruction": "登録された4地点を1枚ずつ撮影してください。",
-        }
-        self.test_game_labels = labels
-        self.render_capture_screen(self.status_label.text_color)
+        self.test_game_quests = [
+            {
+                "id": "test-{}".format(index),
+                "name": "テスト：{}を撮影！".format(label),
+                "difficulty": "test",
+                "reward_coins": 0,
+                "required_count": 1,
+                "target_locations": [location],
+                "capture_instruction": "{}を撮影してください。".format(label),
+            }
+            for index, (label, location) in enumerate(pairs, start=1)
+        ]
+        self.in_test_game = True
+        self.render_test_quest_selection(self.status_label.text_color)
+
+    def render_test_quest_selection(self, accent_color):
+        self._clear_content()
+        self.show_message("テストゲーム\n4つの登録地点からクエストを選択してください")
+        y = 12
+        for quest in self.test_game_quests:
+            label = "✓ クリア済み：" if quest["id"] in self.completed_quests else ""
+            button = self._add_button(label + quest["name"], y, self.select_quest, accent_color)
+            button.quest = quest
+            y += 60
+        self._add_button("ホームにもどる", y, self.back_to_title, accent_color)
+        self.scroll.content_size = (self.width, y + 76)
 
     def start_registration(self, sender):
         self.render_registration_quests(self.status_label.text_color)
@@ -329,6 +342,7 @@ class GameView(ui.View):
         )
 
     def back_to_title(self, sender):
+        self.in_test_game = False
         self.render_title_screen(self.status_label.text_color)
 
     def start_game(self, sender):
@@ -510,7 +524,10 @@ class GameView(ui.View):
         self.scroll.content_size = (self.width, 140)
 
     def back_to_quests(self, sender):
-        self.render_quest_selection(self.status_label.text_color)
+        if self.in_test_game:
+            self.render_test_quest_selection(self.status_label.text_color)
+        else:
+            self.render_quest_selection(self.status_label.text_color)
 
     def back_to_capture(self, sender):
         self.render_capture_screen(self.status_label.text_color)
