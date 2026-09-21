@@ -38,6 +38,14 @@ ITEM_COSTS = {
     "液体窒素＆硫酸": 100,
     "亜硝酸ナトリウム爆弾": 70,
 }
+ITEM_DAMAGE = {
+    "液体窒素＆硫酸": 150,
+    "亜硝酸ナトリウム爆弾": 100,
+}
+ITEM_IMAGES = {
+    "液体窒素＆硫酸": "liquid_nitrogen.jpeg",
+    "亜硝酸ナトリウム爆弾": "sodium_nitrite_bomb.jpeg",
+}
 
 
 def dms_to_decimal(degrees, minutes, seconds, direction):
@@ -249,6 +257,7 @@ class PurpleMockGame(ui.View):
         self.chest_riddle_checked = [False, False]
         self.chest_items = [None, None]
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
+        self.item_popup = None
         self._build_ui()
         self._read_current_location()
         if TEST_PLACE1_IS_CURRENT and self.current_location is not None:
@@ -419,11 +428,49 @@ class PurpleMockGame(ui.View):
             return ""
         item_name = random.choice(list(ITEM_COSTS))
         self.chest_items[index] = item_name
+        self._show_item_get(item_name)
         return "宝箱が出た！ {}（{}pt）を購入できます。".format(item_name, ITEM_COSTS[item_name])
+
+    def _show_item_get(self, item_name):
+        if self.item_popup is not None:
+            self.remove_subview(self.item_popup)
+        popup = ui.View(frame=(self.width * 0.25, 70, self.width * 0.5, min(430, self.height - 100)))
+        popup.background_color = "#FFFFFF"
+        popup.corner_radius = 18
+        image = ui.ImageView(frame=(20, 20, popup.width - 40, popup.height - 105))
+        image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        path = os.path.join(APP_DIR, "assets", ITEM_IMAGES[item_name])
+        try:
+            with open(path, "rb") as source:
+                image.image = ui.Image.from_data(source.read())
+        except OSError:
+            image.image = None
+        popup.add_subview(image)
+        caption = ui.Label(frame=(12, popup.height - 78, popup.width - 24, 58))
+        caption.text = "{}をゲット！".format(item_name)
+        caption.font = ("<system-bold>", 22)
+        caption.text_color = "#6A1B9A"
+        caption.alignment = ui.ALIGN_CENTER
+        caption.number_of_lines = 0
+        popup.add_subview(caption)
+        self.add_subview(popup)
+        self.item_popup = popup
+        ui.delay(self._hide_item_get, 2.0)
+
+    def _hide_item_get(self):
+        if self.item_popup is not None:
+            self.remove_subview(self.item_popup)
+            self.item_popup = None
 
     def _buy_item(self, sender):
         item_name = sender.item_name
-        if item_name not in self.chest_items or self.item_inventory[item_name] > 0:
+        if item_name not in self.chest_items:
+            return
+        if self.item_inventory[item_name] > 0:
+            self.item_inventory[item_name] -= 1
+            damage = ITEM_DAMAGE[item_name]
+            self.boss_hp = max(0, self.boss_hp - damage)
+            self._refresh("{}を使った！ 東京マンに{}ダメージ。".format(item_name, damage))
             return
         cost = ITEM_COSTS[item_name]
         if self.score < cost:
