@@ -90,11 +90,6 @@ class YellowEgyptGame(ui.View):
         self.add_subview(self.status_label)
         self.content = ui.ScrollView(frame=(0, 105, 330, 255), flex="H")
         self.add_subview(self.content)
-        self.encyclopedia_panel = ui.View(frame=(345, 14, 306, 347), flex="WH")
-        self.encyclopedia_panel.background_color = "#F5E6B8"
-        self.encyclopedia_panel.border_width = 2
-        self.encyclopedia_panel.border_color = "#6D4C41"
-        self.add_subview(self.encyclopedia_panel)
         if config is None:
             self.status_label.text = "設定ファイル config.py が見つかりません。"
             self._render_message(
@@ -269,38 +264,6 @@ class YellowEgyptGame(ui.View):
             self.content.add_subview(complete)
             y += 72
         self.content.content_size = (self.width, y + 24)
-        self._render_main_encyclopedia()
-
-    def _render_main_encyclopedia(self):
-        for view in list(self.encyclopedia_panel.subviews):
-            self.encyclopedia_panel.remove_subview(view)
-        title = self._label("ご当地エジプト図鑑", (10, 8, 286, 30), ("<system-bold>", 18), TEAM_COLOR)
-        self.encyclopedia_panel.add_subview(title)
-        claimed_ids = self._claimed_ids()
-        target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
-        catalog = (
-            ("ycap", "ピラミッド"),
-            ("fan-cafe", "ハチ公スフィンクス"),
-            ("fan-cafe", "シュバルスフィンクス"),
-            ("center-building", "ファラオ"),
-            ("center-building", "シュバルファラオ"),
-        )
-        y = 48
-        for place_id, expected_name in catalog:
-            source = target_places.get(place_id)
-            discovered = False
-            if source and place_id in claimed_ids:
-                discovered = self._effective_story(source[0], source[1], source[2])["display_name"] == expected_name
-            row = ui.Button(frame=(10, y, 286, 42))
-            row.title = expected_name if discovered else "？？？"
-            row.font = ("<system-bold>", 15)
-            row.alignment = ui.ALIGN_LEFT
-            row.content_horizontal_alignment = ui.ALIGN_LEFT
-            row.tint_color = "white"
-            row.background_color = TEAM_COLOR if discovered else "#9E9E9E"
-            row.corner_radius = 8
-            self.encyclopedia_panel.add_subview(row)
-            y += 48
 
     def _render_message(self, message):
         self._clear_content()
@@ -343,7 +306,7 @@ class YellowEgyptGame(ui.View):
                 preview.image = ui.Image.named(os.path.join(self.repository_directory, "assets", entry["filename"]))
                 preview.alpha = 0.22
                 preview.background_color = "#222222"
-                detail.text = "？？？\n\n基本情報\n？？？"
+                detail.text = "{}\n\nこのキャラクターの場所に近づいて、\nこの名前を押すと獲得できます。".format(entry["name"])
                 return
             preview.alpha = 1.0
             preview.background_color = "#FFF8E1"
@@ -365,7 +328,7 @@ class YellowEgyptGame(ui.View):
                 if effective["display_name"] == expected_name:
                     discovered = True
                     story = effective
-            entries.append({"name": expected_name, "filename": filename, "discovered": discovered, "story": story, "place": place})
+            entries.append({"name": expected_name, "filename": filename, "discovered": discovered, "story": story, "place": place, "story_key": source[0] if source else None})
 
         discovered_entries = [entry for entry in entries if entry["discovered"]]
         unknown_entries = [entry for entry in entries if not entry["discovered"]]
@@ -378,13 +341,28 @@ class YellowEgyptGame(ui.View):
 
         y = 72
         for entry in entries:
-            title = entry["name"] if entry["discovered"] else "？？？"
-            button = self._button(title, (330, y, 320, 48), select_item)
+            title = entry["name"]
+            button = self._button(title, (330, y, 320, 48), self.activate_encyclopedia_entry)
             button.entry = entry
             self.content.add_subview(button)
             y += 58
         self.content.content_size = (self.width, max(500, y + 24))
         select_item(type("InitialSelection", (), {"entry": entries[0]})())
+
+    def activate_encyclopedia_entry(self, sender):
+        entry = sender.entry
+        if entry["discovered"]:
+            self.show_collected_items(sender)
+            return
+        if not entry.get("story_key"):
+            self._render_message("このキャラクターの場所がまだ設定されていません。")
+            return
+        claim_sender = type(
+            "EncyclopediaClaim",
+            (),
+            {"place_id": entry["place"]["id"], "story_key": entry["story_key"]},
+        )()
+        self.claim_place(claim_sender)
 
     def show_reset_notice(self, sender):
         self.state = dict(self.state or {})
