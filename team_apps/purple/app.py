@@ -6,6 +6,7 @@ It is a button-driven UI mock for testing the two-place -> attack loop.
 
 import math
 import random
+import time
 import ui
 import location
 
@@ -223,6 +224,12 @@ class PurpleMockGame(ui.View):
         self.feedback_label = None
         self.current_location = None
         self.place_locations = [dict(place) if place else None for place in FIXED_PLACES]
+        self.quiz_overlay = None
+        self.quiz_active = False
+        self.quiz_index = None
+        self.quiz_question = None
+        self.quiz_remaining = 0
+        self.checkpoint_state = None
         self._build_ui()
         self._read_current_location()
         self._refresh()
@@ -480,45 +487,130 @@ class PurpleMockGame(ui.View):
         self._refresh("地点{}に到着！ +20pt".format(index + 1))
 
     def _solve(self, index):
-        if not self.arrived[index] or self.solved[index]:
+        if not self.arrived[index] or self.solved[index] or self.quiz_active:
             return
-        import dialogs
-
         available_indexes = [
-            index for index in range(len(QUESTIONS))
-            if index not in self.used_question_indexes
+            question_index for question_index in range(len(QUESTIONS))
+            if question_index not in self.used_question_indexes
         ]
         if not available_indexes:
             self.used_question_indexes.clear()
             available_indexes = list(range(len(QUESTIONS)))
         question_index = random.choice(available_indexes)
         self.used_question_indexes.add(question_index)
+        self._start_quiz(index, question_index)
+
+    def _start_quiz(self, index, question_index):
         question = QUESTIONS[question_index]
-        try:
-            selected = dialogs.list_dialog(question["question"], question["choices"])
-        except KeyboardInterrupt:
-            selected = None
-        if selected is None:
-            self._refresh("謎解きをキャンセルしました。もう一度挑戦できます。")
+        self.quiz_index = index
+        self.quiz_question = question
+        self.quiz_remaining = 30
+        self.quiz_active = True
+        overlay = ui.View(frame=(10, 20, self.width - 20, self.height - 40))
+        overlay.background_color = "#FFFFFF"
+        overlay.corner_radius = 18
+        self.add_subview(overlay)
+        self.quiz_overlay = overlay
+
+        title = ui.Label(frame=(18, 16, overlay.width - 36, 36))
+        title.text = "謎{}（30秒）".format(index + 1)
+        title.font = ("<system-bold>", 24)
+        title.text_color = "#263238"
+        title.alignment = ui.ALIGN_CENTER
+        overlay.add_subview(title)
+
+        timer = ui.Label(frame=(18, 56, overlay.width - 36, 46))
+        timer.font = ("<system-bold>", 34)
+        timer.text_color = "#C62828"
+        timer.alignment = ui.ALIGN_CENTER
+        timer.name = "quiz_timer"
+        overlay.add_subview(timer)
+
+        question_label = ui.Label(frame=(18, 112, overlay.width - 36, 110))
+        question_label.text = question["question"]
+        question_label.font = ("<system-bold>", 18)
+        question_label.text_color = "#263238"
+        question_label.alignment = ui.ALIGN_CENTER
+        question_label.number_of_lines = 0
+        overlay.add_subview(question_label)
+
+        for choice_index, choice in enumerate(question["choices"]):
+            button = ui.Button(frame=(28, 238 + choice_index * 58, overlay.width - 56, 46))
+            button.title = choice
+            button.font = ("<system-bold>", 15)
+            button.tint_color = "white"
+            button.background_color = "#6A1B9A"
+            button.corner_radius = 10
+            button.choice = choice
+            button.action = self._answer_quiz
+            overlay.add_subview(button)
+
+        self._update_quiz_timer()
+        ui.delay(self._quiz_tick, 1.0)
+
+    def _update_quiz_timer(self):
+        if self.quiz_overlay is None:
             return
-        if selected != question["answer"]:
-            self.lives -= 1
-            if self.lives <= 0:
-                self._refresh("3回間違えました。最初からやり直します。")
-                self._show_feedback("最初から\nやり直し", "#C62828", 3)
-                ui.delay(lambda: self._reset(None), 3)
-                return
-            if self.lives == 1:
-                self._refresh("不正解。残機1。あと1回間違えたら最初からです。")
-                self._show_feedback("あと1回間違えたら\n最初からだよ", "#C62828", 3)
-            else:
-                self._refresh("不正解。正解は「{}」。残機{}。".format(question["answer"], self.lives))
-                self._show_feedback("不正解", "#C62828", 2)
+        timer = next(
+            (view for view in self.quiz_overlay.subviews if getattr(view, "name", "") == "quiz_timer"),
+            None,
+        )
+        if timer is not None:
+            timer.text = "残り {}秒".format(self.quiz_remaining)
+
+    def _quiz_tick(self):
+        if not self.quiz_active:
             return
-        self.solved[index] = True
-        self.score += 10
-        self._refresh("正解！ 謎{}を解いた！ +10pt".format(index + 1))
-        self._show_feedback("正解！\n+10pt", "#2E7D32", 2)
+        self.quiz_remaining -= 1
+        if self.quiz_remaining <= 0:
+            self._finish_quiz(None, timed_out=True)
+            return
+        self._update_quiz_timer()
+        ui.delay(self._quiz_tick, 1.0)
+
+    def _answer_quiz(self, sender):
+        self._finish_quiz(sender.choice, timed_out=False)
+
+    def _finish_quiz(self, selected, timed_out=False):
+        if not self.quiz_active or self.quiz_question is None:
+            return
+        question = self.quiz_question
+        index = self.quiz_index
+        if index is None:
+            return
+        self.quiz_active = False
+        if self.quiz_overlay is not None:
+            self.quiz_overlay.remove_from_superview()
+            self.quiz_overlay = None
+        self.quiz_question = None
+        self.quiz_index = None
+
+        if not timed_out and selected == question["answer"]:
+            self.solved[index] = True
+            self.score += 10
+            self._refresh("正解！ 謎{}を解いた！ +10pt".format(index + 1))
+            self._show_feedback("正解！\n+10pt", "#2E7D32", 3)
+            return
+
+        self.lives -= 1
+        if self.lives <= 0:
+            self._refresh("ライフ0。セーブポイントから再開します。")
+            self._show_feedback("ライフ0\n最初からやり直し", "#C62828", 3)
+            ui.delay(self._restore_checkpoint, 3.0)
+        elif self.lives == 1:
+            self._refresh("残機1。あと1回間違えると最初からです。")
+            self._show_feedback("あと1回間違えたら\n最初からだよ", "#C62828", 3)
+        elif timed_out:
+            self._refresh("時間切れ。残機{}。".format(self.lives))
+            self._show_feedback("時間切れ\n残機{}".format(self.lives), "#C62828", 3)
+        else:
+            self._refresh("不正解。残機{}。".format(self.lives))
+            self._show_feedback("不正解\n残機{}".format(self.lives), "#C62828", 3)
+
+    def _restore_checkpoint(self):
+        # セーブポイント機能を追加したら、ここで保存済み状態を復元する。
+        # 現在はセーブポイント未実装なので、得点・情報を保持せず最初から始める。
+        self._reset(None)
 
     def _attack(self, sender):
         if self.score < ATTACK_COST or self.boss_hp <= 0:
