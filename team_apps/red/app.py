@@ -274,7 +274,9 @@ class RedPrototype(ui.View):
         self.splash_view = None
         self.splash_button = None
         self.splash_next_action = None
-        self.show_splash(self.show_battle_selection)
+        # Do not load large splash artwork during gallery launch.  It can exhaust
+        # Pythonista's UI process before Red's home screen appears.
+        self.set_status("モンスターを選んで遊ぼう。")
         if self.api is not None:
             ui.delay(self.refresh_server_scenario, 0.1)
 
