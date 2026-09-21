@@ -34,6 +34,8 @@ class GameView(ui.View):
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
         self.elevator_locations_path = os.path.join(self.repository_directory, "confirmed-elevators.json")
         self.confirmed_elevators = self._load_confirmed_elevators()
+        self.quest_locations_path = os.path.join(self.repository_directory, "registered-quest-locations.json")
+        self.registered_quest_locations = self._load_registered_quest_locations()
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -63,6 +65,18 @@ class GameView(ui.View):
         with open(self.elevator_locations_path, "w") as destination:
             json.dump(self.confirmed_elevators, destination)
 
+    def _load_registered_quest_locations(self):
+        try:
+            with open(self.quest_locations_path, "r") as source:
+                locations = json.load(source)
+            return locations if isinstance(locations, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _save_registered_quest_locations(self):
+        with open(self.quest_locations_path, "w") as destination:
+            json.dump(self.registered_quest_locations, destination)
+
     def refresh(self):
         try:
             definition = self.api.get_game_definition()
@@ -80,16 +94,16 @@ class GameView(ui.View):
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
         self.available_quests = build_quest_cards(definition) or [
-            {
-                "id": "find-two-elevators",
-                "name": "エレベーターを2個探せ！",
-                "difficulty": "easy",
-                "reward_coins": 20,
-                "required_count": 2,
-                "hint": "",
-                "type": "elevator",
-            }
+            {"id": "elevator", "name": "エレベーターを探せ！", "difficulty": "easy", "reward_coins": 20},
+            {"id": "vending-machine", "name": "自動販売機を探せ！", "difficulty": "easy", "reward_coins": 20},
+            {"id": "convenience-store", "name": "コンビニを探せ！", "difficulty": "normal", "reward_coins": 50},
+            {"id": "cafeteria-fuji", "name": "カフェテリアふじを探せ！", "difficulty": "normal", "reward_coins": 50},
+            {"id": "facility-sign", "name": "施設案内を探せ！", "difficulty": "hard", "reward_coins": 100},
         ]
+        for quest in self.available_quests:
+            registered = self.registered_quest_locations.get(quest["id"])
+            if registered and not quest.get("target_location"):
+                quest["target_location"] = registered
         self.render_title_screen(accent_color)
 
     def _clear_content(self):
@@ -107,7 +121,49 @@ class GameView(ui.View):
         self._clear_content()
         self.show_message("blue位置ゲー開発（仮）")
         self._add_button("開始", 12, self.start_game, accent_color)
-        self.scroll.content_size = (self.width, 80)
+        self._add_button("座標を登録する", 72, self.start_registration, accent_color)
+        self.scroll.content_size = (self.width, 140)
+
+    def start_registration(self, sender):
+        self.render_registration_quests(self.status_label.text_color)
+
+    def render_registration_quests(self, accent_color):
+        self._clear_content()
+        self.show_message("登録する対象を選んでください")
+        y = 12
+        for quest in self.available_quests:
+            button = self._add_button("{} の座標を登録".format(quest["name"]), y, self.select_registration_quest, accent_color)
+            button.quest = quest
+            y += 60
+        self._add_button("タイトルにもどる", y, self.back_to_title, accent_color)
+        self.scroll.content_size = (self.width, y + 76)
+
+    def select_registration_quest(self, sender):
+        self.selected_quest = sender.quest
+        self._clear_content()
+        self.show_message("{}の前に立ってください。\n現在地を登録します。".format(self.selected_quest["name"]))
+        self._add_button("この場所を登録", 12, self.register_quest_location, self.status_label.text_color)
+        self._add_button("対象一覧にもどる", 72, self.start_registration, self.status_label.text_color)
+        self.scroll.content_size = (self.width, 140)
+
+    def register_quest_location(self, sender):
+        location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            location.stop_updates()
+        if position is None:
+            self.show_message("位置情報を取得できませんでした。")
+            return
+        registered = {"latitude": position["latitude"], "longitude": position["longitude"]}
+        self.registered_quest_locations[self.selected_quest["id"]] = registered
+        self._save_registered_quest_locations()
+        self.selected_quest["target_location"] = registered
+        self.show_message("{}の座標を登録しました。".format(self.selected_quest["name"]))
+        self.render_registration_quests(self.status_label.text_color)
+
+    def back_to_title(self, sender):
+        self.render_title_screen(self.status_label.text_color)
 
     def start_game(self, sender):
         self.render_location_selection(self.status_label.text_color)
@@ -232,29 +288,17 @@ class GameView(ui.View):
             "latitude": position["latitude"],
             "longitude": position["longitude"],
         }
-        result = classify_location(self.confirmed_elevators, candidate, threshold_m=10)
-        if result["kind"] == "same_position_group":
+        target = self.selected_quest.get("target_location")
+        if target is None:
             self.render_capture_screen(self.status_label.text_color)
-            self.show_message(
-                "同じ位置グループのエレベーターです。\n"
-                "階違いの可能性があります。新しい発見には数えません。\n"
-                "別のエレベーターを探してください。"
-            )
+            self.show_message("このクエストの座標が未登録です。スタッフが座標を登録してください。")
             return
-        self.confirmed_elevators.append(candidate)
-        self._save_confirmed_elevators()
-        required_count = self.selected_quest.get("required_count", 2)
-        found_count = len(self.confirmed_elevators)
-        if found_count >= required_count:
-            self.show_message("エレベーターを{}台発見！\nクエスト達成です。".format(required_count))
+        result = classify_location([target], candidate, threshold_m=10)
+        self.render_quest_selection(self.status_label.text_color)
+        if result["kind"] == "same_position_group":
+            self.show_message("クエスト達成！\n{}の位置を確認しました。".format(self.selected_quest["name"]))
             return
-        self.render_capture_screen(self.status_label.text_color)
-        self.show_message(
-            "別のエレベーターを発見！ {} / {}台\n"
-            "次のエレベーターを撮影してください。".format(
-                found_count, required_count
-            )
-        )
+        self.show_message("位置が一致しません。\n登録地点の近くで撮影してください。")
 
     def back_to_quests(self, sender):
         self.render_quest_selection(self.status_label.text_color)
