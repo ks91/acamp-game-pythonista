@@ -22,6 +22,7 @@ LIGHT_BG = "#F4F7F9"
 
 
 CENTER_TEST_PLACE_NAMES = frozenset({"カフェテリアふじ出口", "513研修室", "事務所側入口", "正面入口"})
+CENTER_TEST_RADIUS_METERS = 10
 
 
 class TerritoryMap(ui.View):
@@ -198,7 +199,7 @@ class GreenTerritoryGame(ui.View):
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
                 "points": territory.get("points", place.get("points", 0)), "owner": owner,
-                "capture_radius_meters": place.get("capture_radius_meters", place.get("radius_m", 100)),
+                "capture_radius_meters": CENTER_TEST_RADIUS_METERS,
                 "owner_label": owner_label, "simulated_owner": simulated,
                 "role": role, "role_label": role_labels.get(role, "地点"),
                 "is_boss": bool(place.get("is_boss", False)),
