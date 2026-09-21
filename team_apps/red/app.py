@@ -26,6 +26,8 @@ MINIBOSSES = [
     {"name": "クサナギ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・剣", "boss": True, "destination_id": "yushima-tenjin"},
 ]
 
+MINIBOSS_NAMES = {"ヤタ", "ヤサカニ", "クサナギ"}
+
 STAR_NAMES = {
     1: "かわいいでちゅね",
     2: "かわいいですね",
@@ -57,10 +59,12 @@ GAME_VARIANTS = {
         "include_bosses": True,
         "required": [
             {"place": "皇居", "boss": "ゼウス", "action": "defeat"},
-            {"place": "明治神宮", "boss": "ヤタ", "action": "battle"},
+            {"place": "明治神宮", "boss": "ヤタ", "action": "defeat"},
+            {"place": "国会議事堂", "boss": "ヤサカニ", "action": "defeat"},
+            {"place": "湯島天神", "boss": "クサナギ", "action": "defeat"},
         ],
-        "optional": ["国会議事堂", "湯島天神"],
-        "clear_condition": "ゼウスを倒す",
+        "optional": ["東京23区のランダム通常モンスター"],
+        "clear_condition": "ゼウスを倒す（中ボス3体の撃破が前提）",
     },
 }
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
@@ -319,6 +323,29 @@ class RedPrototype(ui.View):
         inventory_button.action = self.show_inventory
         self.content.add_subview(inventory_button)
         y = 108
+        if self.unlocked_destinations:
+            boss_title = ui.Label(frame=(16, y + 8, 343, 44))
+            boss_title.text = "中ボス・ボス"
+            boss_title.font = ("<System-Bold>", 18)
+            boss_title.text_color = "#6A1B9A"
+            self.content.add_subview(boss_title)
+            y += 60
+            for boss_index, boss in enumerate(MINIBOSSES):
+                if boss["name"] in self.defeated_bosses:
+                    continue
+                if boss["destination_id"] not in self.unlocked_destinations:
+                    continue
+                if boss["name"] == "ゼウス" and not MINIBOSS_NAMES.issubset(self.defeated_bosses):
+                    continue
+                boss_button = ui.Button(
+                    title="{}（HP{}）".format(boss["name"], boss["boss_hp"]),
+                    frame=(16, y, 343, 48),
+                )
+                boss_button.tint_color = "#6A1B9A"
+                boss_button.boss_index = boss_index
+                boss_button.action = self.start_miniboss
+                self.content.add_subview(boss_button)
+                y += 62
         for monster in self.monsters:
             destination_id = self.monster_destinations[monster["name"]]
             destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
@@ -372,27 +399,6 @@ class RedPrototype(ui.View):
             fight_button.action = self.start_selected_battle
             self.content.add_subview(fight_button)
             y += 112
-        if self.player_max_hp >= 2000:
-            boss_title = ui.Label(frame=(16, y + 8, 343, 44))
-            boss_title.text = "三種の神器を守る中ボスが出現！"
-            boss_title.font = ("<System-Bold>", 18)
-            boss_title.text_color = "#6A1B9A"
-            self.content.add_subview(boss_title)
-            y += 60
-            for boss_index, boss in enumerate(MINIBOSSES):
-                if boss["name"] in self.defeated_bosses:
-                    continue
-                if boss["destination_id"] not in self.unlocked_destinations:
-                    continue
-                boss_button = ui.Button(
-                    title="{}（HP{}）".format(boss["name"], boss["boss_hp"]),
-                    frame=(16, y, 343, 48),
-                )
-                boss_button.tint_color = "#6A1B9A"
-                boss_button.boss_index = boss_index
-                boss_button.action = self.start_miniboss
-                self.content.add_subview(boss_button)
-                y += 62
         self.style_buttons()
         self.content.content_size = (375, y + 12)
 
@@ -999,7 +1005,12 @@ monsters.forEach(m => {
                     drop = None
             elif drop == "オレンジジュース" and random.random() >= 0.3:
                 drop = None
-            if drop is None:
+            if self.active_monster.get("boss"):
+                self.inventory.append(drop)
+                if drop in WEAPON_POWER:
+                    self.weapon_uses[drop] = self.weapon_uses.get(drop, 0) + weapon_uses_for(drop)
+                drop_message = "\n{}を100%確定で獲得！".format(drop)
+            elif drop is None:
                 drop_message = "\n今回はアイテムがドロップしなかった。"
             elif drop.startswith("成長フード（+"):
                 food_value = int(drop.split("+")[1].rstrip("）"))
