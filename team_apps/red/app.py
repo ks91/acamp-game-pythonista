@@ -830,10 +830,9 @@ class RedPrototype(ui.View):
         )
         self.style_buttons()
         self.content.content_size = (375, 790)
-        # Native map status panel: Pythonista's embedded WebView was terminating
-        # on some iPads when this button was tapped.  Keep the playable GPS
-        # flow native and stable rather than opening an external map engine.
-        self.open_map_view = MonsterLocationMap(frame=(16, 10, 343, 640))
+        # The map is loaded without continuous GPS tracking.  This preserves
+        # the street-map view while avoiding the launch-time crash path.
+        self.open_map_view = ui.WebView(frame=(0, 0, 375, 660))
         self.content.add_subview(self.open_map_view)
         self.refresh_native_map_panel()
         self.location_tracking_button = ui.Button(
@@ -870,7 +869,20 @@ class RedPrototype(ui.View):
             destination = next((place for place in self.destinations if place["id"] == destination_id), None)
             if destination:
                 monsters.append({"destination": destination})
-        self.open_map_view.set_data(self.last_position, self.destinations, monsters, status)
+        # Use the same Google Maps WebView approach as Purple.  Unlike the
+        # custom Leaflet page, this is a normal Maps URL and is stable on iPad.
+        candidates = []
+        if self.last_position and self.last_position.get("latitude") and self.last_position.get("longitude"):
+            candidates.append(self.last_position)
+        candidates.extend(map_destinations(self.destinations))
+        if candidates:
+            target = candidates[0]
+            url = "https://www.google.com/maps/search/?api=1&query={},{}".format(
+                target["latitude"], target["longitude"]
+            )
+            self.open_map_view.load_url(url)
+        else:
+            self.open_map_view.load_html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'>地点データを読み込み中…</body></html>")
 
     def close_map(self, sender):
         self.stop_location_tracking()
