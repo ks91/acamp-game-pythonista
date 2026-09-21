@@ -85,6 +85,8 @@ class RedPrototype(ui.View):
         self.current_screen = "map"
         self.unlocked_destinations = set()
         self.active_monster = None
+        self.last_position = None
+        self.last_accuracy = None
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
@@ -143,14 +145,24 @@ class RedPrototype(ui.View):
         inventory_button.action = self.show_inventory
         self.content.add_subview(inventory_button)
         y = 108
-        for destination in DESTINATIONS:
+        for monster in self.monsters:
+            destination_id = self.monster_destinations[monster["name"]]
+            destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
+            if self.last_position:
+                distance = distance_meters(
+                    self.last_position["latitude"], self.last_position["longitude"], destination
+                )
+                distance_text = "約{}m".format(round(distance))
+            else:
+                distance_text = "距離未測定"
             location_button = ui.Button(
-                title="{}で位置テスト".format(destination["name"]),
+                title="{}（{}）".format(monster["name"], distance_text),
                 frame=(16, y, 343, 42),
             )
             location_button.tint_color = "#1565C0"
             location_button.destination = destination
-            location_button.action = self.check_destination_location
+            location_button.monster = monster
+            location_button.action = self.check_monster_location
             self.content.add_subview(location_button)
             y += 50
         y += 4
@@ -206,6 +218,9 @@ class RedPrototype(ui.View):
         self.active_monster = self.monsters[sender.monster_index]
         self.start_battle(sender)
 
+    def check_monster_location(self, sender):
+        self.check_destination_location(sender)
+
     def check_destination_location(self, sender):
         destination = sender.destination
         self.set_status("{}の位置情報を取得中…\n屋外で少し待ってください。".format(destination["name"]))
@@ -217,18 +232,21 @@ class RedPrototype(ui.View):
         if not position:
             self.set_status("位置情報を取得できませんでした。\n位置情報の許可を確認してください。")
             return
+        self.last_position = position
+        self.last_accuracy = position.get("horizontal_accuracy", "不明")
         distance = distance_meters(
             position["latitude"], position["longitude"], destination
         )
-        accuracy = position.get("horizontal_accuracy", "不明")
+        accuracy = self.last_accuracy
         plus_code = destination.get("plus_code") or "登録済み座標"
+        display_name = sender.monster["name"] if hasattr(sender, "monster") else destination["name"]
         if distance <= LOCATION_TRIGGER_RADIUS_M:
             self.unlocked_destinations.add(destination["id"])
-            result = "{}の20m以内！モンスター発見！".format(destination["name"])
+            result = "{}を発見！出現地点の20m以内です。".format(display_name)
             self.show_battle_selection()
         else:
-            result = "{}まで約{}m。もう少し近づこう。".format(
-                destination["name"], round(distance)
+            result = "{}（出現地点）まで約{}m。もう少し近づこう。".format(
+                display_name, round(distance)
             )
         self.set_status(
             "位置テスト結果\n{}\nPlus Code：{}\nGPS精度：約{}m".format(
@@ -278,7 +296,7 @@ class RedPrototype(ui.View):
         self.content.add_subview(back)
         self.content.content_size = (375, y + 80)
 
-    def show_map(self):
+    def show_map(self, sender=None):
         self.current_screen = "map"
         self.clear_content()
         self.set_status(
