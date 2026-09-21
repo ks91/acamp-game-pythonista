@@ -3,6 +3,7 @@
 import datetime
 import io
 import json
+import math
 import os
 import uuid
 from urllib.error import HTTPError
@@ -38,6 +39,8 @@ class GameView(ui.View):
         self.registered_quest_locations = self._load_registered_quest_locations()
         self.completed_quests_path = os.path.join(self.repository_directory, "completed-quests.json")
         self.completed_quests = self._load_completed_quests()
+        self.quest_progress_path = os.path.join(self.repository_directory, "quest-progress.json")
+        self.quest_progress = self._load_quest_progress()
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -91,6 +94,18 @@ class GameView(ui.View):
         with open(self.completed_quests_path, "w") as destination:
             json.dump(sorted(self.completed_quests), destination)
 
+    def _load_quest_progress(self):
+        try:
+            with open(self.quest_progress_path, "r") as source:
+                progress = json.load(source)
+            return progress if isinstance(progress, dict) else {}
+        except (OSError, ValueError):
+            return {}
+
+    def _save_quest_progress(self):
+        with open(self.quest_progress_path, "w") as destination:
+            json.dump(self.quest_progress, destination)
+
     @staticmethod
     def _location_list(value):
         if isinstance(value, list):
@@ -98,6 +113,19 @@ class GameView(ui.View):
         if isinstance(value, dict) and "latitude" in value and "longitude" in value:
             return [value]
         return []
+
+    @staticmethod
+    def _distance_m(first, second):
+        earth_radius_m = 6_371_000
+        latitude_delta = math.radians(second["latitude"] - first["latitude"])
+        longitude_delta = math.radians(second["longitude"] - first["longitude"])
+        haversine = (
+            math.sin(latitude_delta / 2) ** 2
+            + math.cos(math.radians(first["latitude"]))
+            * math.cos(math.radians(second["latitude"]))
+            * math.sin(longitude_delta / 2) ** 2
+        )
+        return 2 * earth_radius_m * math.asin(math.sqrt(haversine))
 
     def refresh(self):
         try:
@@ -116,9 +144,9 @@ class GameView(ui.View):
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
         self.available_quests = build_quest_cards(definition) or [
-            {"id": "elevator", "name": "エレベーターを探せ！", "difficulty": "easy", "reward_coins": 20},
-            {"id": "vending-machine", "name": "自動販売機を探せ！", "difficulty": "easy", "reward_coins": 20},
-            {"id": "convenience-store", "name": "コンビニを探せ！", "difficulty": "normal", "reward_coins": 50},
+            {"id": "elevator", "name": "エレベーターを2箇所探せ！", "difficulty": "easy", "reward_coins": 20, "required_count": 2},
+            {"id": "vending-machine", "name": "自動販売機を3箇所探せ！", "difficulty": "easy", "reward_coins": 20, "required_count": 3},
+            {"id": "convenience-store", "name": "D棟のコンビニを探せ！", "difficulty": "normal", "reward_coins": 50, "required_count": 1, "public_location_only": True},
             {"id": "cafeteria-fuji", "name": "カフェテリアふじを探せ！", "difficulty": "normal", "reward_coins": 50},
             {"id": "facility-sign", "name": "施設案内を探せ！", "difficulty": "hard", "reward_coins": 100},
         ]
@@ -180,6 +208,12 @@ class GameView(ui.View):
 
     def select_registration_quest(self, sender):
         self.selected_quest = sender.quest
+        if self.selected_quest.get("public_location_only"):
+            self._clear_content()
+            self.show_message("このクエストは公開MAP座標を使用します。館内座標の登録は不要です。")
+            self._add_button("対象一覧にもどる", 12, self.start_registration, self.status_label.text_color)
+            self.scroll.content_size = (self.width, 80)
+            return
         self._clear_content()
         self.show_message("{}の前に立ってください。\n現在地を登録します。".format(self.selected_quest["name"]))
         self._add_button("この場所を登録", 12, self.register_quest_location, self.status_label.text_color)
@@ -350,18 +384,37 @@ class GameView(ui.View):
             self.render_capture_screen(self.status_label.text_color)
             self.show_message("このクエストの座標が未登録です。スタッフが座標を登録してください。")
             return
-        matched = any(
-            classify_location([target], candidate, threshold_m=10)["kind"] == "same_position_group"
-            for target in targets
+        nearest_index, nearest_target = min(
+            enumerate(targets),
+            key=lambda item: self._distance_m(candidate, item[1]),
         )
-        if matched:
-            quest_id = self.selected_quest["id"]
+        nearest_distance = self._distance_m(candidate, nearest_target)
+        distance_message = "最寄りの保存位置まで約{}m".format(round(nearest_distance))
+        if nearest_distance > 10:
+            self.render_capture_screen(self.status_label.text_color)
+            self.show_message("{}\n10m以上離れているため失敗です。".format(distance_message))
+            return
+        quest_id = self.selected_quest["id"]
+        found = set(self.quest_progress.get(quest_id, []))
+        required_count = self.selected_quest.get("required_count", len(targets))
+        if nearest_index in found:
+            self.render_capture_screen(self.status_label.text_color)
+            self.show_message("{}\nこの位置は登録済みです。別の場所を探してください。".format(distance_message))
+            return
+        found.add(nearest_index)
+        self.quest_progress[quest_id] = sorted(found)
+        self._save_quest_progress()
+        if len(found) >= required_count:
             self.completed_quests.add(quest_id)
             self._save_completed_quests()
             self.render_completion_screen(self.status_label.text_color)
             return
         self.render_capture_screen(self.status_label.text_color)
-        self.show_message("位置が一致しません。\n登録地点の近くで撮影してください。")
+        self.show_message(
+            "{}\n{} / {}箇所を発見しました。次の場所を探してください。".format(
+                distance_message, len(found), required_count
+            )
+        )
 
     def render_completion_screen(self, accent_color):
         self._clear_content()
