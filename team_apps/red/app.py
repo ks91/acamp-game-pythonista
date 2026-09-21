@@ -624,7 +624,11 @@ class RedPrototype(ui.View):
         self.current_screen = "how_to_play"
         self.clear_content()
         self.set_status("遊び方")
-        title = ui.Label(frame=(18, 18, 339, 120))
+        home = ui.Button(title="ホームにもどる", frame=(16, 10, 343, 40))
+        home.tint_color = "#C62828"
+        home.action = self.show_battle_selection
+        self.content.add_subview(home)
+        title = ui.Label(frame=(18, 60, 339, 120))
         title.number_of_lines = 0
         title.font = ("<System-Bold>", 19)
         title.text_color = "#B71C1C"
@@ -762,7 +766,9 @@ class RedPrototype(ui.View):
         self.location_tracking_button.tint_color = "#D32F2F"
         self.location_tracking_button.action = self.toggle_location_tracking
         self.content.add_subview(self.location_tracking_button)
-        self.start_location_tracking()
+        # Opening the WebView must not also enter a continuous GPS loop: that
+        # path can terminate Pythonista before the map has rendered.
+        self.set_status("モンスター地図を開きました。現在地を取得を押すとGPSを更新します。")
         location_button = ui.Button(
             title="現在地を取得", frame=(190, 675, 170, 40)
         )

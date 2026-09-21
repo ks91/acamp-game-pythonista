@@ -21,6 +21,19 @@ class RedMapSafetyTests(unittest.TestCase):
             tick.index("distances = ["),
         )
 
+    def test_map_open_does_not_automatically_start_continuous_gps(self):
+        start = SOURCE.index("def show_interactive_map")
+        end = SOURCE.index("def close_map", start)
+        body = SOURCE[start:end]
+        self.assertNotIn("self.start_location_tracking()", body)
+        self.assertIn("現在地を取得を押すとGPSを更新します", body)
+
+    def test_how_to_play_has_a_visible_home_button(self):
+        start = SOURCE.index("def show_how_to_play")
+        end = SOURCE.index("def show_profile", start)
+        body = SOURCE[start:end]
+        self.assertIn('title="ホームにもどる", frame=(16, 10, 343, 40)', body)
+
     def test_root_import_is_available_from_pythonista_entrypoint(self):
         self.assertIn("_REPOSITORY_ROOT", SOURCE)
         self.assertIn("sys.path.insert(0, _REPOSITORY_ROOT)", SOURCE)
