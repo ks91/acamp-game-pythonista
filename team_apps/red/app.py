@@ -14,6 +14,12 @@ MONSTERS = [
     {"name": "幻の王", "stars": 3, "kind": "レア", "drop": "オレンジジュース", "drop_power": 0},
 ]
 
+MINIBOSSES = [
+    {"name": "ヤタ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・鏡", "boss": True},
+    {"name": "ヤサカニ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・勾玉", "boss": True},
+    {"name": "クサナギ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・剣", "boss": True},
+]
+
 STAR_NAMES = {
     1: "かわいいでちゅね",
     2: "かわいいですね",
@@ -21,6 +27,7 @@ STAR_NAMES = {
 }
 
 STAR_HP = {1: 100, 2: 300, 3: 500}
+MAX_HP_GAIN_BY_STAR = {1: 10, 2: 30, 3: 50}
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
 WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
@@ -107,6 +114,23 @@ class RedPrototype(ui.View):
             fight_button.action = self.start_selected_battle
             self.content.add_subview(fight_button)
             y += 112
+        if self.player_max_hp >= 2000:
+            boss_title = ui.Label(frame=(16, y + 8, 343, 44))
+            boss_title.text = "三種の神器を守る中ボスが出現！"
+            boss_title.font = ("<System-Bold>", 18)
+            boss_title.text_color = "#6A1B9A"
+            self.content.add_subview(boss_title)
+            y += 60
+            for boss_index, boss in enumerate(MINIBOSSES):
+                boss_button = ui.Button(
+                    title="{}（HP2000）".format(boss["name"]),
+                    frame=(16, y, 343, 48),
+                )
+                boss_button.tint_color = "#6A1B9A"
+                boss_button.boss_index = boss_index
+                boss_button.action = self.start_miniboss
+                self.content.add_subview(boss_button)
+                y += 62
         self.content.content_size = (375, y + 12)
 
     def start_selected_battle(self, sender):
@@ -207,21 +231,28 @@ class RedPrototype(ui.View):
         self.content.add_subview(back_button)
         self.content.content_size = (375, 310)
 
+    def start_miniboss(self, sender):
+        self.active_monster = MINIBOSSES[sender.boss_index]
+        self.start_battle(sender)
+
     def start_battle(self, sender):
         self.current_screen = "battle"
-        self.enemy_hp = STAR_HP[self.active_monster["stars"]]
+        monster = self.active_monster
+        self.enemy_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
         self.player_hp = min(self.player_hp, self.player_max_hp)
         self.show_battle("モンスターが現れた！")
 
     def show_battle(self, message):
         self.clear_content()
         monster = self.active_monster
+        enemy_max_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
+        rank_text = "BOSS" if monster.get("boss") else "★" * monster["stars"]
         self.set_status(
             "{}  {}\n敵HP: {}/{}\n自分HP: {}/{}\n{}".format(
-                "★" * monster["stars"],
+                rank_text,
                 monster["name"],
                 self.enemy_hp,
-                STAR_HP[monster["stars"]],
+                enemy_max_hp,
                 self.player_hp,
                 self.player_max_hp,
                 message,
@@ -294,7 +325,8 @@ class RedPrototype(ui.View):
         if self.enemy_hp == 0:
             self.finish_battle(True, message + "\nモンスターを倒した！")
             return
-        enemy_base_damage = 10 * self.active_monster["stars"]
+        enemy_tier = 3 if self.active_monster.get("boss") else self.active_monster["stars"]
+        enemy_base_damage = 10 * enemy_tier
         enemy_damage = random.randint((enemy_base_damage * 8) // 10, enemy_base_damage)
         self.player_hp = max(0, self.player_hp - enemy_damage)
         enemy_message = "モンスターの反撃！（{}ダメージ）".format(enemy_damage)
@@ -309,6 +341,9 @@ class RedPrototype(ui.View):
         self.show_battle(message + "\n" + enemy_message)
 
     def try_escape(self, sender):
+        if self.active_monster.get("boss"):
+            self.show_battle("ボス戦からは逃げられない！")
+            return
         if self.active_monster["stars"] == 1:
             success = random.random() < 0.8
         elif self.active_monster["stars"] == 2:
@@ -318,7 +353,8 @@ class RedPrototype(ui.View):
         if success:
             self.show_battle_selection()
         else:
-            enemy_base_damage = 10 * self.active_monster["stars"]
+            enemy_tier = self.active_monster["stars"]
+            enemy_base_damage = 10 * enemy_tier
             enemy_damage = random.randint((enemy_base_damage * 8) // 10, enemy_base_damage)
             self.player_hp = max(0, self.player_hp - enemy_damage)
             enemy_message = "逃走失敗！モンスターの攻撃！（{}ダメージ）".format(enemy_damage)
@@ -334,10 +370,20 @@ class RedPrototype(ui.View):
 
     def finish_battle(self, won, message):
         if won:
+            hp_gain = 0 if self.active_monster.get("boss") else MAX_HP_GAIN_BY_STAR[self.active_monster["stars"]]
+            self.player_max_hp += hp_gain
             self.player_hp = self.player_max_hp
-            message += "\n勝利！HP全回復！"
+            message += "\n勝利！最大HP+{}、HP全回復！".format(hp_gain)
             drop = self.active_monster["drop"]
-            if drop == "オレンジジュース" and random.random() >= 0.3:
+            if self.active_monster["kind"] == "回復系":
+                roll = random.random()
+                if roll < 0.5:
+                    drop = "りんご"
+                elif roll < 0.8:
+                    drop = "金のリンゴ"
+                else:
+                    drop = None
+            elif drop == "オレンジジュース" and random.random() >= 0.3:
                 drop = None
             if drop is None:
                 drop_message = "\n今回はアイテムがドロップしなかった。"
