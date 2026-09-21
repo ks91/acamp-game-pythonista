@@ -5,6 +5,7 @@ It is a button-driven UI mock for testing the two-place -> attack loop.
 """
 
 import math
+import os
 import random
 import time
 import ui
@@ -275,6 +276,14 @@ class PurpleMockGame(ui.View):
         else:
             self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
         self.add_subview(self.map_view)
+        self.map_view.hidden = True
+        self.boss_bar = ui.Label(frame=(map_x + 12, 16, map_width - 24, 34), font=("<system-bold>", 16), alignment=ui.ALIGN_CENTER)
+        self.boss_bar.background_color = "#4A148C"
+        self.boss_bar.text_color = "white"
+        self.add_subview(self.boss_bar)
+        self.boss_image = ui.ImageView(frame=(map_x + 12, 58, map_width - 24, self.height - 70), flex="H")
+        self.boss_image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        self.add_subview(self.boss_image)
 
         self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
         self.gps_button.font = ("<system-bold>", 11)
@@ -316,7 +325,23 @@ class PurpleMockGame(ui.View):
         self.feedback_label = label
         ui.delay(self._hide_feedback, seconds)
 
+    def _update_tokyoman_art(self):
+        if self.boss_hp <= 0:
+            filename = "tokyoman_defeated.jpeg"
+        elif self.boss_hp <= START_BOSS_HP / 2:
+            filename = "tokyoman_half.jpeg"
+        else:
+            filename = "tokyoman_full.jpeg"
+        path = os.path.join(os.path.dirname(__file__), "assets", filename)
+        try:
+            with open(path, "rb") as source:
+                self.boss_image.image = ui.Image.from_data(source.read())
+        except OSError:
+            self.boss_image.image = None
+        self.boss_bar.text = "東京マン体力: {}/{}".format(self.boss_hp, START_BOSS_HP)
+
     def _refresh(self, message=""):
+        self._update_tokyoman_art()
         self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}\n残機: {}".format(self.score, self.boss_hp, START_BOSS_HP, self.lives)
         for index in range(2):
             previous_arrived = index == 0 or self.arrived[index - 1]
