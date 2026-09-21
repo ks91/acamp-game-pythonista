@@ -25,10 +25,10 @@ LIGHT_BG = "#F4F7F9"
 CENTER_TEST_PLACE_NAMES = frozenset({"カフェテリアふじ出口", "513研修室", "事務所側入口", "正面入口"})
 CENTER_TEST_RADIUS_METERS = 10
 LOCAL_CENTER_TEST_PLACES = (
-    {"id": "center-513-training-room", "name": "513研修室", "latitude": 35.67407073059871, "longitude": 139.69317184609355, "radius_m": 10, "points": 120, "description": "センター棟の必須攻略地点。窓際のためGPS精度に注意。", "required": True},
-    {"id": "center-office-entrance", "name": "事務所側入口", "latitude": 35.67465399946227, "longitude": 139.69315284937827, "radius_m": 10, "points": 120, "description": "センター棟の任意攻略地点。", "required": False},
-    {"id": "center-cafeteria-fuji-exit", "name": "カフェテリアふじ出口", "latitude": 35.675026446445194, "longitude": 139.6939601327121, "radius_m": 10, "points": 120, "description": "センター棟の必須攻略地点。", "required": True},
-    {"id": "center-main-entrance", "name": "正面入口", "latitude": 35.67492708549511, "longitude": 139.69340021778783, "radius_m": 10, "points": 120, "description": "センター棟の任意攻略地点。", "required": False},
+    {"id": "center-513-training-room", "name": "513研修室", "latitude": 0.0, "longitude": 0.0, "radius_m": 10, "points": 120, "description": "センター棟の必須攻略地点。窓際のためGPS精度に注意。", "required": True},
+    {"id": "center-office-entrance", "name": "事務所側入口", "latitude": 0.0, "longitude": 0.0, "radius_m": 10, "points": 120, "description": "センター棟の任意攻略地点。", "required": False},
+    {"id": "center-cafeteria-fuji-exit", "name": "カフェテリアふじ出口", "latitude": 0.0, "longitude": 0.0, "radius_m": 10, "points": 120, "description": "センター棟の必須攻略地点。", "required": True},
+    {"id": "center-main-entrance", "name": "正面入口", "latitude": 0.0, "longitude": 0.0, "radius_m": 10, "points": 120, "description": "センター棟の任意攻略地点。", "required": False},
 )
 
 
@@ -64,7 +64,7 @@ class TerritoryMap(ui.View):
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>html,body,#map{height:100%;margin:0;background:#101820}.dark .leaflet-tile{filter:brightness(.55) saturate(.75)}.flag{border-radius:50% 50% 50% 0;width:28px;height:28px;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 5px #0008}.flag span{display:block;transform:rotate(45deg);font-size:17px;text-align:center;padding-top:3px}</style>
 </head><body><div id="map"></div><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>
-const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
+const map=L.map('map').setView([0.0,0.0],14);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);L.control.zoom({position:'bottomright'}).addTo(map);let layers=L.layerGroup().addTo(map),firstFit=true;
 function ownerColor(owner){return ({green:'#43A047',blue:'#1E88E5',red:'#E53935',yellow:'#FDD835',purple:'#8E24AA',pink:'#D81B60'})[owner]||'#9E9E9E';}
 function roleColor(role,owner){return ({own_home:'#00A86B',enemy_target:'#7B1FA2',enemy_base:'#7B1FA2',neutral:'#9E9E9E',own_base:'#43A047'})[role]||ownerColor(owner);}
 function roleSymbol(role){return ({own_home:'⌂',enemy_target:'◆',enemy_base:'◆',neutral:'○',own_base:'⚑'})[role]||'⚑';}
