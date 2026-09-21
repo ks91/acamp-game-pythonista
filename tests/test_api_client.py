@@ -141,6 +141,20 @@ class ApiClientTests(unittest.TestCase):
 
         self.assertEqual("/v1/actions?game_team=blue", RecordingHandler.request_path)
 
+    def test_team_can_post_a_confirmed_restart_for_selected_mode(self):
+        host, port = self.server.server_address
+        client = ApiClient(
+            base_url="http://{}:{}/v1".format(host, port),
+            token="team-token",
+            game_mode="center_test",
+        )
+
+        client.restart_test_session()
+
+        self.assertEqual("/v1/test-session/restart?game_mode=center_test", RecordingHandler.request_path)
+        self.assertEqual({"confirm": True}, RecordingHandler.payload)
+        self.assertEqual("Bearer team-token", RecordingHandler.authorization)
+
     def test_get_team_state_uses_team_bearer_token(self):
         host, port = self.server.server_address
         client = ApiClient(
