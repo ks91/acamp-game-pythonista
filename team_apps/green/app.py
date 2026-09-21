@@ -45,7 +45,7 @@ const map=L.map('map').setView([35.37695,139.44909],14);L.tileLayer('https://{s}
 function ownerColor(owner){return ({green:'#43A047',blue:'#1E88E5',red:'#E53935',yellow:'#FDD835',purple:'#8E24AA',pink:'#D81B60'})[owner]||'#9E9E9E';}
 function roleColor(role,owner){return ({own_home:'#00A86B',enemy_target:'#D32F2F',enemy_base:'#7B1FA2',neutral:'#9E9E9E',own_base:'#43A047'})[role]||ownerColor(owner);}
 function roleSymbol(role){return ({own_home:'⌂',enemy_target:'★',enemy_base:'◆',neutral:'○',own_base:'⚑'})[role]||'⚑';}
-function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:roleColor(p.role,p.owner),weight:2,fillColor:roleColor(p.role,p.owner),fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=roleColor(p.role,p.owner);let symbol=roleSymbol(p.role);let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.role_label||'地点'}<br>${p.owner_label||'所有者不明'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
+function render(model){layers.clearLayers();let points=model.places||[],owned=points.filter(p=>p.owner&&p.latitude!=null);owned.forEach(p=>L.circle([p.latitude,p.longitude],{radius:180,color:roleColor(p.role,p.owner),weight:2,fillColor:roleColor(p.role,p.owner),fillOpacity:.18}).addTo(layers));points.forEach(p=>{if(p.latitude==null||p.longitude==null)return;let color=roleColor(p.role,p.owner);let symbol=roleSymbol(p.role);let icon=L.divIcon({className:'',html:`<div class="flag" style="background:${color}"><span>${symbol}</span></div>`,iconSize:[28,28],iconAnchor:[14,28]});let marker=L.marker([p.latitude,p.longitude],{icon:icon}).addTo(layers);marker.bindPopup(`<b>${p.name}</b><br>${p.role_label||'地点'}<br>${p.owner_label||'所有者不明'}<br>${p.distance_text||'距離不明'}<br>${p.points}点`);marker.on('click',()=>window.location='pythonista://select/'+encodeURIComponent(p.id));});if(firstFit&&points.length){let bounds=points.filter(p=>p.latitude!=null).map(p=>[p.latitude,p.longitude]);if(bounds.length)map.fitBounds(bounds,{padding:[25,25]});firstFit=false;}map.invalidateSize();}
 function setTheme(mode){document.documentElement.className=mode==='dark'?'dark':'';}
 window.render=render;window.setTheme=setTheme;
 </script></body></html>''')
@@ -205,6 +205,7 @@ class GreenTerritoryGame(ui.View):
         self.detail.background_color = (0, 0, 0, 0.72) if dark else (1, 1, 1, 0.84)
         self.action_button.background_color = (0, 0, 0, 0.78) if dark else (1, 1, 1, 0.88)
         self.theme_button.title = "☀︎" if dark else "☾"
+        self._update_place_distances()
         self.map_view.update_model(self.model)
         place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
         if place is None:
@@ -214,9 +215,29 @@ class GreenTerritoryGame(ui.View):
             return
         kind = "★ボス地点" if place["is_boss"] else "通常地点"
         mission_text = place["mission"] or "この地点に到着してミッションを達成する"
-        self.detail.text = "{} [{}]\n{}　得点: {}点\nミッション: {}\n成功条件: 地点の範囲内で開始".format(place["name"], kind, place["role_label"], place["points"], mission_text)
+        distance_text = self._selected_place_distance_text(place)
+        self.detail.text = "{} [{}]\n{}　得点: {}点\n現在地から: {}\nミッション: {}\n成功条件: 地点の範囲内で開始".format(place["name"], kind, place["role_label"], place["points"], distance_text, mission_text)
         self.action_button.title = place["action_label"] if not offline else "接続が必要です"
         self.action_button.enabled = True
+
+    def _update_place_distances(self):
+        try:
+            current = location.get_location()
+            if not current:
+                raise RuntimeError("GPS unavailable")
+            for place in self.model.get("places", []):
+                if place.get("latitude") is None or place.get("longitude") is None:
+                    place["distance_text"] = "距離不明"
+                    continue
+                distance = self._distance_meters(current["latitude"], current["longitude"], place["latitude"], place["longitude"])
+                radius = float(place.get("capture_radius_meters", 100))
+                place["distance_text"] = "約{:.0f}m（範囲{:.0f}m）".format(distance, radius)
+        except Exception:
+            for place in self.model.get("places", []):
+                place["distance_text"] = "GPS取得不可"
+
+    def _selected_place_distance_text(self, place):
+        return place.get("distance_text", "GPS取得不可")
 
     def refresh_now(self, sender=None):
         if self.api_client is None:
