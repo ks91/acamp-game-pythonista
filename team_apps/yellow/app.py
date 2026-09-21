@@ -108,7 +108,12 @@ class YellowEgyptGame(ui.View):
                 "スタッフから渡された設定値を入れてください。"
             )
             return
-        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
+        self.api = ApiClient(
+            base_url=config.API_BASE_URL,
+            token=config.GAME_TOKEN,
+            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
+        )
         self.status_label.text = "ゲームを最初の状態に戻しています…"
         threading.Thread(target=self._restart_test_session, daemon=True).start()
 
