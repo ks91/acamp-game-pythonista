@@ -250,9 +250,8 @@ class GameView(ui.View):
         self.show_message("🗺️ まちのひみつハンター\nblue位置ゲー開発（仮）\n💰 コイン：{}枚\n\n今日の冒険を選ぼう！".format(self.coins))
         self._add_button("▶️ 探索をはじめる", 12, self.start_game, accent_color)
         self._add_button("📍 座標を登録する", 72, self.start_registration, accent_color)
-        self._add_button("🧪 テストゲーム", 132, self.start_test_game, accent_color)
-        self._add_button("🛒 交換所", 192, self.open_shop, accent_color)
-        self.scroll.content_size = (self.width, 260)
+        self._add_button("🛒 交換所", 132, self.open_shop, accent_color)
+        self.scroll.content_size = (self.width, 200)
 
     def open_shop(self, sender):
         self.render_shop(self.status_label.text_color)
@@ -327,7 +326,7 @@ class GameView(ui.View):
                 "id": "test-{}".format(index),
                 "name": "テスト：{}を撮影！".format(label),
                 "difficulty": "test",
-                "reward_coins": 10,
+                "reward_coins": 20,
                 "required_count": 1,
                 "target_locations": [location],
                 "capture_instruction": "{}を撮影してください。".format(label),
@@ -343,7 +342,12 @@ class GameView(ui.View):
         y = 12
         for quest in self.test_game_quests:
             label = "✓ クリア済み：" if quest["id"] in self.completed_quests else ""
-            button = self._add_button(label + quest["name"], y, self.select_quest, accent_color)
+            button = self._add_button(
+                label + quest["name"] + "  💰20コイン",
+                y,
+                self.select_quest,
+                accent_color,
+            )
             button.quest = quest
             y += 60
         self._add_button("ホームにもどる", y, self.back_to_title, accent_color)
@@ -445,14 +449,10 @@ class GameView(ui.View):
     def render_location_selection(self, accent_color):
         self._clear_content()
         self.show_message("場所を選択してください")
-        self._add_button(
-            self.definition.get("name", "オリンピックセンター"),
-            12,
-            self.select_location,
-            accent_color,
-        )
-        self._add_button("ホームにもどる", 72, self.back_to_title, accent_color)
-        self.scroll.content_size = (self.width, 140)
+        self._add_button(self.definition.get("name", "オリンピックセンター"), 12, self.select_location, accent_color)
+        self._add_button("🧪 テストモード", 72, self.start_test_game, accent_color)
+        self._add_button("ホームにもどる", 132, self.back_to_title, accent_color)
+        self.scroll.content_size = (self.width, 200)
 
     def select_location(self, sender):
         self.render_quest_selection(self.status_label.text_color)
