@@ -28,13 +28,20 @@ TEAM_NAMES = {
 
 
 class GameGallery(ui.View):
-    def __init__(self):
+    def __init__(self, game_mode=None):
         super().__init__(frame=(0, 0, 375, 667))
+        self.game_mode = game_mode
         self.name = "アカキャン ゲームギャラリー"
         self.background_color = "white"
         self.team_id = config.TEAM_ID
         title = ui.Label(frame=(18, 16, 339, 58), flex="W")
-        title.text = "アカキャン ゲームギャラリー\n{}班のiPad".format(TEAM_NAMES.get(self.team_id, self.team_id))
+        mode_label = {
+            "center_test": "センター棟テスト（今日だけ）",
+            "tokyo": "東京版（Day 4）",
+        }.get(self.game_mode, "現在の試作")
+        title.text = "アカキャン ゲームギャラリー\n{}｜{}班のiPad".format(
+            mode_label, TEAM_NAMES.get(self.team_id, self.team_id)
+        )
         title.font = ("<system-bold>", 20)
         title.number_of_lines = 0
         self.add_subview(title)
@@ -69,12 +76,13 @@ class GameGallery(ui.View):
 
     def launch_game(self, sender):
         config.SELECTED_GAME_TEAM_ID = sender.game_team_id
+        config.SELECTED_GAME_MODE = self.game_mode
         module = importlib.import_module(sender.module_name)
         module.run()
 
 
-def run():
-    GameGallery().present("fullscreen")
+def run(game_mode=None):
+    GameGallery(game_mode=game_mode).present("fullscreen")
 
 
 if __name__ == "__main__":
