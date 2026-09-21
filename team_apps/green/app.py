@@ -384,6 +384,23 @@ class GreenTerritoryGame(ui.View):
             place["mission_kind"] = self._mission_assignments[place_id]
 
     def _apply_remote_state(self, definition, state, error):
+        try:
+            self._apply_remote_state_inner(definition, state, error)
+        except Exception as exc:
+            trace = traceback.format_exc()
+            self._debug("画面反映中の例外: {}".format(type(exc).__name__))
+            for line in trace.rstrip().splitlines():
+                self._debug(line)
+            self._refreshing = False
+            self._last_api_error = "{}\n{}".format(exc, "\n".join(self._debug_log))
+            self.model = self._offline_model()
+            self.model["offline"] = True
+            self.model["connection_status"] = "offline"
+            self.detail.text = "状態反映エラー\n{}".format(self._last_api_error)
+            self.action_button.title = "ログを確認してください"
+            self.action_button.enabled = False
+
+    def _apply_remote_state_inner(self, definition, state, error):
         self._refreshing = False
         if error is None and definition is not None and state is not None:
             self.session_id = (state.get("game_session_id") if isinstance(state, dict) else None) or (getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id)
@@ -603,7 +620,15 @@ class GreenTerritoryGame(ui.View):
 
 
 def run():
-    GreenTerritoryGame().present("fullscreen")
+    try:
+        GreenTerritoryGame().present("fullscreen")
+    except Exception as exc:
+        trace = traceback.format_exc()
+        print("[green] 起動例外: " + trace)
+        try:
+            ui.alert("Green起動エラー", "{}\n\n{}".format(exc, trace), "閉じる")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
