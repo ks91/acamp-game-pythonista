@@ -151,15 +151,23 @@ class GreenTerritoryGame(ui.View):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
             simulated = False
+            simulated_role = None
             if owner is None and place["id"] in claimed:
                 owner = team_id
             elif owner is None and use_demo_opponents:
-                owner = opponent_teams[index % len(opponent_teams)]
+                if index % 4 == 0:
+                    simulated_role = "neutral"
+                else:
+                    owner = opponent_teams[index % len(opponent_teams)]
+                    if index % 4 == 1:
+                        simulated_role = "enemy_target"
                 simulated = True
-            owner_label = "自班（グリーン）" if owner == team_id else ("テスト表示: {}班".format(owner) if simulated else ("相手班" if owner else "中立"))
+            owner_label = "自班（グリーン）" if owner == team_id else ("テスト表示: 未占領" if simulated_role == "neutral" else ("テスト表示: {}班".format(owner) if simulated else ("相手班" if owner else "中立")))
             home_id = state.get("home_place_id") or (getattr(config, "HOME_PLACE_ID", None) if config else None)
             if place.get("role"):
                 role = place["role"]
+            elif simulated_role is not None:
+                role = simulated_role
             elif owner == team_id and place["id"] == home_id:
                 role = "own_home"
             elif owner and owner != team_id and place.get("is_boss"):
