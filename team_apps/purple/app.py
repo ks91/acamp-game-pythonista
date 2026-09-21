@@ -26,6 +26,8 @@ START_LIVES = 3
 GPS_RADIUS_M = 40.0
 # テスト時だけ、地点1を起動時の現在地に置き換える。
 TEST_PLACE1_IS_CURRENT = True
+# テスト時は攻撃ポイントを消費しない。
+TEST_INFINITE_POINTS = True
 
 
 def dms_to_decimal(degrees, minutes, seconds, direction):
@@ -218,7 +220,7 @@ class PurpleMockGame(ui.View):
         super().__init__(frame=(0, 0, screen_width, screen_height))
         self.name = "東京マン腸脱出ゲーム"
         self.background_color = "#FFF8E1"
-        self.score = START_SCORE
+        self.score = 999999 if TEST_INFINITE_POINTS else START_SCORE
         self.boss_hp = START_BOSS_HP
         self.lives = START_LIVES
         self.arrived = [False, False]
@@ -655,7 +657,8 @@ class PurpleMockGame(ui.View):
     def _attack(self, sender):
         if self.score < ATTACK_COST or self.boss_hp <= 0:
             return
-        self.score -= ATTACK_COST
+        if not TEST_INFINITE_POINTS:
+            self.score -= ATTACK_COST
         self.boss_hp = max(0, self.boss_hp - ATTACK_DAMAGE)
         if self.boss_hp == 0:
             message = "東京マンを倒した！脱出成功！"
@@ -665,7 +668,7 @@ class PurpleMockGame(ui.View):
 
     def _reset(self, sender=None):
         self._hide_feedback()
-        self.score = START_SCORE
+        self.score = 999999 if TEST_INFINITE_POINTS else START_SCORE
         self.boss_hp = START_BOSS_HP
         self.lives = START_LIVES
         self.arrived = [False, False]
