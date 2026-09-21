@@ -145,7 +145,7 @@ function setPlace(index, lat, lon) {
 class PurpleMockGame(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
-        self.name = "パープル班 東京マン仮試作"
+        self.name = "東京マン腸脱出ゲーム"
         self.background_color = "#FFF8E1"
         self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
@@ -182,7 +182,7 @@ class PurpleMockGame(ui.View):
 
     def _build_ui(self):
         width = self.width
-        self._label("パープル班｜東京マン脱出ゲーム", (16, 12, width - 32, 30), ("<system-bold>", 20), align=ui.ALIGN_CENTER)
+        self._label("東京マン腸脱出ゲーム", (16, 12, width - 32, 30), ("<system-bold>", 20), align=ui.ALIGN_CENTER)
         self.mock_label = self._label("仮動作：GPSあり・サーバー通信なし", (16, 46, width - 32, 24), ("<system-bold>", 13), "#D84315", ui.ALIGN_CENTER)
         self.status_label = self._label("", (16, 78, width - 32, 40), ("<system-bold>", 15), align=ui.ALIGN_CENTER)
         self.gps_button = self._button("GPS更新", (16, 122, 105, 34), self._update_location, "#455A64")
