@@ -189,7 +189,8 @@ class GameView(ui.View):
             self.select_location,
             accent_color,
         )
-        self.scroll.content_size = (self.width, 80)
+        self._add_button("ホームにもどる", 72, self.back_to_title, accent_color)
+        self.scroll.content_size = (self.width, 140)
 
     def select_location(self, sender):
         self.render_quest_selection(self.status_label.text_color)
@@ -214,7 +215,8 @@ class GameView(ui.View):
             )
             button.quest = quest
             y += 60
-        self.scroll.content_size = (self.width, y + 16)
+        self._add_button("場所選択にもどる", y, self.back_to_location, accent_color)
+        self.scroll.content_size = (self.width, y + 76)
 
     def select_quest(self, sender):
         self.selected_quest = sender.quest
@@ -283,7 +285,7 @@ class GameView(ui.View):
             self.confirm_elevator_position,
             self.status_label.text_color,
         )
-        self._add_button("クエスト一覧にもどる", 264, self.back_to_quests, self.status_label.text_color)
+        self._add_button("クエスト画面にもどる", 264, self.back_to_capture, self.status_label.text_color)
         self.scroll.content_size = (self.width, 332)
 
     def confirm_elevator_position(self, sender):
@@ -306,14 +308,21 @@ class GameView(ui.View):
             self.show_message("このクエストの座標が未登録です。スタッフが座標を登録してください。")
             return
         result = classify_location([target], candidate, threshold_m=10)
-        self.render_quest_selection(self.status_label.text_color)
         if result["kind"] == "same_position_group":
+            self.render_quest_selection(self.status_label.text_color)
             self.show_message("クエスト達成！\n{}の位置を確認しました。".format(self.selected_quest["name"]))
             return
+        self.render_capture_screen(self.status_label.text_color)
         self.show_message("位置が一致しません。\n登録地点の近くで撮影してください。")
 
     def back_to_quests(self, sender):
         self.render_quest_selection(self.status_label.text_color)
+
+    def back_to_capture(self, sender):
+        self.render_capture_screen(self.status_label.text_color)
+
+    def back_to_location(self, sender):
+        self.render_location_selection(self.status_label.text_color)
 
 
     def update_location(self, sender):
