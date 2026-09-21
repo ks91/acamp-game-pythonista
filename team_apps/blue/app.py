@@ -36,6 +36,8 @@ class GameView(ui.View):
         self.confirmed_elevators = self._load_confirmed_elevators()
         self.quest_locations_path = os.path.join(self.repository_directory, "registered-quest-locations.json")
         self.registered_quest_locations = self._load_registered_quest_locations()
+        self.completed_quests_path = os.path.join(self.repository_directory, "completed-quests.json")
+        self.completed_quests = self._load_completed_quests()
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -77,6 +79,26 @@ class GameView(ui.View):
         with open(self.quest_locations_path, "w") as destination:
             json.dump(self.registered_quest_locations, destination)
 
+    def _load_completed_quests(self):
+        try:
+            with open(self.completed_quests_path, "r") as source:
+                completed = json.load(source)
+            return set(completed) if isinstance(completed, list) else set()
+        except (OSError, ValueError):
+            return set()
+
+    def _save_completed_quests(self):
+        with open(self.completed_quests_path, "w") as destination:
+            json.dump(sorted(self.completed_quests), destination)
+
+    @staticmethod
+    def _location_list(value):
+        if isinstance(value, list):
+            return value
+        if isinstance(value, dict) and "latitude" in value and "longitude" in value:
+            return [value]
+        return []
+
     def refresh(self):
         try:
             definition = self.api.get_game_definition()
@@ -113,9 +135,9 @@ class GameView(ui.View):
                     "longitude": server_quest["longitude"],
                 }
             if public_location is not None:
-                quest["target_location"] = public_location
+                quest["target_locations"] = self._location_list(public_location)
             elif registered:
-                quest["target_location"] = registered
+                quest["target_locations"] = self._location_list(registered)
         self.render_title_screen(accent_color)
 
     def _clear_content(self):
@@ -144,7 +166,13 @@ class GameView(ui.View):
         self.show_message("登録する対象を選んでください")
         y = 12
         for quest in self.available_quests:
-            button = self._add_button("{} の座標を登録".format(quest["name"]), y, self.select_registration_quest, accent_color)
+            saved_count = len(self._location_list(self.registered_quest_locations.get(quest["id"])))
+            button = self._add_button(
+                "{} の座標を登録（保存済み：{}か所）".format(quest["name"], saved_count),
+                y,
+                self.select_registration_quest,
+                accent_color,
+            )
             button.quest = quest
             y += 60
         self._add_button("タイトルにもどる", y, self.back_to_title, accent_color)
@@ -168,11 +196,22 @@ class GameView(ui.View):
             self.show_message("位置情報を取得できませんでした。")
             return
         registered = {"latitude": position["latitude"], "longitude": position["longitude"]}
-        self.registered_quest_locations[self.selected_quest["id"]] = registered
-        self._save_registered_quest_locations()
-        self.selected_quest["target_location"] = registered
-        self.show_message("{}の座標を登録しました。".format(self.selected_quest["name"]))
+        quest_id = self.selected_quest["id"]
+        locations = self._location_list(self.registered_quest_locations.get(quest_id))
+        already_saved = any(
+            classify_location([saved], registered, threshold_m=10)["kind"] == "same_position_group"
+            for saved in locations
+        )
+        if already_saved:
+            message = "この位置はすでに保存されています。\n保存済み：{}か所".format(len(locations))
+        else:
+            locations.append(registered)
+            self.registered_quest_locations[quest_id] = locations
+            self._save_registered_quest_locations()
+            message = "座標を保存しました。\n保存済み：{}か所".format(len(locations))
+        self.selected_quest["target_locations"] = locations
         self.render_registration_quests(self.status_label.text_color)
+        self.show_message(message)
 
     def back_to_title(self, sender):
         self.render_title_screen(self.status_label.text_color)
@@ -205,9 +244,10 @@ class GameView(ui.View):
         )
         y = 12
         for quest in self.available_quests:
+            label = "✓ クリア済み：" if quest["id"] in self.completed_quests else ""
             button = self._add_button(
-                "{}  {} / {}コイン".format(
-                    quest["name"], quest["difficulty"], quest["reward_coins"]
+                "{}{}  {} / {}コイン".format(
+                    label, quest["name"], quest["difficulty"], quest["reward_coins"]
                 ),
                 y,
                 self.select_quest,
@@ -302,18 +342,38 @@ class GameView(ui.View):
             "latitude": position["latitude"],
             "longitude": position["longitude"],
         }
-        target = self.selected_quest.get("target_location")
-        if target is None:
+        targets = self._location_list(
+            self.selected_quest.get("target_locations")
+            or self.selected_quest.get("target_location")
+        )
+        if not targets:
             self.render_capture_screen(self.status_label.text_color)
             self.show_message("このクエストの座標が未登録です。スタッフが座標を登録してください。")
             return
-        result = classify_location([target], candidate, threshold_m=10)
-        if result["kind"] == "same_position_group":
-            self.render_quest_selection(self.status_label.text_color)
-            self.show_message("クエスト達成！\n{}の位置を確認しました。".format(self.selected_quest["name"]))
+        matched = any(
+            classify_location([target], candidate, threshold_m=10)["kind"] == "same_position_group"
+            for target in targets
+        )
+        if matched:
+            quest_id = self.selected_quest["id"]
+            self.completed_quests.add(quest_id)
+            self._save_completed_quests()
+            self.render_completion_screen(self.status_label.text_color)
             return
         self.render_capture_screen(self.status_label.text_color)
         self.show_message("位置が一致しません。\n登録地点の近くで撮影してください。")
+
+    def render_completion_screen(self, accent_color):
+        self._clear_content()
+        quest = self.selected_quest
+        self.show_message(
+            "おめでとう！\n"
+            "{}をクリアしました。\n"
+            "報酬はコイン{}枚だよ！".format(quest["name"], quest["reward_coins"])
+        )
+        self._add_button("別のクエストに挑戦する", 12, self.back_to_quests, accent_color)
+        self._add_button("ホームに戻る", 72, self.back_to_title, accent_color)
+        self.scroll.content_size = (self.width, 140)
 
     def back_to_quests(self, sender):
         self.render_quest_selection(self.status_label.text_color)
