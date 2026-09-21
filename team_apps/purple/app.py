@@ -9,6 +9,8 @@ import random
 import ui
 import location
 
+import config
+
 
 START_SCORE = 10
 START_BOSS_HP = 1000
@@ -150,6 +152,49 @@ function setReference(lat, lon) {
 </body></html>"""
 
 
+GOOGLE_MAP_HTML = r"""<!doctype html>
+<html><head>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<style>html,body,#map{margin:0;width:100%;height:100%;}</style>
+<script>
+var map, currentMarker, placeMarkers = [];
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: {lat: 35.674652, lng: 139.693472}, zoom: 17,
+    streetViewControl: false, fullscreenControl: false, mapTypeControl: false
+  });
+}
+function fitAll() {
+  if (!map) return;
+  var bounds = new google.maps.LatLngBounds();
+  var hasPoint = false;
+  if (currentMarker) { bounds.extend(currentMarker.getPosition()); hasPoint = true; }
+  placeMarkers.forEach(function(marker) {
+    if (marker) { bounds.extend(marker.getPosition()); hasPoint = true; }
+  });
+  if (hasPoint) map.fitBounds(bounds, 45);
+}
+function updatePosition(lat, lon) {
+  if (!map) return;
+  var point = {lat: lat, lng: lon};
+  if (!currentMarker) {
+    currentMarker = new google.maps.Marker({position: point, map: map, label: '●', title: '現在地'});
+  } else { currentMarker.setPosition(point); }
+  fitAll();
+}
+function setPlace(index, lat, lon) {
+  if (!map) return;
+  var point = {lat: lat, lng: lon};
+  if (!placeMarkers[index]) {
+    placeMarkers[index] = new google.maps.Marker({position: point, map: map, label: '旗', title: '地点' + (index + 1)});
+  } else { placeMarkers[index].setPosition(point); }
+  fitAll();
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=__API_KEY__&callback=initMap" async defer></script>
+</head><body><div id="map"></div></body></html>"""
+
+
 class PurpleMockGame(ui.View):
     def __init__(self):
         screen_width, screen_height = ui.get_screen_size()
@@ -199,7 +244,11 @@ class PurpleMockGame(ui.View):
         self.status_label = self._label("", (6, 74, panel_width - 12, 52), ("<system-bold>", 12), align=ui.ALIGN_CENTER)
 
         self.map_view = ui.WebView(frame=(map_x, 0, map_width, self.height))
-        self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
+        maps_key = getattr(config, "GOOGLE_MAPS_API_KEY", "")
+        if maps_key and maps_key != "set-at-game-start":
+            self.map_view.load_html(GOOGLE_MAP_HTML.replace("__API_KEY__", maps_key))
+        else:
+            self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
         self.add_subview(self.map_view)
 
         self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
@@ -268,12 +317,15 @@ class PurpleMockGame(ui.View):
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
     def _load_google_map(self):
-        location_point = self.current_location or REFERENCE_LOCATION
-        url = "https://www.google.com/maps/@{},{},17z".format(
-            location_point["latitude"], location_point["longitude"]
-        )
         try:
-            self.map_view.load_url(url)
+            if self.current_location is not None:
+                self.map_view.eval_js(
+                    "updatePosition({},{})".format(
+                        self.current_location["latitude"],
+                        self.current_location["longitude"],
+                    )
+                )
+            self._draw_place_markers()
         except Exception:
             pass
 
