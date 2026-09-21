@@ -846,21 +846,21 @@ class RedPrototype(ui.View):
         self.set_status("モンスター地図\n青：現在地　赤：モンスター　紫：地点")
         # A WebView inside ScrollView crashes under touch/pinch on some iPads.
         # Mount it directly on the root view, outside the scrolling content.
-        self.open_map_view = ui.WebView(frame=(0, 112, 375, 430), flex="W")
+        self.open_map_view = ui.WebView(frame=(0, 112, 375, 450), flex="W")
         self.add_subview(self.open_map_view)
         self.map_overlay_views.append(self.open_map_view)
         self.refresh_native_map_panel()
-        self.location_tracking_button = ui.Button(title="位置追跡を開始", frame=(8, 550, 170, 40), flex="WT")
+        self.location_tracking_button = ui.Button(title="位置追跡を開始", frame=(8, 570, 170, 36), flex="WT")
         self.location_tracking_button.tint_color = "#D32F2F"
         self.location_tracking_button.action = self.toggle_location_tracking
         self.add_subview(self.location_tracking_button)
         self.map_overlay_views.append(self.location_tracking_button)
-        location_button = ui.Button(title="現在地を取得", frame=(190, 550, 170, 40), flex="WT")
+        location_button = ui.Button(title="現在地を取得", frame=(190, 570, 170, 36), flex="WT")
         location_button.tint_color = "#EF6C00"
         location_button.action = self.update_current_location
         self.add_subview(location_button)
         self.map_overlay_views.append(location_button)
-        back = ui.Button(title="モンスターを閉じる", frame=(16, 600, 343, 48), flex="WT")
+        back = ui.Button(title="モンスターを閉じる", frame=(16, 615, 343, 42), flex="WT")
         back.tint_color = "#C62828"
         back.action = self.close_map
         self.add_subview(back)
@@ -891,11 +891,7 @@ class RedPrototype(ui.View):
         candidates.extend(map_destinations(self.destinations))
         if candidates:
             target = candidates[0]
-            self.open_map_view.load_url(
-                "https://www.google.com/maps/search/?api=1&query={},{}".format(
-                    target["latitude"], target["longitude"]
-                )
-            )
+            self.open_map_view.load_url(self.google_map_url(target))
         else:
             self.open_map_view.load_html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'>地点データを読み込み中…</body></html>")
 
