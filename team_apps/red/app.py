@@ -218,6 +218,7 @@ class RedPrototype(ui.View):
         ]
         random_destinations = station_destinations + public_zone_destinations
         self.monster_destinations = {}
+        self._setup_background()
         assigned_count = 0
         for destination_id, count in SPECIAL_SPAWN_COUNTS.items():
             for _ in range(count):
@@ -299,6 +300,15 @@ class RedPrototype(ui.View):
             self.claimed_place_ids.add(self.active_place_id)
             self.unlocked_destinations.add(self.active_place_id)
 
+    def _setup_background(self):
+        background_path = os.path.join(os.path.dirname(__file__), "back.png")
+        if not os.path.exists(background_path):
+            return
+        self.background_view = ui.ImageView(frame=self.bounds, flex="WH")
+        with open(background_path, "rb") as image_file:
+            self.background_view.image = ui.Image.from_data(image_file.read())
+        self.add_subview(self.background_view)
+
     def show_splash(self, next_action=None):
         image_path = os.path.join(os.path.dirname(__file__), "god_apocalypse_splash.png")
         if not os.path.exists(image_path):
@@ -307,7 +317,8 @@ class RedPrototype(ui.View):
             return
         self.splash_next_action = next_action
         self.splash_view = ui.ImageView(frame=self.bounds, flex="WH")
-        self.splash_view.image = ui.Image.from_path(image_path)
+        with open(image_path, "rb") as image_file:
+            self.splash_view.image = ui.Image.from_data(image_file.read())
         self.splash_view.content_mode = ui.CONTENT_SCALE_ASPECT_FILL
         self.add_subview(self.splash_view)
         self.splash_button = ui.Button(title="タップして続ける", frame=(32, self.height - 82, self.width - 64, 52), flex="WT")
@@ -319,9 +330,9 @@ class RedPrototype(ui.View):
 
     def dismiss_splash(self, sender):
         if self.splash_view:
-            self.splash_view.remove_from_superview()
+            self.splash_view.hidden = True
         if self.splash_button:
-            self.splash_button.remove_from_superview()
+            self.splash_button.hidden = True
         next_action = self.splash_next_action
         self.splash_view = None
         self.splash_button = None
@@ -350,10 +361,13 @@ class RedPrototype(ui.View):
             if not isinstance(button, ui.Button):
                 continue
             button.font = ("<System-Bold>", 16)
-            button.corner_radius = 10
-            button.border_width = 1
+            button.corner_radius = 12
+            button.border_width = 2
             button.border_color = "#FFFFFF"
-            button.alpha = 0.96
+            button.alpha = 0.98
+            button_color = button.tint_color or "#C62828"
+            button.background_color = button_color
+            button.tint_color = "#FFFFFF"
 
     def clear_content(self):
         for view in list(self.content.subviews):
@@ -394,6 +408,27 @@ class RedPrototype(ui.View):
             return True
         return False
 
+    def monsters_by_distance(self):
+        position = self.last_position
+        if not position:
+            return list(self.monsters)
+
+        def distance_for(monster):
+            destination_id = self.monster_destinations.get(monster["name"])
+            destination = next(
+                (item for item in self.destinations if item["id"] == destination_id),
+                None,
+            )
+            if not destination:
+                return float("inf")
+            return distance_meters(
+                position["latitude"],
+                position["longitude"],
+                destination,
+            )
+
+        return sorted(self.monsters, key=distance_for)
+
     def show_battle_selection(self):
         self.current_screen = "battle_selection"
         self.clear_content()
@@ -402,7 +437,7 @@ class RedPrototype(ui.View):
             "戦いたいモンスターを選ぼう。星が高いほど強い。\n"
             "所持: {}/{}個".format(len(self.inventory), self.capacity)
         )
-        map_button = ui.Button(title="ゲーム内マップを見る", frame=(16, 8, 343, 42))
+        map_button = ui.Button(title="モンスターを見る", frame=(16, 8, 343, 42))
         map_button.tint_color = "#2E7D32"
         map_button.action = self.show_map
         self.content.add_subview(map_button)
@@ -411,6 +446,7 @@ class RedPrototype(ui.View):
         profile_button.action = self.show_profile
         self.content.add_subview(profile_button)
         y = 158
+        display_monsters = self.monsters_by_distance()
         if self.unlocked_destinations:
             boss_title = ui.Label(frame=(16, y + 8, 343, 44))
             boss_title.text = "中ボス・ボス"
@@ -435,7 +471,7 @@ class RedPrototype(ui.View):
                 boss_button.action = self.start_miniboss
                 self.content.add_subview(boss_button)
                 y += 62
-        for monster in self.monsters:
+        for monster in display_monsters:
             destination_id = self.monster_destinations[monster["name"]]
             destination = next(item for item in self.destinations if item["id"] == destination_id)
             if self.last_position:
@@ -466,7 +502,7 @@ class RedPrototype(ui.View):
             self.style_buttons()
             self.content.content_size = (375, y + 90)
             return
-        for monster in self.monsters:
+        for monster in display_monsters:
             if not self.monster_is_active(monster):
                 continue
             if self.monster_destinations[monster["name"]] not in self.unlocked_destinations:
@@ -618,8 +654,8 @@ class RedPrototype(ui.View):
 
     def show_interactive_map(self):
         self.set_status(
-            "ゲーム内OpenStreetMap\n"
-            "指で移動・ピンチで拡大縮小できます。敵の位置も表示します。"
+            "モンスター\n"
+            "指で移動・ピンチで拡大縮小できます。モンスターの位置も表示します。"
         )
         self.style_buttons()
         self.content.content_size = (375, 790)
@@ -639,7 +675,7 @@ class RedPrototype(ui.View):
         location_button.tint_color = "#EF6C00"
         location_button.action = self.update_current_location
         self.content.add_subview(location_button)
-        back = ui.Button(title="マップを閉じる", frame=(16, 735, 343, 48))
+        back = ui.Button(title="モンスターを閉じる", frame=(16, 735, 343, 48))
         back.tint_color = "#C62828"
         back.action = self.close_map
         self.content.add_subview(back)
