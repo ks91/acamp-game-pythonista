@@ -15,7 +15,7 @@ MONSTERS = [
     {"name": "石ころモン", "stars": 1, "kind": "強化系", "drop": "木の棒", "drop_power": 50},
     {"name": "青い影", "stars": 2, "kind": "弱体化系", "drop": "弓", "drop_power": 100},
     {"name": "赤い影", "stars": 2, "kind": "攻撃系", "drop": "剣", "drop_power": 100},
-    {"name": "幻の王", "stars": 3, "kind": "レア", "drop": "オレンジジュース", "drop_power": 0},
+    {"name": "幻の王", "stars": 3, "kind": "回復系", "drop": "オレンジジュース", "drop_power": 0},
 ]
 
 MINIBOSSES = [
@@ -86,6 +86,7 @@ class RedPrototype(ui.View):
         self.defeated_by_stars = {1: 0, 2: 0, 3: 0}
         self.current_screen = "map"
         self.unlocked_destinations = set()
+        self.defeated_bosses = set()
         self.active_monster = None
         self.last_position = None
         self.last_accuracy = None
@@ -205,6 +206,8 @@ class RedPrototype(ui.View):
             self.content.add_subview(boss_title)
             y += 60
             for boss_index, boss in enumerate(MINIBOSSES):
+                if boss["name"] in self.defeated_bosses:
+                    continue
                 boss_button = ui.Button(
                     title="{}（HP2000）".format(boss["name"]),
                     frame=(16, y, 343, 48),
@@ -537,6 +540,21 @@ monsters.forEach(m => {
                 button.action = self.attack_with_item
                 self.content.add_subview(button)
                 y += 62
+        if monster.get("boss"):
+            artifact_titles = {
+                "三種の神器・鏡": "鏡：攻撃を2倍返し",
+                "三種の神器・剣": "剣：攻撃力2000",
+                "三種の神器・勾玉": "勾玉：攻撃無効化",
+            }
+            for artifact, title in artifact_titles.items():
+                if artifact not in self.inventory:
+                    continue
+                artifact_button = ui.Button(title=title, frame=(16, y, 343, 48))
+                artifact_button.tint_color = "#6A1B9A"
+                artifact_button.artifact_name = artifact
+                artifact_button.action = self.use_artifact
+                self.content.add_subview(artifact_button)
+                y += 62
         escape_button = ui.Button(title="逃げる（試作では星で判定）", frame=(16, y, 343, 48))
         escape_button.action = self.try_escape
         self.content.add_subview(escape_button)
@@ -553,6 +571,32 @@ monsters.forEach(m => {
         )
         self.content.add_subview(inventory_label)
         self.content.content_size = (375, y + 80)
+
+    def use_artifact(self, sender):
+        if not self.active_monster.get("boss"):
+            return
+        artifact = sender.artifact_name
+        if artifact not in self.inventory:
+            return
+        self.inventory.remove(artifact)
+        if artifact == "三種の神器・剣":
+            self.resolve_player_attack(2000, "神器・剣で攻撃！攻撃力2000！")
+            return
+        enemy_tier = 3
+        enemy_base_damage = 10 * enemy_tier
+        enemy_damage = random.randint((enemy_base_damage * 8) // 10, enemy_base_damage)
+        if artifact == "三種の神器・鏡":
+            reflected = enemy_damage * 2
+            self.enemy_hp -= reflected
+            message = "神器・鏡！敵の攻撃{}を{}ダメージ返した！".format(
+                enemy_damage, reflected
+            )
+            if self.enemy_hp <= 0:
+                self.finish_battle(True, message + "\n中ボスを倒した！")
+            else:
+                self.show_battle(message)
+        elif artifact == "三種の神器・勾玉":
+            self.show_battle("神器・勾玉！敵の攻撃{}を無効化した！".format(enemy_damage))
 
     def attack_with_fist(self, sender):
         self.resolve_player_attack(10, "素手で攻撃！")
@@ -630,6 +674,8 @@ monsters.forEach(m => {
 
     def finish_battle(self, won, message):
         if won:
+            if self.active_monster.get("boss"):
+                self.defeated_bosses.add(self.active_monster["name"])
             hp_gain = 0 if self.active_monster.get("boss") else MAX_HP_GAIN_BY_STAR[self.active_monster["stars"]]
             self.player_max_hp += hp_gain
             self.player_hp = self.player_max_hp
