@@ -220,6 +220,7 @@ class GreenTerritoryGame(ui.View):
         self.refresh_button.tint_color = primary_text
         self.action_button.tint_color = primary_text
         self.legend_label.text_color = primary_text
+        self.legend_label.background_color = (0, 0, 0, 0.68) if dark else (1, 1, 1, 0.88)
         self.detail.background_color = (0, 0, 0, 0.72) if dark else (1, 1, 1, 0.84)
         self.action_button.background_color = (0, 0, 0, 0.78) if dark else (1, 1, 1, 0.88)
         self.theme_button.title = "☀︎" if dark else "☾"
