@@ -190,7 +190,7 @@ class PurpleMockGame(ui.View):
 
     def _build_ui(self):
         width = self.width
-        panel_width = min(150, max(132, width * 0.38))
+        panel_width = width * 0.5
         map_x = panel_width
         map_width = width - panel_width
         self._label("東京マン腸脱出ゲーム", (6, 8, panel_width - 12, 28), ("<system-bold>", 16), align=ui.ALIGN_CENTER)
