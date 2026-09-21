@@ -347,7 +347,7 @@ class GameView(ui.View):
         _, question, answer = PINK_RIDDLES[index]
         return question, answer
 
-    def claim_place(self, sender):
+    def _show_place_riddle(self, sender):
         question, answer = self._riddle_for_place(sender.place_id)
         choices = [answer]
         for _, _, other_answer in PINK_RIDDLES:
@@ -355,21 +355,54 @@ class GameView(ui.View):
                 choices.append(other_answer)
             if len(choices) == 3:
                 break
-        selected = ui.alert(
-            "なぞなぞ",
-            question,
-            *choices,
-            hide_cancel_button=False,
-        )
-        if selected != answer:
+        overlay = ui.View(frame=(20, 40, self.width - 40, 300))
+        overlay.background_color = "white"
+        overlay.corner_radius = 16
+        overlay.border_width = 1
+        overlay.border_color = "#D81B60"
+        overlay.place_id = sender.place_id
+        overlay.correct_answer = answer
+        title = ui.Label(frame=(16, 14, overlay.width - 32, 34))
+        title.text = "🌸 なぞなぞ"
+        title.font = ("<System-Bold>", 22)
+        title.alignment = ui.ALIGN_CENTER
+        overlay.add_subview(title)
+        question_label = ui.Label(frame=(16, 54, overlay.width - 32, 72))
+        question_label.text = question
+        question_label.number_of_lines = 0
+        question_label.font = ("<System>", 16)
+        question_label.alignment = ui.ALIGN_CENTER
+        overlay.add_subview(question_label)
+        for index, choice in enumerate(choices):
+            button = ui.Button(frame=(24, 136 + index * 48, overlay.width - 48, 38))
+            button.title = choice
+            button.font = ("<System-Bold>", 15)
+            button.tint_color = "white"
+            button.background_color = "#D81B60"
+            button.corner_radius = 8
+            button.choice = choice
+            button.overlay = overlay
+            button.action = self._answer_place_riddle
+            overlay.add_subview(button)
+        self.add_subview(overlay)
+        self.riddle_overlay = overlay
+
+    def _answer_place_riddle(self, sender):
+        overlay = sender.overlay
+        if overlay in self.subviews:
+            self.remove_subview(overlay)
+        self.riddle_overlay = None
+        if sender.choice != overlay.correct_answer:
             self.show_message("不正解です。もう一度なぞなぞに答えてください。")
             return
+        self._claim_place_after_riddle(overlay.place_id)
 
+    def _claim_place_after_riddle(self, place_id):
         try:
             result = self.api.claim_place(
                 action_id=str(uuid.uuid4()),
                 game_session_id=config.GAME_SESSION_ID,
-                place_id=sender.place_id,
+                place_id=place_id,
                 device_id=config.DEVICE_ID,
             )
         except HTTPError as error:
@@ -384,6 +417,9 @@ class GameView(ui.View):
         else:
             self.show_message("この場所は既に獲得済みです。")
         self.refresh()
+
+    def claim_place(self, sender):
+        self._show_place_riddle(sender)
 
 
 def run():
