@@ -4,6 +4,7 @@ import math
 import random
 import threading
 import time
+import traceback
 from urllib.request import Request, urlopen
 
 import location
@@ -100,6 +101,7 @@ class GreenTerritoryGame(ui.View):
         self.selected_id = None
         self._refreshing = False
         self._last_api_error = ""
+        self._debug_log = []
         self._mission_assignments = {}
 
         self.header = ui.Label(frame=(16, 12, 280, 54), font=("<system-bold>", 17), number_of_lines=2)
@@ -282,6 +284,13 @@ class GreenTerritoryGame(ui.View):
     def _selected_place_distance_text(self, place):
         return place.get("distance_text", "GPS取得不可")
 
+    def _debug(self, message):
+        """Keep a short, secret-free trace visible after a failed refresh."""
+        entry = "{} {}".format(time.strftime("%H:%M:%S"), message)
+        self._debug_log.append(entry)
+        self._debug_log = self._debug_log[-24:]
+        print("[green] " + entry)
+
     def refresh_now(self, sender=None):
         if self.api_client is None:
             self.model["offline"] = False
@@ -349,11 +358,21 @@ class GreenTerritoryGame(ui.View):
         definition = None
         state = None
         error = None
+        self._debug_log = []
+        self._debug("状態更新開始")
         try:
+            self._debug("ゲーム定義を取得中")
             definition = self.api_client.get_game_definition()
+            self._debug("ゲーム定義を取得完了")
+            self._debug("チーム状態を取得中")
             state = self.api_client.get_team_state()
+            self._debug("チーム状態を取得完了")
         except Exception as exc:
             error = exc
+            trace = traceback.format_exc()
+            self._debug("例外: {}".format(type(exc).__name__))
+            for line in trace.rstrip().splitlines():
+                self._debug(line)
         ui.delay(lambda: self._apply_remote_state(definition, state, error), 0.0)
 
     def _assign_random_missions(self):
@@ -371,7 +390,8 @@ class GreenTerritoryGame(ui.View):
             self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
         else:
-            self._last_api_error = str(error) if error is not None else "APIからゲーム状態を取得できませんでした"
+            trace_text = "\n".join(self._debug_log)
+            self._last_api_error = "{}\n{}".format(str(error) if error is not None else "APIからゲーム状態を取得できませんでした", trace_text)
             fallback_state = {"score": self.model.get("score", 0), "territories": [], "claimed_places": []}
             self.model = self._build_model({"places": list(LOCAL_CENTER_TEST_PLACES)}, fallback_state, self.team_id)
             self._assign_random_missions()
