@@ -62,6 +62,8 @@ class RedMapSafetyTests(unittest.TestCase):
         self.assertIn("https://www.google.com/maps/search/?api=1", SOURCE)
         self.assertIn("map_action=map", SOURCE)
         self.assertIn("self.google_map_url(target)", SOURCE)
+        self.assertIn("if not self.open_map_view or self.map_loaded", SOURCE)
+        self.assertIn("self.map_loaded = True", SOURCE)
 
     def test_screen_change_resets_scroll_to_show_back_button(self):
         start = SOURCE.index("def clear_content")

@@ -317,6 +317,7 @@ class RedPrototype(ui.View):
         self.location_tracking = False
         self.location_tracking_button = None
         self.map_overlay_views = []
+        self.map_loaded = False
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
@@ -844,6 +845,7 @@ class RedPrototype(ui.View):
 
     def show_interactive_map(self):
         self.set_status("モンスター地図\n青：現在地　赤：モンスター　紫：地点")
+        self.map_loaded = False
         # A WebView inside ScrollView crashes under touch/pinch on some iPads.
         # Mount it directly on the root view, outside the scrolling content.
         self.open_map_view = ui.WebView(frame=(0, 112, 375, 450), flex="W")
@@ -867,7 +869,7 @@ class RedPrototype(ui.View):
         self.map_overlay_views.append(back)
 
     def refresh_native_map_panel(self):
-        if not self.open_map_view:
+        if not self.open_map_view or self.map_loaded:
             return
         if self.server_scenario_loaded:
             status = "モンスター出現地点"
@@ -894,6 +896,7 @@ class RedPrototype(ui.View):
             self.open_map_view.load_url(self.google_map_url(target))
         else:
             self.open_map_view.load_html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'>地点データを読み込み中…</body></html>")
+        self.map_loaded = True
 
     def close_map(self, sender):
         self.stop_location_tracking()
@@ -979,6 +982,7 @@ class RedPrototype(ui.View):
             return
         self.last_position = position
         self.last_accuracy = position.get("horizontal_accuracy", "不明")
+        self.map_loaded = False
         self.refresh_native_map_panel()
         self.set_status(
             "現在地を更新しました。\nGPS精度：約{}m".format(self.last_accuracy)
