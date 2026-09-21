@@ -146,8 +146,23 @@ class YellowEgyptGame(ui.View):
                 places.append((key, story, place))
         return sorted(places, key=lambda item: SPOT_ORDER.index(item[0]))
 
+    def _canonical_place_id(self, key, place):
+        """表示地点名にかかわらず、APIのキャラクター地点IDへ変換する。"""
+        if key == "pyramid":
+            return "pyramid"
+        if key == "sphinx":
+            return "sphinx"
+        return place.get("id", key)
+
+    def _place_aliases(self, key, place):
+        return {place.get("id"), self._canonical_place_id(key, place)}
+
     def _claimed_ids(self):
-        return set((self.state or {}).get("claimed_places", []))
+        claimed = set((self.state or {}).get("claimed_places", []))
+        for key, _story, place in self._target_places():
+            if claimed.intersection(self._place_aliases(key, place)):
+                claimed.add(place["id"])
+        return claimed
 
     def _is_rare(self, key, place_id):
         team_id = getattr(config, "TEAM_ID", "yellow") if config is not None else "yellow"
@@ -171,7 +186,7 @@ class YellowEgyptGame(ui.View):
 
     def _story_for_claim(self, story_key, place_id):
         for key, story, place in self._target_places():
-            if key == story_key and place["id"] == place_id:
+            if key == story_key and place_id in self._place_aliases(key, place):
                 return self._effective_story(key, story, place)
         return SPOT_STORIES[story_key]
 
@@ -225,63 +240,46 @@ class YellowEgyptGame(ui.View):
             y += 72
 
         places_by_key = {key: (story, place) for key, story, place in target_places}
-        character_title = self._label("キャラクターを獲得", (16, y, self.width - 32, 34), ("<system-bold>", 18), TEAM_COLOR)
+        character_title = self._label(
+            "現在地からキャラクターを獲得（各スポット半径60m以内）",
+            (16, y, self.width - 32, 50),
+            ("<system-bold>", 18),
+            TEAM_COLOR,
+        )
         self.content.add_subview(character_title)
-        y += 44
-        for key, character_name in CHARACTER_CATALOG:
-            entry = places_by_key.get(key)
-            if entry is None:
-                awarded = False
-                place_id = key
-            else:
-                story, place = entry
-                place_id = place["id"]
-                awarded = place_id in claimed_ids and self._effective_story(key, story, place)["display_name"] == character_name
-            character_button = self._button(
-                "✓ {}".format(character_name) if awarded else character_name,
-                (16, y, self.width - 32, 52),
-                self.claim_place,
-                enabled=not (entry and place_id in claimed_ids),
-            )
-            character_button.place_id = place_id
-            character_button.story_key = key
-            self.content.add_subview(character_button)
-            y += 60
+        y += 60
 
+        # スタッフ決定の2地点だけを獲得ボタンとして表示する。
+        # 実際の半径判定は、現在地を受け取るサーバー側で行う。
         for key in SPOT_ORDER:
-            story = SPOT_STORIES[key]
             entry = places_by_key.get(key)
             if entry is None:
-                button = self._button(
-                    "{}（0点）".format(story["display_name"]),
-                    (16, y, self.width - 32, 52),
-                    self.claim_place,
-                    enabled=True,
-                )
-                button.place_id = key
-                button.story_key = key
-                self.content.add_subview(button)
-                self.place_buttons.append(button)
-                y += 60
                 continue
-            story, place = entry
-            base_story = story
-            effective_story = self._effective_story(key, base_story, place)
+            base_story, place = entry
             claimed = place["id"] in claimed_ids
-            story = effective_story if claimed else base_story
-            title = story["display_name"]
+            story = self._effective_story(key, base_story, place) if claimed else base_story
+            location_name = place.get("name", "指定スポット")
             points = place.get("points", 0)
-            text = "✓ {}（{}点）".format(title, points) if claimed else "{}（{}点）".format(title, points)
-            button = self._button(text, (16, y, self.width - 32, 52), self.claim_place, enabled=not claimed)
+            text = (
+                "✓ {}を獲得済み\n{}"
+                if claimed
+                else "{}を獲得\n{}"
+            ).format(story["display_name"], location_name)
+            button = self._button(
+                text,
+                (16, y, self.width - 32, 62),
+                self.claim_place,
+                enabled=not claimed,
+            )
             button.place_id = place["id"]
             button.story_key = key
             self.content.add_subview(button)
             self.place_buttons.append(button)
-            y += 60
+            y += 70
             if claimed:
                 description = self._label(
-                    "{}\n{}".format(story["display_name"], story["description"]),
-                    (24, y, 327, 62),
+                    "{}（{}点）\n{}".format(story["display_name"], points, story["description"]),
+                    (24, y, self.width - 48, 62),
                     ("<system>", 14),
                 )
                 self.content.add_subview(description)
@@ -502,10 +500,16 @@ class YellowEgyptGame(ui.View):
 
     def claim_place(self, sender):
         try:
+            configured_place_id = sender.place_id
+            place_id = configured_place_id
+            for key, _story, place in self._target_places():
+                if key == sender.story_key and place.get("id") == configured_place_id:
+                    place_id = self._canonical_place_id(key, place)
+                    break
             result = self.api.claim_place(
                 action_id=str(uuid.uuid4()),
                 game_session_id=config.GAME_SESSION_ID,
-                place_id=sender.place_id,
+                place_id=place_id,
                 device_id=config.DEVICE_ID,
             )
         except HTTPError as error:
