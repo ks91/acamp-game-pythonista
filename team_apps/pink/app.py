@@ -43,7 +43,11 @@ class GameView(ui.View):
         super().__init__(frame=(0, 0, 375, 667))
         self.name = "アカキャン位置ゲー"
         self.background_color = "white"
-        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
+        self.api = ApiClient(
+            base_url=config.API_BASE_URL,
+            token=config.GAME_TOKEN,
+            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+        )
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
         self.coins = 0
