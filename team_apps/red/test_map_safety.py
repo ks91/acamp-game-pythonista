@@ -10,6 +10,13 @@ class RedMapSafetyTests(unittest.TestCase):
         init = SOURCE[SOURCE.index("def __init__"):SOURCE.index("def refresh_server_scenario")]
         self.assertNotIn("self.show_splash(", init)
 
+    def test_battle_opens_without_splash_image(self):
+        start = SOURCE.index("def start_battle")
+        end = SOURCE.index("def show_battle", start)
+        body = SOURCE[start:end]
+        self.assertNotIn("show_splash", body)
+        self.assertIn('self.show_battle("モンスターが現れた！")', body)
+
     def test_callback_targets_accept_the_sender_argument(self):
         import ast
         tree = ast.parse(SOURCE)

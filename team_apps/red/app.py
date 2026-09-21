@@ -1198,7 +1198,9 @@ monsters.forEach(m => {
         monster = self.active_monster
         self.enemy_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
         self.player_hp = min(self.player_hp, self.player_max_hp)
-        self.show_splash(lambda: self.show_battle("モンスターが現れた！"))
+        # Battle must open directly: loading splash artwork here can terminate
+        # Pythonista before the battle controls appear.
+        self.show_battle("モンスターが現れた！")
 
     def show_battle(self, message):
         self.clear_content()
