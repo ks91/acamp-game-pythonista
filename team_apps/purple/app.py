@@ -707,7 +707,9 @@ class PurpleMockGame(ui.View):
         if distance <= target["radius_m"]:
             self._arrive(next_index, distance)
         else:
-            self._refresh("現在地を更新しました。{}まで約{:.0f}mです。".format(target["name"], distance))
+            message = "現在地を更新しました。\n登録地点「{}」まであと約{:.0f}mです。".format(target["name"], distance)
+            self._refresh(message)
+            self._show_feedback("登録地点まで\nあと約{:.0f}m".format(distance), "#1565C0", 3)
 
     def _check_arrival(self, index):
         if index > 0 and not self.arrived[index - 1]:
@@ -724,7 +726,9 @@ class PurpleMockGame(ui.View):
         if distance <= target["radius_m"]:
             self._arrive(index, distance)
         else:
-            self._refresh("{}の範囲外です。約{:.0f}m離れています。".format(target["name"], distance))
+            message = "登録地点「{}」まであと約{:.0f}mです。".format(target["name"], distance)
+            self._refresh(message)
+            self._show_feedback("登録地点まで\nあと約{:.0f}m".format(distance), "#1565C0", 3)
 
     def _arrive(self, index, distance_m):
         target = self.place_locations[index]
@@ -759,7 +763,7 @@ class PurpleMockGame(ui.View):
             self.good_bacteria_hp = GOOD_BACTERIA_HP
             self._show_good_bacteria_arrival()
         chest_message = self._maybe_spawn_chest(index, CHEST_LOCATION_CHANCE, "location")
-        message = "{}を{}。".format(target["name"], "獲得" if result.get("claimed") else "確認")
+        message = "{}を{}。登録地点まであと0mです。".format(target["name"], "獲得" if result.get("claimed") else "確認")
         if chest_message:
             message += "\n" + chest_message
         self._refresh(message)
