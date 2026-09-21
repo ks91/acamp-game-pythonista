@@ -20,16 +20,19 @@ if _REPOSITORY_ROOT not in sys.path:
     sys.path.insert(0, _REPOSITORY_ROOT)
 
 try:
-    from team_apps.red.server_game import make_api_client, scenario_from_server
+    from team_apps.red.server_game import make_api_client, map_destinations, scenario_from_server
 except ImportError:
     try:
-        from server_game import make_api_client, scenario_from_server
+        from server_game import make_api_client, map_destinations, scenario_from_server
     except ImportError:
         def make_api_client(config_module):
             return None
 
         def scenario_from_server(game_definition, team_state):
             return {"places": [], "claimed_place_ids": set(), "game_session_id": "", "boss_place_ids": {}}
+
+        def map_destinations(destinations):
+            return [place for place in destinations if has_map_coordinates(place)]
 
 
 try:
@@ -806,7 +809,8 @@ class RedPrototype(ui.View):
             self.last_position = position
             self.last_accuracy = position.get("horizontal_accuracy", "不明")
             self.open_map_view.load_html(self.leaflet_map_html())
-            if not self.server_scenario_loaded:
+            playable_destinations = map_destinations(self.destinations)
+            if not self.server_scenario_loaded or not playable_destinations:
                 self.set_status(
                     "現在地を更新しました。\n地点データを読み込み中です。"
                 )
@@ -816,12 +820,12 @@ class RedPrototype(ui.View):
                 distance_meters(
                     position["latitude"], position["longitude"], destination
                 )
-                for destination in self.destinations
+                for destination in playable_destinations
             ]
             nearest_index, nearest = min(
                 enumerate(distances), key=lambda item: item[1]
             )
-            nearest_destination = self.destinations[nearest_index]
+            nearest_destination = playable_destinations[nearest_index]
             self.open_map_view.load_html(self.leaflet_map_html())
             if nearest <= LOCATION_TRIGGER_RADIUS_M:
                 self.unlocked_destinations.add(nearest_destination["id"])
@@ -869,8 +873,7 @@ class RedPrototype(ui.View):
                 "latitude": destination["latitude"],
                 "longitude": destination["longitude"],
             }
-            for destination in self.destinations
-            if has_map_coordinates(destination)
+            for destination in map_destinations(self.destinations)
         ]
         markers = []
         for index, monster in enumerate(self.monsters):

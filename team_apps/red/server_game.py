@@ -26,6 +26,11 @@ def has_map_coordinates(place):
         return False
 
 
+def map_destinations(destinations):
+    """Return only destinations with real map coordinates."""
+    return [place for place in destinations if has_map_coordinates(place)]
+
+
 def make_api_client(config_module, client_class=ApiClient):
     """Build the shared client using the Day 3/Day 4 gallery selection."""
     if config_module is None:
