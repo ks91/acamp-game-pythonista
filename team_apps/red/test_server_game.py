@@ -57,6 +57,17 @@ class RedServerGameTests(unittest.TestCase):
         self.assertEqual([], scenario["places"])
         self.assertFalse(server_game.has_map_coordinates(definition["places"][0]))
 
+    def test_map_destinations_excludes_redacted_placeholders(self):
+        destinations = [
+            {"id": "hidden", "latitude": 0, "longitude": 0},
+            {"id": "playable", "latitude": 35.0, "longitude": 139.0},
+        ]
+
+        self.assertEqual(
+            ["playable"],
+            [place["id"] for place in server_game.map_destinations(destinations)],
+        )
+
     def test_missing_credentials_do_not_create_a_client(self):
         class MissingConfig:
             API_BASE_URL = ""
