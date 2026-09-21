@@ -222,7 +222,7 @@ class RedPrototype(ui.View):
         self.content.content_size = (375, y + 12)
 
     def start_selected_battle(self, sender):
-        self.active_monster = self.monsters[sender.monster_index]
+        self.active_monster = sender.monster
         self.start_battle(sender)
 
     def check_monster_location(self, sender):
