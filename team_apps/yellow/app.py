@@ -67,11 +67,11 @@ SPOT_STORIES = {
 
 SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
 CHARACTER_CATALOG = (
+    ("fan-cafe", "シュバルスフィンクス"),
+    ("center-building", "シュバルファラオ"),
     ("ycap", "ピラミッド"),
     ("fan-cafe", "ハチ公スフィンクス"),
-    ("fan-cafe", "シュバルスフィンクス"),
     ("center-building", "ファラオ"),
-    ("center-building", "シュバルファラオ"),
 )
 
 
@@ -116,7 +116,8 @@ class YellowEgyptGame(ui.View):
             )
             return
         self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
-        self.refresh()
+        self.status_label.text = "ゲームを最初の状態に戻しています…"
+        threading.Thread(target=self._restart_test_session, daemon=True).start()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
         label = ui.Label(frame=frame)
@@ -327,11 +328,11 @@ class YellowEgyptGame(ui.View):
         right_x = left_width + 24
         right_width = self.width - right_x - 24
         catalog = [
+            ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
+            ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
             ("ycap", "ピラミッド", "pyramid.jpeg"),
             ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
-            ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
             ("center-building", "ファラオ", "pharaoh.jpeg"),
-            ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
         ]
         self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, self.width - 32, 44), lambda button: self._render())
