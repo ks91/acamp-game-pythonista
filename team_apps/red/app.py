@@ -90,6 +90,8 @@ class RedPrototype(ui.View):
         self.active_monster = None
         self.last_position = None
         self.last_accuracy = None
+        self.location_tracking = False
+        self.location_tracking_button = None
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
@@ -310,33 +312,83 @@ class RedPrototype(ui.View):
         self.open_map_view = ui.WebView(frame=(0, 0, 375, 720))
         self.content.add_subview(self.open_map_view)
         self.open_map_view.load_html(self.leaflet_map_html())
-        location_button = ui.Button(title="現在地を更新", frame=(8, 675, 170, 40))
-        location_button.tint_color = "#D32F2F"
-        location_button.action = self.update_current_location
-        self.content.add_subview(location_button)
+        self.location_tracking_button = ui.Button(
+            title="位置追跡を開始", frame=(8, 675, 170, 40)
+        )
+        self.location_tracking_button.tint_color = "#D32F2F"
+        self.location_tracking_button.action = self.toggle_location_tracking
+        self.content.add_subview(self.location_tracking_button)
+        self.start_location_tracking()
         back = ui.Button(title="マップを閉じる", frame=(16, 735, 343, 48))
         back.tint_color = "#C62828"
-        back.action = lambda sender: self.show_battle_selection()
+        back.action = self.close_map
         self.content.add_subview(back)
 
-    def update_current_location(self, sender):
-        self.set_status("現在地を取得中…\n屋外で少し待ってください。")
-        location.start_updates()
-        try:
-            position = location.get_location()
-        finally:
-            location.stop_updates()
-        if not position:
-            self.set_status("現在地を取得できませんでした。\n位置情報の許可を確認してください。")
+    def close_map(self, sender):
+        self.stop_location_tracking()
+        self.show_battle_selection()
+
+    def start_location_tracking(self, sender=None):
+        if self.location_tracking:
             return
-        self.last_position = position
-        self.last_accuracy = position.get("horizontal_accuracy", "不明")
-        self.open_map_view.load_html(self.leaflet_map_html())
-        self.set_status(
-            "現在地を更新しました。\nGPS精度：約{}m\n赤いマーカーが現在地です。".format(
-                self.last_accuracy
+        self.location_tracking = True
+        location.start_updates()
+        if self.location_tracking_button:
+            self.location_tracking_button.title = "位置追跡を停止"
+        self.location_tick()
+
+    def stop_location_tracking(self, sender=None):
+        self.location_tracking = False
+        location.stop_updates()
+        if self.location_tracking_button:
+            self.location_tracking_button.title = "位置追跡を開始"
+
+    def toggle_location_tracking(self, sender):
+        if self.location_tracking:
+            self.stop_location_tracking()
+        else:
+            self.start_location_tracking()
+
+    def location_tick(self):
+        if not self.location_tracking:
+            return
+        position = location.get_location()
+        interval = 30
+        if position:
+            self.last_position = position
+            self.last_accuracy = position.get("horizontal_accuracy", "不明")
+            distances = [
+                distance_meters(
+                    position["latitude"], position["longitude"], destination
+                )
+                for destination in DESTINATIONS
+            ]
+            nearest_index, nearest = min(
+                enumerate(distances), key=lambda item: item[1]
             )
-        )
+            nearest_destination = DESTINATIONS[nearest_index]
+            self.open_map_view.load_html(self.leaflet_map_html())
+            if nearest <= LOCATION_TRIGGER_RADIUS_M:
+                self.unlocked_destinations.add(nearest_destination["id"])
+                self.stop_location_tracking()
+                self.set_status(
+                    "{}の20m以内に入りました。モンスター発見！".format(
+                        nearest_destination["name"]
+                    )
+                )
+                return
+            if nearest <= 200:
+                interval = 10
+            self.set_status(
+                "現在地を更新しました。最寄りの目的地まで約{}m\n次の更新：{}秒後".format(
+                    round(nearest), interval
+                )
+            )
+        ui.delay(self.location_tick, interval)
+
+    def update_current_location(self, sender):
+        self.start_location_tracking()
+        self.location_tick()
 
     def leaflet_map_html(self):
         destinations = [
