@@ -171,8 +171,6 @@ class GreenTerritoryGame(ui.View):
         return ApiClient(
             base_url=base_url,
             token=token,
-            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
-            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
         )
 
     @staticmethod
