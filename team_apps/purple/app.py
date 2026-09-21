@@ -32,6 +32,12 @@ GPS_RADIUS_M = 40.0
 TEST_PLACE1_IS_CURRENT = True
 # テスト時は攻撃ポイントを消費しない。
 TEST_INFINITE_POINTS = True
+CHEST_LOCATION_CHANCE = 0.20
+CHEST_RIDDLE_CHANCE = 0.80
+ITEM_COSTS = {
+    "液体窒素＆硫酸": 100,
+    "亜硝酸ナトリウム爆弾": 70,
+}
 
 
 def dms_to_decimal(degrees, minutes, seconds, direction):
@@ -239,6 +245,10 @@ class PurpleMockGame(ui.View):
         self.quiz_question = None
         self.quiz_remaining = 0
         self.checkpoint_state = None
+        self.chest_arrival_checked = [False, False]
+        self.chest_riddle_checked = [False, False]
+        self.chest_items = [None, None]
+        self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self._build_ui()
         self._read_current_location()
         if TEST_PLACE1_IS_CURRENT and self.current_location is not None:
@@ -320,7 +330,19 @@ class PurpleMockGame(ui.View):
         self.attack_button.font = ("<system-bold>", 11)
         self.reset_button = self._button("リセット", (6, 450, panel_width - 12, 30), self._reset, "#546E7A")
         self.reset_button.font = ("<system-bold>", 11)
-        self.log_label = self._label("", (6, 486, panel_width - 12, 120), ("<system>", 11), "#455A64", ui.ALIGN_CENTER)
+        self._label("攻撃アイテム", (6, 486, panel_width - 12, 22), ("<system-bold>", 12), align=ui.ALIGN_CENTER)
+        self.item_buttons = []
+        for item_index, item_name in enumerate(ITEM_COSTS):
+            button = self._button(
+                item_name,
+                (6, 512 + item_index * 36, panel_width - 12, 30),
+                self._buy_item,
+                "#6A1B9A",
+            )
+            button.item_name = item_name
+            button.font = ("<system-bold>", 9)
+            self.item_buttons.append(button)
+        self.log_label = self._label("", (6, 596, panel_width - 12, max(60, self.height - 606)), ("<system>", 10), "#455A64", ui.ALIGN_CENTER)
 
     def _hide_feedback(self):
         if self.feedback_label is not None:
@@ -370,7 +392,47 @@ class PurpleMockGame(ui.View):
         can_attack = self.score >= ATTACK_COST and self.boss_hp > 0
         self.attack_button.enabled = can_attack
         self.attack_button.alpha = 1.0 if can_attack else 0.45
+        for button in self.item_buttons:
+            item_name = button.item_name
+            offered = item_name in self.chest_items
+            owned = self.item_inventory[item_name]
+            button.hidden = not offered and not owned
+            button.title = "{} {}pt".format(item_name, ITEM_COSTS[item_name]) if offered else ""
+            if owned:
+                button.title = "{} ×{}".format(item_name, owned)
+            button.enabled = offered and self.score >= ITEM_COSTS[item_name] and self.boss_hp > 0
+            button.alpha = 1.0 if button.enabled else 0.35
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
+
+    def _maybe_spawn_chest(self, index, chance, source):
+        if self.chest_items[index] is not None:
+            return ""
+        if source == "location":
+            if self.chest_arrival_checked[index]:
+                return ""
+            self.chest_arrival_checked[index] = True
+        else:
+            if self.chest_riddle_checked[index]:
+                return ""
+            self.chest_riddle_checked[index] = True
+        if random.random() >= chance:
+            return ""
+        item_name = random.choice(list(ITEM_COSTS))
+        self.chest_items[index] = item_name
+        return "宝箱が出た！ {}（{}pt）を購入できます。".format(item_name, ITEM_COSTS[item_name])
+
+    def _buy_item(self, sender):
+        item_name = sender.item_name
+        if item_name not in self.chest_items or self.item_inventory[item_name] > 0:
+            return
+        cost = ITEM_COSTS[item_name]
+        if self.score < cost:
+            self._refresh("ポイントが足りません。")
+            return
+        if not TEST_INFINITE_POINTS:
+            self.score -= cost
+        self.item_inventory[item_name] += 1
+        self._refresh("{}を購入した！".format(item_name))
 
     def _load_google_map(self):
         if not self.maps_key or self.maps_key == "set-at-game-start":
@@ -530,7 +592,11 @@ class PurpleMockGame(ui.View):
             return
         self.arrived[index] = True
         self.score += 20
-        self._refresh("地点{}に到着！ +20pt".format(index + 1))
+        chest_message = self._maybe_spawn_chest(index, CHEST_LOCATION_CHANCE, "location")
+        message = "地点{}に到着！ +20pt".format(index + 1)
+        if chest_message:
+            message += "\n" + chest_message
+        self._refresh(message)
 
     def _solve(self, index):
         if not self.arrived[index] or self.solved[index] or self.quiz_active:
@@ -634,7 +700,11 @@ class PurpleMockGame(ui.View):
         if not timed_out and selected == question["answer"]:
             self.solved[index] = True
             self.score += 10
-            self._refresh("正解！ 謎{}を解いた！ +10pt".format(index + 1))
+            chest_message = self._maybe_spawn_chest(index, CHEST_RIDDLE_CHANCE, "riddle")
+            message = "正解！ 謎{}を解いた！ +10pt".format(index + 1)
+            if chest_message:
+                message += "\n" + chest_message
+            self._refresh(message)
             self._show_feedback("正解！\n+10pt", "#2E7D32", 3)
             return
 
@@ -678,6 +748,10 @@ class PurpleMockGame(ui.View):
         self.arrived = [False, False]
         self.solved = [False, False]
         self.used_question_indexes.clear()
+        self.chest_arrival_checked = [False, False]
+        self.chest_riddle_checked = [False, False]
+        self.chest_items = [None, None]
+        self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self._refresh("仮試作をリセットしました。")
 
 
