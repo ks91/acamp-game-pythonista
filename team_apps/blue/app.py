@@ -38,6 +38,7 @@ class GameView(ui.View):
         self.quest_locations_path = os.path.expanduser("~/Documents/blue-quest-locations.json")
         self.legacy_quest_locations_path = os.path.join(self.repository_directory, "registered-quest-locations.json")
         self.registered_quest_locations = self._load_registered_quest_locations()
+        self._ensure_test_game_locations()
         self.completed_quests_path = os.path.join(self.repository_directory, "completed-quests.json")
         self.completed_quests = self._load_completed_quests()
         self.quest_progress_path = os.path.join(self.repository_directory, "quest-progress.json")
@@ -72,7 +73,24 @@ class GameView(ui.View):
         with open(self.elevator_locations_path, "w") as destination:
             json.dump(self.confirmed_elevators, destination)
 
-    def _load_registered_quest_locations(self):
+    def _save_registered_quest_locations(self):
+        with open(self.quest_locations_path, "w") as destination:
+            json.dump(self.registered_quest_locations, destination)
+
+    def _ensure_test_game_locations(self):
+        defaults = {
+            "513研修室": {"latitude": 35.67407073059871, "longitude": 139.69317184609355},
+            "事務所側入口": {"latitude": 35.67465399946227, "longitude": 139.69315284937827},
+            "カフェテリアふじ出口": {"latitude": 35.675026446445194, "longitude": 139.6939601327121},
+            "正面入口": {"latitude": 35.67492708549511, "longitude": 139.69340021778783},
+        }
+        changed = False
+        for name, location_value in defaults.items():
+            if not self._location_list(self.registered_quest_locations.get(name)):
+                self.registered_quest_locations[name] = [location_value]
+                changed = True
+        if changed:
+            self._save_registered_quest_locations()
         paths = [self.quest_locations_path, self.legacy_quest_locations_path]
         for path in paths:
             try:
@@ -90,10 +108,6 @@ class GameView(ui.View):
             except (OSError, ValueError):
                 continue
         return {}
-
-    def _save_registered_quest_locations(self):
-        with open(self.quest_locations_path, "w") as destination:
-            json.dump(self.registered_quest_locations, destination)
 
     def _load_completed_quests(self):
         try:
@@ -202,7 +216,7 @@ class GameView(ui.View):
 
     def start_test_game(self, sender):
         preferred = [
-            ("523研究室", ("523", "研究室")),
+            ("513研修室", ("513", "研修室")),
             ("事務所側入口", ("事務所", "office")),
             ("カフェテリアふじ出口", ("ふじ", "カフェテリア")),
             ("正面入口", ("正面", "main")),
