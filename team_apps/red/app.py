@@ -1,5 +1,6 @@
 """レッド班 Day 2 試作：6体のモンスターを選んで戦う。"""
 
+import json
 import math
 import random
 import webbrowser
@@ -299,26 +300,64 @@ class RedPrototype(ui.View):
 
     def show_interactive_map(self):
         self.set_status(
-            "ゲーム内Googleマップ\n"
-            "指で移動・ピンチで拡大縮小できます。"
+            "ゲーム内OpenStreetMap\n"
+            "指で移動・ピンチで拡大縮小できます。敵の位置も表示します。"
         )
         self.content.content_size = (375, 790)
-        self.google_map_view = ui.WebView(frame=(0, 0, 375, 720))
-        self.content.add_subview(self.google_map_view)
-        self.google_map_view.load_url(self.google_map_url(DESTINATIONS[0]))
-        for destination in DESTINATIONS:
-            button = ui.Button(
-                title=destination["name"],
-                frame=(8 + DESTINATIONS.index(destination) * 123, 8, 117, 40),
-            )
-            button.tint_color = "#1565C0"
-            button.destination = destination
-            button.action = self.move_google_map
-            self.content.add_subview(button)
+        self.open_map_view = ui.WebView(frame=(0, 0, 375, 720))
+        self.content.add_subview(self.open_map_view)
+        self.open_map_view.load_html(self.leaflet_map_html())
         back = ui.Button(title="マップを閉じる", frame=(16, 735, 343, 48))
         back.tint_color = "#C62828"
         back.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(back)
+
+    def leaflet_map_html(self):
+        destinations = [
+            {
+                "name": destination["name"],
+                "latitude": destination["latitude"],
+                "longitude": destination["longitude"],
+            }
+            for destination in DESTINATIONS
+        ]
+        markers = []
+        for index, monster in enumerate(self.monsters):
+            destination_id = self.monster_destinations[monster["name"]]
+            destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
+            offset = (index % 3 - 1) * 0.00012
+            markers.append(
+                {
+                    "name": monster["name"],
+                    "kind": monster["kind"],
+                    "latitude": destination["latitude"] + offset,
+                    "longitude": destination["longitude"] + offset,
+                }
+            )
+        destination_json = json.dumps(destinations, ensure_ascii=False)
+        marker_json = json.dumps(markers, ensure_ascii=False)
+        return """<!doctype html>
+<html><head><meta name='viewport' content='width=device-width,initial-scale=1'>
+<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>
+<style>html,body,#map{height:100%;margin:0} .monster{font-size:20px}</style></head>
+<body><div id='map'></div>
+<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
+<script>
+const destinations = %s;
+const monsters = %s;
+const map = L.map('map', {zoomControl:true}).setView([35.6745,139.6934], 18);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 21, attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+destinations.forEach(d => {
+  L.marker([d.latitude,d.longitude]).addTo(map).bindPopup('目的地：' + d.name);
+});
+monsters.forEach(m => {
+  const icon = L.divIcon({className:'monster', html:'👾', iconSize:[28,28]});
+  L.marker([m.latitude,m.longitude], {icon:icon}).addTo(map)
+    .bindPopup('<b>' + m.name + '</b><br>系統：' + m.kind);
+});
+</script></body></html>""" % (destination_json, marker_json)
 
     def google_map_url(self, destination):
         return (
