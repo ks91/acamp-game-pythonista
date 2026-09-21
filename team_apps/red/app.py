@@ -4,11 +4,20 @@ import json
 import math
 import os
 import random
+import threading
 import time
+import uuid
 import webbrowser
 
 import location
 import ui
+
+from team_apps.red.server_game import make_api_client, scenario_from_server
+
+try:
+    import config
+except ImportError:
+    config = None
 
 
 MONSTERS = [
@@ -40,34 +49,6 @@ MAX_HP_GAIN_BY_STAR = {1: 10, 2: 30, 3: 50}
 CAPACITY_GAIN_INTERVAL = {1: 5, 2: 3, 3: 1}
 LOCATION_TRIGGER_RADIUS_M = 40
 MONSTER_COUNT = 100
-GAME_VARIANTS = {
-    "day3": {
-        "name": "ゴット・アプライアンス Day 3 センター棟テスト版",
-        "destination_ids": ["center-building", "cafeteria-fuji", "linkeee"],
-        "monster_count": 10,
-        "include_bosses": True,
-        "required": [
-            {"place": "正面入口", "boss": "クサナギ", "action": "battle"},
-            {"place": "カフェテリアふじ出口", "boss": "ヤタ", "action": "battle"},
-        ],
-        "optional": ["513研修室"],
-        "clear_condition": "クサナギとヤタを倒す",
-    },
-    "day4": {
-        "name": "ゴット・アプライアンス Day 4 東京全区版",
-        "destination_ids": "all",
-        "monster_count": 100,
-        "include_bosses": True,
-        "required": [
-            {"place": "皇居", "boss": "ゼウス", "action": "defeat"},
-            {"place": "明治神宮", "boss": "ヤタ", "action": "defeat"},
-            {"place": "国会議事堂", "boss": "ヤサカニ", "action": "defeat"},
-            {"place": "湯島天神", "boss": "クサナギ", "action": "defeat"},
-        ],
-        "optional": ["東京23区のランダム通常モンスター"],
-        "clear_condition": "ゼウスを倒す（中ボス3体の撃破が前提）",
-    },
-}
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
 WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
@@ -206,6 +187,14 @@ class RedPrototype(ui.View):
         self.defeated_bosses = set()
         self.defeated_monsters = {}
         self.active_monster = None
+        self.active_place_id = None
+        self.api = make_api_client(config)
+        self.game_session_id = getattr(config, "GAME_SESSION_ID", "") if config else ""
+        self.device_id = getattr(config, "DEVICE_ID", "red-ipad") if config else "red-ipad"
+        self.server_scenario_loaded = False
+        self.claimed_place_ids = set()
+        self.destinations = list(DESTINATIONS)
+        self.boss_place_ids = {boss["name"]: boss["destination_id"] for boss in MINIBOSSES}
         self.last_position = None
         self.last_accuracy = None
         self.location_tracking = False
@@ -220,11 +209,11 @@ class RedPrototype(ui.View):
             self.monsters.append(monster)
         random.shuffle(self.monsters)
         station_destinations = [
-            destination["id"] for destination in DESTINATIONS
+            destination["id"] for destination in self.destinations
             if destination["id"].startswith("chiyoda-")
         ]
         public_zone_destinations = [
-            destination["id"] for destination in DESTINATIONS
+            destination["id"] for destination in self.destinations
             if destination["id"].startswith("zone-")
         ]
         random_destinations = station_destinations + public_zone_destinations
@@ -245,6 +234,70 @@ class RedPrototype(ui.View):
         self.splash_button = None
         self.splash_next_action = None
         self.show_splash(self.show_battle_selection)
+        if self.api is not None:
+            ui.delay(self.refresh_server_scenario, 0.1)
+
+    def refresh_server_scenario(self):
+        """Load places and claim state selected by the shared Day 3/Day 4 gallery."""
+        if self.api is None:
+            return
+        threading.Thread(target=self._fetch_server_scenario, daemon=True).start()
+
+    def _fetch_server_scenario(self):
+        try:
+            scenario = scenario_from_server(
+                self.api.get_game_definition(), self.api.get_team_state()
+            )
+            error = None
+        except Exception as exc:
+            scenario = None
+            error = exc
+        ui.delay(lambda: self._apply_server_scenario(scenario, error), 0.0)
+
+    def _apply_server_scenario(self, scenario, error):
+        if error is not None:
+            self.set_status("サーバーのシナリオを取得できませんでした。\n{}".format(error))
+            return
+        if not scenario["places"]:
+            self.set_status("サーバーのシナリオに、座標つき地点がありません。")
+            return
+        self.destinations = scenario["places"]
+        self.claimed_place_ids = scenario["claimed_place_ids"]
+        self.unlocked_destinations.update(self.claimed_place_ids)
+        self.game_session_id = scenario["game_session_id"] or self.game_session_id
+        self.boss_place_ids.update(scenario["boss_place_ids"])
+        self.server_scenario_loaded = True
+        for monster in self.monsters:
+            self.monster_destinations[monster["name"]] = random.choice(self.destinations)["id"]
+        self.show_battle_selection()
+        self.set_status("サーバーのシナリオと獲得状況を読み込みました。")
+
+    def _claim_active_server_place(self):
+        if not (self.server_scenario_loaded and self.active_place_id and self.game_session_id):
+            return
+        threading.Thread(target=self._post_server_claim, daemon=True).start()
+
+    def _post_server_claim(self):
+        try:
+            result = self.api.claim_place(
+                action_id=str(uuid.uuid4()),
+                game_session_id=self.game_session_id,
+                place_id=self.active_place_id,
+                device_id=self.device_id,
+            )
+            error = None
+        except Exception as exc:
+            result = None
+            error = exc
+        ui.delay(lambda: self._finish_server_claim(result, error), 0.0)
+
+    def _finish_server_claim(self, result, error):
+        if error is not None:
+            self.set_status("モンスター報酬は獲得しました。地点のサーバー登録は失敗しました。\n{}".format(error))
+            return
+        if result and result.get("claimed"):
+            self.claimed_place_ids.add(self.active_place_id)
+            self.unlocked_destinations.add(self.active_place_id)
 
     def show_splash(self, next_action=None):
         image_path = os.path.join(os.path.dirname(__file__), "god_apocalypse_splash.png")
@@ -336,7 +389,7 @@ class RedPrototype(ui.View):
             self.defeated_monsters.pop(old_name, None)
             self.monster_destinations.pop(old_name, None)
             self.monster_destinations[monster["name"]] = random.choice(
-                [destination for destination in DESTINATIONS if destination["id"].startswith("zone-")]
+                [destination for destination in self.destinations if destination["id"].startswith("zone-")] or self.destinations
             )["id"]
             return True
         return False
@@ -368,7 +421,8 @@ class RedPrototype(ui.View):
             for boss_index, boss in enumerate(MINIBOSSES):
                 if boss["name"] in self.defeated_bosses:
                     continue
-                if boss["destination_id"] not in self.unlocked_destinations:
+                boss_place_id = self.boss_place_ids.get(boss["name"])
+                if boss_place_id not in self.unlocked_destinations:
                     continue
                 if boss["name"] == "ゼウス" and not MINIBOSS_NAMES.issubset(self.defeated_bosses):
                     continue
@@ -383,7 +437,7 @@ class RedPrototype(ui.View):
                 y += 62
         for monster in self.monsters:
             destination_id = self.monster_destinations[monster["name"]]
-            destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
+            destination = next(item for item in self.destinations if item["id"] == destination_id)
             if self.last_position:
                 distance = distance_meters(
                     self.last_position["latitude"], self.last_position["longitude"], destination
@@ -439,6 +493,7 @@ class RedPrototype(ui.View):
 
     def start_selected_battle(self, sender):
         self.active_monster = sender.monster
+        self.active_place_id = self.monster_destinations[self.active_monster["name"]]
         self.start_battle(sender)
 
     def check_monster_location(self, sender):
@@ -586,12 +641,12 @@ class RedPrototype(ui.View):
                 distance_meters(
                     position["latitude"], position["longitude"], destination
                 )
-                for destination in DESTINATIONS
+                for destination in self.destinations
             ]
             nearest_index, nearest = min(
                 enumerate(distances), key=lambda item: item[1]
             )
-            nearest_destination = DESTINATIONS[nearest_index]
+            nearest_destination = self.destinations[nearest_index]
             self.open_map_view.load_html(self.leaflet_map_html())
             if nearest <= LOCATION_TRIGGER_RADIUS_M:
                 self.unlocked_destinations.add(nearest_destination["id"])
@@ -639,14 +694,14 @@ class RedPrototype(ui.View):
                 "latitude": destination["latitude"],
                 "longitude": destination["longitude"],
             }
-            for destination in DESTINATIONS
+            for destination in self.destinations
         ]
         markers = []
         for index, monster in enumerate(self.monsters):
             if not self.monster_is_active(monster):
                 continue
             destination_id = self.monster_destinations[monster["name"]]
-            destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
+            destination = next(item for item in self.destinations if item["id"] == destination_id)
             offset = (index % 3 - 1) * 0.00012
             markers.append(
                 {
@@ -718,7 +773,7 @@ monsters.forEach(m => {
         map_label.text_color = "#2E7D32"
         self.content.add_subview(map_label)
         y += 54
-        for destination in DESTINATIONS:
+        for destination in self.destinations:
             destination_id = destination["id"]
             unlocked = destination_id in self.unlocked_destinations
             card = ui.Label(frame=(16, y, 343, 74))
@@ -769,7 +824,7 @@ monsters.forEach(m => {
 
     def show_destination_footprints(self, sender):
         destination_id = sender.destination_id
-        destination = next(item for item in DESTINATIONS if item["id"] == destination_id)
+        destination = next(item for item in self.destinations if item["id"] == destination_id)
         monsters = [
             monster for monster in self.monsters
             if self.monster_is_active(monster)
@@ -805,6 +860,7 @@ monsters.forEach(m => {
 
     def start_monster_from_map(self, sender):
         self.active_monster = sender.monster
+        self.active_place_id = self.monster_destinations[self.active_monster["name"]]
         self.start_battle(sender)
 
     def begin_search(self, sender):
@@ -834,6 +890,7 @@ monsters.forEach(m => {
 
     def start_miniboss(self, sender):
         self.active_monster = MINIBOSSES[sender.boss_index]
+        self.active_place_id = self.boss_place_ids.get(self.active_monster["name"])
         self.start_battle(sender)
 
     def start_battle(self, sender):
@@ -1013,6 +1070,7 @@ monsters.forEach(m => {
 
     def finish_battle(self, won, message):
         if won:
+            self._claim_active_server_place()
             if self.active_monster.get("boss"):
                 self.defeated_bosses.add(self.active_monster["name"])
             else:
