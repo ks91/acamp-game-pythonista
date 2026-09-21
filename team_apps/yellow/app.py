@@ -222,12 +222,15 @@ class YellowEgyptGame(ui.View):
             entry = places_by_key.get(key)
             if entry is None:
                 button = self._button(
-                    "？？？（設定待ち）",
+                    "{}（0点）".format(story["display_name"]),
                     (16, y, self.width - 32, 52),
-                    lambda sender: None,
-                    enabled=False,
+                    self.claim_place,
+                    enabled=True,
                 )
+                button.place_id = key
+                button.story_key = key
                 self.content.add_subview(button)
+                self.place_buttons.append(button)
                 y += 60
                 continue
             story, place = entry
@@ -237,11 +240,7 @@ class YellowEgyptGame(ui.View):
             story = effective_story if claimed else base_story
             title = story["display_name"]
             points = place.get("points", 0)
-            is_rare = effective_story["display_name"].startswith("シュバル")
-            if is_rare and not claimed:
-                text = "？？？（{}点）".format(points)
-            else:
-                text = "✓ {}（{}点）".format(title, points) if claimed else "{}（{}点）".format(title, points)
+            text = "✓ {}（{}点）".format(title, points) if claimed else "{}（{}点）".format(title, points)
             button = self._button(text, (16, y, self.width - 32, 52), self.claim_place, enabled=not claimed)
             button.place_id = place["id"]
             button.story_key = key
