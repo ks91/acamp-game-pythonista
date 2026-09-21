@@ -49,11 +49,6 @@ SPOT_STORIES = {
         "image_filename": "pyramid.jpeg",
         "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
     },
-    "sakura-namiki": {
-        "names": {"桜並木"},
-        "display_name": "ナイル川",
-        "description": "桜の道を、東京の仲間と進むナイル川の探検コースに見立てた場所。",
-    },
     "center-building": {
         "names": {"センター棟"},
         "display_name": "ファラオ",
@@ -67,7 +62,7 @@ SPOT_STORIES = {
     },
 }
 
-SPOT_ORDER = ("fan-cafe", "ycap", "sakura-namiki", "center-building")
+SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
 
 
 def _story_for(place):
@@ -279,7 +274,7 @@ class YellowEgyptGame(ui.View):
     def _render_main_encyclopedia(self):
         for view in list(self.encyclopedia_panel.subviews):
             self.encyclopedia_panel.remove_subview(view)
-        title = self._label("モンスター図鑑", (10, 8, 286, 30), ("<system-bold>", 18), TEAM_COLOR)
+        title = self._label("ご当地エジプト図鑑", (10, 8, 286, 30), ("<system-bold>", 18), TEAM_COLOR)
         self.encyclopedia_panel.add_subview(title)
         claimed_ids = self._claimed_ids()
         target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
@@ -332,7 +327,7 @@ class YellowEgyptGame(ui.View):
             ("center-building", "ファラオ", "pharaoh.jpeg"),
             ("center-building", "シュバルファラオ", "shubaru-pharaoh.jpeg"),
         ]
-        self.status_label.text = "モンスター図鑑"
+        self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
         self.content.add_subview(back_button)
 
