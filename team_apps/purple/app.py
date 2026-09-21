@@ -47,6 +47,7 @@ ITEM_IMAGES = {
     "液体窒素＆硫酸": "liquid_nitrogen.jpeg",
     "亜硝酸ナトリウム爆弾": "sodium_nitrite_bomb.jpeg",
 }
+CHEST_IMAGE = "treasure_chest.jpeg"
 
 
 def dms_to_decimal(degrees, minutes, seconds, direction):
@@ -445,8 +446,41 @@ class PurpleMockGame(ui.View):
             return ""
         item_name = random.choice(list(ITEM_COSTS))
         self.chest_items[index] = item_name
-        self._show_item_get(item_name)
+        self._show_chest_found(item_name)
         return "宝箱が出た！ {}（{}pt）を購入できます。".format(item_name, ITEM_COSTS[item_name])
+
+    def _show_chest_found(self, item_name):
+        if self.item_popup is not None:
+            self.remove_subview(self.item_popup)
+        popup = ui.View(frame=(self.width * 0.25, 70, self.width * 0.5, min(430, self.height - 100)))
+        popup.background_color = "#FFF8E1"
+        popup.corner_radius = 18
+        popup.alpha = 0.0
+        popup.transform = ui.Transform.scale(0.2, 0.2)
+        image = ui.ImageView(frame=(20, 20, popup.width - 40, popup.height - 105))
+        image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        path = os.path.join(APP_DIR, "assets", CHEST_IMAGE)
+        try:
+            with open(path, "rb") as source:
+                image.image = ui.Image.from_data(source.read())
+        except OSError:
+            image.image = None
+        popup.add_subview(image)
+        caption = ui.Label(frame=(12, popup.height - 78, popup.width - 24, 58))
+        caption.text = "宝箱を発見！"
+        caption.font = ("<system-bold>", 26)
+        caption.text_color = "#E65100"
+        caption.alignment = ui.ALIGN_CENTER
+        popup.add_subview(caption)
+        self.add_subview(popup)
+        self.item_popup = popup
+        ui.animate(lambda: self._open_chest_animation(popup), duration=0.45)
+        ui.delay(lambda: self._show_item_get(item_name), 1.4)
+
+    def _open_chest_animation(self, popup):
+        if self.item_popup is popup:
+            popup.alpha = 1.0
+            popup.transform = ui.Transform.scale(1.0, 1.0)
 
     def _show_item_get(self, item_name):
         if self.item_popup is not None:
