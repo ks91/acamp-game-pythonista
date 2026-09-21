@@ -330,7 +330,16 @@ class GreenTerritoryGame(ui.View):
             return
         self._close_mission_overlay()
         self.action_button.enabled = False
-        self.detail.text = "GPSで現在地を確認中…"
+        self.detail.text = "GPSを更新中…現在地を確認しています。"
+        try:
+            location.start_updates()
+        except Exception as error:
+            self._show_mission_overlay("GPS開始失敗", str(error), "再確認", self._check_location_before_minigame)
+            self.action_button.enabled = True
+            return
+        ui.delay(lambda: self._finish_location_check(place), 1.5)
+
+    def _finish_location_check(self, place):
         try:
             current = location.get_location()
             if not current:
@@ -352,6 +361,10 @@ class GreenTerritoryGame(ui.View):
         except Exception as error:
             self._show_mission_overlay("GPS確認失敗", "{}\nミニゲームは開始しません。".format(error), "再確認", self._check_location_before_minigame)
         finally:
+            try:
+                location.stop_updates()
+            except Exception:
+                pass
             self.action_button.enabled = True
 
     @staticmethod
