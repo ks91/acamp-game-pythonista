@@ -49,25 +49,20 @@ SPOT_STORIES = {
         "image_filename": "pyramid.jpeg",
         "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
     },
-    "sakura-namiki": {
-        "names": {"桜並木"},
-        "display_name": "ナイル川",
-        "description": "桜の道を、東京の仲間と進むナイル川の探検コースに見立てた場所。",
-    },
     "center-building": {
         "names": {"センター棟"},
         "display_name": "ファラオ",
         "item_name": "ファラオ",
         "photo_label": "3枚目",
         "image_filename": "pharaoh.jpeg",
-        "rare_image_filename": "shubaru-pharaoh.jpeg",
+        "rare_image_filename": "shubaru-pharaoh.png",
         "rare_display_name": "シュバルファラオ",
         "rare_item_name": "シュバルファラオ",
         "description": "センター棟を、みんなの活動を見守るファラオの神殿に見立てた場所。"
     },
 }
 
-SPOT_ORDER = ("fan-cafe", "ycap", "sakura-namiki", "center-building")
+SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
 
 
 def _story_for(place):
@@ -217,15 +212,6 @@ class YellowEgyptGame(ui.View):
         items_button.background_color = "#6D4C41"
         self.content.add_subview(items_button)
         y += 64
-        restart_button = self._button(
-            "はじめから",
-            (16, y, 298, 48),
-            self.show_restart_notice,
-        )
-        restart_button.background_color = "#455A64"
-        self.content.add_subview(restart_button)
-        y += 64
-
         if message:
             notice = self._label(message, (20, y, 335, 60), ("<system-bold>", 16), TEAM_COLOR)
             self.content.add_subview(notice)
@@ -246,11 +232,17 @@ class YellowEgyptGame(ui.View):
                 y += 60
                 continue
             story, place = entry
-            story = self._effective_story(key, story, place)
+            base_story = story
+            effective_story = self._effective_story(key, base_story, place)
             claimed = place["id"] in claimed_ids
-            title = story["display_name"] if claimed else "？？？"
+            story = effective_story if claimed else base_story
+            title = story["display_name"]
             points = place.get("points", 0)
-            text = "✓ {}（{}点）".format(title, points) if claimed else "？？？（{}点）".format(points)
+            is_rare = effective_story["display_name"].startswith("シュバル")
+            if is_rare and not claimed:
+                text = "？？？（{}点）".format(points)
+            else:
+                text = "✓ {}（{}点）".format(title, points) if claimed else "{}（{}点）".format(title, points)
             button = self._button(text, (16, y, 298, 52), self.claim_place, enabled=not claimed)
             button.place_id = place["id"]
             button.story_key = key
@@ -282,7 +274,7 @@ class YellowEgyptGame(ui.View):
     def _render_main_encyclopedia(self):
         for view in list(self.encyclopedia_panel.subviews):
             self.encyclopedia_panel.remove_subview(view)
-        title = self._label("モンスター図鑑", (10, 8, 286, 30), ("<system-bold>", 18), TEAM_COLOR)
+        title = self._label("ご当地エジプト図鑑", (10, 8, 286, 30), ("<system-bold>", 18), TEAM_COLOR)
         self.encyclopedia_panel.add_subview(title)
         claimed_ids = self._claimed_ids()
         target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
@@ -333,9 +325,9 @@ class YellowEgyptGame(ui.View):
             ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
             ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
             ("center-building", "ファラオ", "pharaoh.jpeg"),
-            ("center-building", "シュバルファラオ", "shubaru-pharaoh.jpeg"),
+            ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
         ]
-        self.status_label.text = "モンスター図鑑"
+        self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
         self.content.add_subview(back_button)
 
@@ -393,12 +385,6 @@ class YellowEgyptGame(ui.View):
             y += 58
         self.content.content_size = (self.width, max(500, y + 24))
         select_item(type("InitialSelection", (), {"entry": entries[0]})())
-
-    def show_restart_notice(self, sender):
-        self._render(
-            "はじめから始めるには、スタッフが新しいゲームセッションを作ります。\n"
-            "今の得点や獲得記録はそのまま残ります。"
-        )
 
     def show_reset_notice(self, sender):
         self.state = dict(self.state or {})
