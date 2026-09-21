@@ -268,13 +268,13 @@ class YellowEgyptGame(ui.View):
             text = (
                 "✓ {}を獲得済み\n{}"
                 if claimed
-                else "{}を獲得\n{}"
+                else "{}（位置情報更新で獲得判定）\n{}"
             ).format(story["display_name"], location_name)
             button = self._button(
                 text,
                 (16, y, self.width - 32, 62),
                 self.claim_place,
-                enabled=not claimed,
+                enabled=False,
             )
             button.place_id = place["id"]
             button.story_key = key
@@ -501,7 +501,28 @@ class YellowEgyptGame(ui.View):
         if result.get("queued"):
             self._render_message("通信できないため位置情報を端末に保存しました。\n次回、現在地を送ると再送します。")
             return
+
+        # 位置情報の更新を押した瞬間に、サーバー側の半径判定で自動獲得する。
+        discovered = []
+        for key, _story, place in self._target_places():
+            if place["id"] in self._claimed_ids():
+                continue
+            try:
+                claim_result = self.api.claim_place(
+                    action_id=str(uuid.uuid4()),
+                    game_session_id=config.GAME_SESSION_ID,
+                    place_id=self._canonical_place_id(key, place),
+                    device_id=config.DEVICE_ID,
+                )
+            except HTTPError:
+                # 範囲外・精度不足は、位置更新自体の失敗にしない。
+                continue
+            if claim_result.get("claimed"):
+                story = self._story_for_claim(key, place["id"])
+                discovered.append(story["display_name"])
         self.refresh()
+        if discovered:
+            self._render("位置情報を更新しました。{}を獲得！".format("、".join(discovered)))
 
     def claim_place(self, sender):
         try:
