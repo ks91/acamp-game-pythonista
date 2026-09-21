@@ -883,7 +883,21 @@ class RedPrototype(ui.View):
                     "name": monster["name"],
                     "stars": monster["stars"],
                 })
-        self.open_map_view.load_html(self.leaflet_map_html())
+        # Google Maps is the stable renderer on the Red iPad.  The game still
+        # lists monster distance and level; this view provides the real map.
+        candidates = []
+        if self.last_position and self.last_position.get("latitude") and self.last_position.get("longitude"):
+            candidates.append(self.last_position)
+        candidates.extend(map_destinations(self.destinations))
+        if candidates:
+            target = candidates[0]
+            self.open_map_view.load_url(
+                "https://www.google.com/maps/search/?api=1&query={},{}".format(
+                    target["latitude"], target["longitude"]
+                )
+            )
+        else:
+            self.open_map_view.load_html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'>地点データを読み込み中…</body></html>")
 
     def close_map(self, sender):
         self.stop_location_tracking()
