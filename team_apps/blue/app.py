@@ -1,6 +1,7 @@
 """Pythonista 3 one-screen interface for a team's location game."""
 
 import datetime
+import io
 import json
 import os
 import uuid
@@ -186,6 +187,15 @@ class GameView(ui.View):
             return
         self._photo_received(image, "撮影した写真")
 
+    @staticmethod
+    def _preview_image(image):
+        """Convert Pythonista's PIL result to a ui.Image without photos helpers."""
+        if isinstance(image, ui.Image):
+            return image
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        return ui.Image.from_data(buffer.getvalue())
+
     def _photo_received(self, image, source_label):
         self._clear_content()
         self.show_message(
@@ -193,9 +203,8 @@ class GameView(ui.View):
             + "人がエレベーターだと確認したら、GPSで同じ位置か調べます。\n"
             + "写真はサーバーへ送信しません。"
         )
-        import photos
         preview = ui.ImageView(frame=(16, 12, self.width - 32, 180))
-        preview.image = photos.PIL_to_ui(image)
+        preview.image = self._preview_image(image)
         preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
         preview.flex = "W"
         self.scroll.add_subview(preview)
