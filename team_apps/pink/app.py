@@ -30,7 +30,7 @@ PINK_RIDDLES = [
 SPOT_ADDRESSES = {
     "津島神社": {
         "plus_code": "MMHV+XV 渋谷区、東京都",
-        "coordinates": "35.680002644293516, 139.69468821491773",
+        "coordinates": "0.0, 0.0",
         "address": "東京都渋谷区代々木付近",
     },
 }
