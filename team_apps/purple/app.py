@@ -258,6 +258,7 @@ class PurpleMockGame(ui.View):
         self.chest_arrival_checked = [False, False]
         self.chest_riddle_checked = [False, False]
         self.chest_items = [None, None]
+        self.test_solve_count = 0
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.item_popup = None
         self.good_bacteria_visible = False
@@ -712,17 +713,25 @@ class PurpleMockGame(ui.View):
         self._refresh(message)
 
     def _test_solve_riddle(self, sender):
-        """謎解き後の宝箱演出を、GPSやクイズなしで確認する。"""
-        index = 0
-        self.arrived[index] = True
+        """1回目は地点1、2回目は地点2の到着後を確認する。"""
+        index = min(self.test_solve_count, 1)
+        if index > 0:
+            self.arrived[index - 1] = True
+        if not self.arrived[index]:
+            self.arrived[index] = True
+            self.score += 20
+            if index == 1:
+                self.good_bacteria_visible = True
+                self.good_bacteria_hp = GOOD_BACTERIA_HP
         self.solved[index] = True
         self.chest_riddle_checked[index] = False
+        self.test_solve_count += 1
         if self.chest_items[index] is None:
             # 出現率100%で通常の「謎を解いた」宝箱処理を通す。
             self._maybe_spawn_chest(index, 1.0, "riddle")
         else:
             self._show_chest_found(self.chest_items[index])
-        self._refresh("テスト：謎を解いた！ 宝箱を開けます。")
+        self._refresh("テスト：地点{}に到着して謎を解いた！ 宝箱を開けます。".format(index + 1))
 
     def _solve(self, index):
         if not self.arrived[index] or self.solved[index] or self.quiz_active:
@@ -886,6 +895,7 @@ class PurpleMockGame(ui.View):
         self.chest_arrival_checked = [False, False]
         self.chest_riddle_checked = [False, False]
         self.chest_items = [None, None]
+        self.test_solve_count = 0
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.good_bacteria_visible = False
         self.good_bacteria_hp = GOOD_BACTERIA_HP
