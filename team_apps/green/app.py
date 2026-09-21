@@ -4,6 +4,7 @@ import math
 import random
 import threading
 import time
+from urllib.request import Request, urlopen
 
 import location
 import ui
@@ -280,7 +281,17 @@ class GreenTerritoryGame(ui.View):
     def _restart_test_session_worker(self):
         error = None
         try:
-            result = self.api_client.restart_test_session()
+            if hasattr(self.api_client, "restart_test_session"):
+                result = self.api_client.restart_test_session()
+            else:
+                request = Request(
+                    self.api_client.base_url + "/test-session/restart",
+                    data=json.dumps({"confirm": True}).encode("utf-8"),
+                    headers={"Accept": "application/json", "Authorization": "Bearer " + self.api_client.token, "Content-Type": "application/json; charset=utf-8"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=15) as response:
+                    result = json.loads(response.read().decode("utf-8"))
             if not result.get("reset"):
                 raise RuntimeError("APIがリセット完了を返しませんでした")
         except Exception as exc:
