@@ -448,8 +448,21 @@ class YellowEgyptGame(ui.View):
             with urlopen(request, timeout=15) as response:
                 result = json.loads(response.read().decode("utf-8"))
             ui.delay(lambda: self._handle_restart_result(result), 0)
-        except (HTTPError, URLError, OSError, ValueError) as error:
-            ui.delay(lambda: self._handle_restart_error(error), 0)
+        except HTTPError as error:
+            try:
+                body = error.read().decode("utf-8").strip()
+            except Exception:
+                body = ""
+            detail = body or getattr(error, "reason", "") or "詳細なし"
+            error_text = "HTTP {}: {}".format(error.code, detail)
+            ui.delay(lambda message=error_text: self._handle_restart_error(message), 0)
+        except URLError as error:
+            reason = getattr(error, "reason", "") or "詳細なし"
+            error_text = "通信エラー: {}".format(reason)
+            ui.delay(lambda message=error_text: self._handle_restart_error(message), 0)
+        except (OSError, ValueError) as error:
+            error_text = "{}: {}".format(type(error).__name__, str(error) or "詳細なし")
+            ui.delay(lambda message=error_text: self._handle_restart_error(message), 0)
 
     def _handle_restart_result(self, result):
         if self.reset_button is not None:
@@ -461,11 +474,11 @@ class YellowEgyptGame(ui.View):
         self.refresh()
         self._render("テストを最初からに戻しました。")
 
-    def _handle_restart_error(self, error):
+    def _handle_restart_error(self, error_message):
         if self.reset_button is not None:
             self.reset_button.enabled = True
             self.reset_button.title = "最初からやり直す"
-        self._render_message("テストを最初からに戻せませんでした。\n{}".format(error))
+        self._render_message("テストを最初からに戻せませんでした。\n{}".format(error_message))
 
     def update_location(self, sender):
         self.status_label.text = "位置情報を取得しています…"
