@@ -156,7 +156,9 @@ class GreenTerritoryGame(ui.View):
         use_demo_opponents = False
         opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
-        scenario_places = [place for place in (definition.get("places") or []) if place.get("name") in CENTER_TEST_PLACE_NAMES]
+        configured_places = definition.get("places") or []
+        center_places = [place for place in configured_places if place.get("name") in CENTER_TEST_PLACE_NAMES]
+        scenario_places = center_places if len(center_places) >= 2 else configured_places
         for index, place in enumerate(scenario_places):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
