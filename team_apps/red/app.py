@@ -1229,21 +1229,15 @@ monsters.forEach(m => {
             )
         )
         y = 18
-        player_image_path = os.path.join(os.path.dirname(__file__), "player_character.png")
-        if os.path.exists(player_image_path):
-            player_image = ui.ImageView(frame=(16, y, 343, 180))
-            with open(player_image_path, "rb") as image_file:
-                player_image.image = ui.Image.from_data(image_file.read())
-            self.content.add_subview(player_image)
-            y += 194
-        if monster and monster.get("boss") and monster["name"] == "ゼウス":
-            zeus_image_path = os.path.join(os.path.dirname(__file__), "zeus_boss.png")
-            if os.path.exists(zeus_image_path):
-                zeus_image = ui.ImageView(frame=(16, y, 343, 180))
-                with open(zeus_image_path, "rb") as image_file:
-                    zeus_image.image = ui.Image.from_data(image_file.read())
-                self.content.add_subview(zeus_image)
-                y += 194
+        # Battle images are intentionally not decoded here.  Repeated full-size
+        # image loading is the crash path on the Red iPad; profile keeps the art.
+        versus = ui.Label(frame=(16, y, 343, 58))
+        versus.alignment = ui.ALIGN_CENTER
+        versus.font = ("<System-Bold>", 20)
+        versus.text_color = "#6A1B9A"
+        versus.text = "主人公  ⚔  {}".format(monster["name"])
+        self.content.add_subview(versus)
+        y += 72
         attack_button = ui.Button(title="素手で攻撃（10）", frame=(16, y, 343, 48))
         attack_button.tint_color = "#B71C1C"
         attack_button.action = self.attack_with_fist

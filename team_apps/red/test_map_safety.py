@@ -10,6 +10,13 @@ class RedMapSafetyTests(unittest.TestCase):
         init = SOURCE[SOURCE.index("def __init__"):SOURCE.index("def refresh_server_scenario")]
         self.assertNotIn("self.show_splash(", init)
 
+    def test_battle_does_not_decode_full_size_images(self):
+        start = SOURCE.index("def show_battle(self, message)")
+        end = SOURCE.index("def use_artifact", start)
+        body = SOURCE[start:end]
+        self.assertNotIn("ui.Image.from_data", body)
+        self.assertIn("主人公  ⚔", body)
+
     def test_battle_opens_without_splash_image(self):
         start = SOURCE.index("def start_battle")
         end = SOURCE.index("def show_battle", start)
