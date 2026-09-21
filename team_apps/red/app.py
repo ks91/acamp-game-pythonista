@@ -21,6 +21,7 @@ STAR_NAMES = {
 }
 
 STAR_HP = {1: 100, 2: 300, 3: 500}
+MAX_HP_GAIN_BY_STAR = {1: 10, 2: 30, 3: 50}
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
 WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
@@ -334,10 +335,20 @@ class RedPrototype(ui.View):
 
     def finish_battle(self, won, message):
         if won:
+            hp_gain = MAX_HP_GAIN_BY_STAR[self.active_monster["stars"]]
+            self.player_max_hp += hp_gain
             self.player_hp = self.player_max_hp
-            message += "\n勝利！HP全回復！"
+            message += "\n勝利！最大HP+{}、HP全回復！".format(hp_gain)
             drop = self.active_monster["drop"]
-            if drop == "オレンジジュース" and random.random() >= 0.3:
+            if self.active_monster["kind"] == "回復系":
+                roll = random.random()
+                if roll < 0.5:
+                    drop = "りんご"
+                elif roll < 0.8:
+                    drop = "金のリンゴ"
+                else:
+                    drop = None
+            elif drop == "オレンジジュース" and random.random() >= 0.3:
                 drop = None
             if drop is None:
                 drop_message = "\n今回はアイテムがドロップしなかった。"
