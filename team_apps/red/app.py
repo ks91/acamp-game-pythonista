@@ -2,6 +2,7 @@
 
 import math
 import random
+import webbrowser
 
 import location
 import ui
@@ -332,6 +333,12 @@ class RedPrototype(ui.View):
             card.font = ("<System>", 14)
             self.content.add_subview(card)
             y += 78
+            map_button = ui.Button(title="Googleマップで開く", frame=(16, y, 343, 42))
+            map_button.tint_color = "#1565C0"
+            map_button.destination = destination
+            map_button.action = self.open_google_maps
+            self.content.add_subview(map_button)
+            y += 54
             if unlocked:
                 footprints = ui.Button(title="足跡をたどる", frame=(16, y, 343, 42))
                 footprints.tint_color = "#6A1B9A"
@@ -344,6 +351,13 @@ class RedPrototype(ui.View):
         back.action = lambda sender: self.show_battle_selection()
         self.content.add_subview(back)
         self.content.content_size = (375, y + 70)
+
+    def open_google_maps(self, sender):
+        destination = sender.destination
+        url = "https://www.google.com/maps/search/?api=1&query={},{}".format(
+            destination["latitude"], destination["longitude"]
+        )
+        webbrowser.open(url)
 
     def show_destination_footprints(self, sender):
         destination_id = sender.destination_id
