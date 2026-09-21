@@ -20,9 +20,10 @@ MONSTERS = [
 ]
 
 MINIBOSSES = [
-    {"name": "ヤタ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・鏡", "boss": True},
-    {"name": "ヤサカニ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・勾玉", "boss": True},
-    {"name": "クサナギ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・剣", "boss": True},
+    {"name": "ゼウス", "kind": "ボス", "boss_hp": 5000, "drop": "ゼウスの雷", "boss": True, "destination_id": "imperial-palace"},
+    {"name": "ヤタ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・鏡", "boss": True, "destination_id": "meiji-jingu"},
+    {"name": "ヤサカニ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・勾玉", "boss": True, "destination_id": "national-diet"},
+    {"name": "クサナギ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・剣", "boss": True, "destination_id": "yushima-tenjin"},
 ]
 
 STAR_NAMES = {
@@ -64,6 +65,34 @@ DESTINATIONS = [
         "plus_code": "MMFV+X9",
         "latitude": 35.67437387858118,
         "longitude": 139.69314002932387,
+    },
+    {
+        "id": "imperial-palace",
+        "name": "皇居",
+        "plus_code": "MQP3+34",
+        "latitude": 35.685175,
+        "longitude": 139.7528,
+    },
+    {
+        "id": "meiji-jingu",
+        "name": "明治神宮",
+        "plus_code": "MMGX+HP",
+        "latitude": 35.6764,
+        "longitude": 139.6993,
+    },
+    {
+        "id": "yushima-tenjin",
+        "name": "湯島天神",
+        "plus_code": "PQ59+37",
+        "latitude": 35.7078,
+        "longitude": 139.7685,
+    },
+    {
+        "id": "national-diet",
+        "name": "国会議事堂",
+        "plus_code": "8Q7XMPGW+44",
+        "latitude": 35.6759,
+        "longitude": 139.7448,
     },
 ]
 
@@ -247,8 +276,10 @@ class RedPrototype(ui.View):
             for boss_index, boss in enumerate(MINIBOSSES):
                 if boss["name"] in self.defeated_bosses:
                     continue
+                if boss["destination_id"] not in self.unlocked_destinations:
+                    continue
                 boss_button = ui.Button(
-                    title="{}（HP2000）".format(boss["name"]),
+                    title="{}（HP{}）".format(boss["name"], boss["boss_hp"]),
                     frame=(16, y, 343, 48),
                 )
                 boss_button.tint_color = "#6A1B9A"
