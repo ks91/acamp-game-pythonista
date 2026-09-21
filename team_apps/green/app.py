@@ -21,6 +21,9 @@ DARK_BG = "#101820"
 LIGHT_BG = "#F4F7F9"
 
 
+CENTER_TEST_PLACE_NAMES = frozenset({"カフェテリアふじ出口", "513研修室", "事務所側入口", "正面入口"})
+
+
 class TerritoryMap(ui.View):
     """Leaflet/OpenStreetMap map embedded in a normal Pythonista view."""
 
@@ -80,7 +83,7 @@ class GreenTerritoryGame(ui.View):
         super().__init__(frame=(0, 0, 390, 844))
         self.flex = "WH"
         self.background_color = DARK_BG
-        self.name = "グリーン班 戦略陣地戦"
+        self.name = "グリーン班 センター棟テスト版"
         self.team_id = getattr(config, "TEAM_ID", "green") if config else "green"
         self.device_id = getattr(config, "DEVICE_ID", "green-ipad") if config else "green-ipad"
         self.session_id = getattr(config, "GAME_SESSION_ID", "") if config else ""
@@ -152,7 +155,8 @@ class GreenTerritoryGame(ui.View):
         use_demo_opponents = False
         opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
-        for index, place in enumerate(definition.get("places") or []):
+        scenario_places = [place for place in (definition.get("places") or []) if place.get("name") in CENTER_TEST_PLACE_NAMES]
+        for index, place in enumerate(scenario_places):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
             simulated = False
