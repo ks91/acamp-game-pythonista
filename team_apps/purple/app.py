@@ -257,9 +257,9 @@ class PurpleMockGame(ui.View):
         self.status_label = self._label("", (6, 74, panel_width - 12, 52), ("<system-bold>", 12), align=ui.ALIGN_CENTER)
 
         self.map_view = ui.WebView(frame=(map_x, 0, map_width, self.height))
-        maps_key = getattr(config, "GOOGLE_MAPS_API_KEY", "")
-        if maps_key and maps_key != "set-at-game-start":
-            self.map_view.load_html(GOOGLE_MAP_HTML.replace("__API_KEY__", maps_key))
+        self.maps_key = getattr(config, "GOOGLE_MAPS_API_KEY", "")
+        if self.maps_key and self.maps_key != "set-at-game-start":
+            self.map_view.load_html(GOOGLE_MAP_HTML.replace("__API_KEY__", self.maps_key))
         else:
             self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
         self.add_subview(self.map_view)
@@ -320,6 +320,17 @@ class PurpleMockGame(ui.View):
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
     def _load_google_map(self):
+        if not self.maps_key or self.maps_key == "set-at-game-start":
+            target = next((place for place in self.place_locations if place is not None), self.current_location)
+            if target is not None:
+                url = "https://www.google.com/maps/search/?api=1&query={},{}".format(
+                    target["latitude"], target["longitude"]
+                )
+                try:
+                    self.map_view.load_url(url)
+                except Exception:
+                    pass
+            return
         try:
             if self.current_location is not None:
                 self.map_view.eval_js(
