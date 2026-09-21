@@ -1,7 +1,9 @@
 """レッド班 Day 2 試作：6体のモンスターを選んで戦う。"""
 
+import math
 import random
 
+import location
 import ui
 
 
@@ -35,6 +37,17 @@ WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
 def weapon_uses_for(item_name):
     return WEAPON_USES_PER_ITEM.get(item_name, 10)
+
+
+CENTER_TARGET = {"name": "センター棟", "latitude": 35.67437387858118, "longitude": 139.69314002932387}
+
+
+def distance_meters(latitude, longitude, target):
+    latitude_scale = 111320.0
+    longitude_scale = latitude_scale * math.cos(math.radians(target["latitude"]))
+    north = (latitude - target["latitude"]) * latitude_scale
+    east = (longitude - target["longitude"]) * longitude_scale
+    return math.sqrt(north * north + east * east)
 
 
 class RedPrototype(ui.View):
@@ -97,7 +110,11 @@ class RedPrototype(ui.View):
         inventory_button.tint_color = "#6A1B9A"
         inventory_button.action = self.show_inventory
         self.content.add_subview(inventory_button)
-        y = 62
+        location_button = ui.Button(title="センター棟で位置テスト", frame=(16, 58, 343, 42))
+        location_button.tint_color = "#1565C0"
+        location_button.action = self.check_center_location
+        self.content.add_subview(location_button)
+        y = 112
         for index, monster in enumerate(self.monsters):
             card = ui.Label(frame=(16, y, 343, 58))
             card.number_of_lines = 0
@@ -138,6 +155,28 @@ class RedPrototype(ui.View):
     def start_selected_battle(self, sender):
         self.active_monster = self.monsters[sender.monster_index]
         self.start_battle(sender)
+
+    def check_center_location(self, sender):
+        self.set_status("位置情報を取得中…\n屋外で少し待ってください。")
+        location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            location.stop_updates()
+        if not position:
+            self.set_status("位置情報を取得できませんでした。\n位置情報の許可を確認してください。")
+            return
+        distance = distance_meters(
+            position["latitude"], position["longitude"], CENTER_TARGET
+        )
+        accuracy = position.get("horizontal_accuracy", "不明")
+        if distance <= 50:
+            result = "センター棟のテスト範囲内！"
+        else:
+            result = "センター棟まで約{}m。もう少し近づこう。".format(round(distance))
+        self.set_status(
+            "位置テスト結果\n{}\nGPS精度：約{}m".format(result, accuracy)
+        )
 
     def show_inventory(self, sender=None):
         self.current_screen = "inventory"
