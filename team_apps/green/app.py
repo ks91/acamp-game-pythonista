@@ -94,6 +94,10 @@ class GreenTerritoryGame(ui.View):
         self.add_subview(self.theme_button)
         self.refresh_button = ui.Button(title="↻", frame=(344, 12, 38, 34), action=self.refresh_now)
         self.add_subview(self.refresh_button)
+        self.restart_button = ui.Button(title="テストを最初から", frame=(16, 94, 132, 32), action=self.restart_test_session)
+        self.restart_button.font = ("<system-bold>", 13)
+        self.restart_button.background_color = (0.05, 0.18, 0.12, 0.88)
+        self.add_subview(self.restart_button)
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
         self.add_subview(self.offline_label)
         self.map_view = TerritoryMap(self.select_place)
@@ -118,6 +122,7 @@ class GreenTerritoryGame(ui.View):
         self.theme_button.frame = (width - 90, 12, 38, 34)
         self.refresh_button.frame = (width - 46, 12, 38, 34)
         self.offline_label.frame = (16, 66, width - 32, 25)
+        self.restart_button.frame = (16, 94, min(150, width - 32), 32)
         self.detail.frame = (16, max(120, height - 170), width - 32, 88)
         self.action_button.frame = (16, max(210, height - 76), width - 32, 48)
 
@@ -251,6 +256,59 @@ class GreenTerritoryGame(ui.View):
         self._refreshing = True
         self.detail.text = "ゲーム状態を更新しています…"
         threading.Thread(target=self._fetch_remote_state, daemon=True).start()
+
+    def restart_test_session(self, sender):
+        if self.api_client is None:
+            self.detail.text = "テスト開始し直しには、ゲームサーバーへの接続が必要です。"
+            return
+        if not getattr(self, "_restart_confirmed", False):
+            self._restart_confirmed = True
+            self.restart_button.title = "もう一度押すと最初から"
+            self.detail.text = "得点・陣地・ホームをテスト開始時の状態へ戻します。もう一度押してください。"
+            ui.delay(self._cancel_restart_confirmation, 8.0)
+            return
+        self._restart_confirmed = False
+        self.restart_button.enabled = False
+        self.restart_button.title = "初期化中…"
+        threading.Thread(target=self._restart_test_session_worker, daemon=True).start()
+
+    def _cancel_restart_confirmation(self):
+        if getattr(self, "_restart_confirmed", False):
+            self._restart_confirmed = False
+            self.restart_button.title = "テストを最初から"
+
+    def _restart_test_session_worker(self):
+        error = None
+        try:
+            if hasattr(self.api_client, "restart_test_session"):
+                result = self.api_client.restart_test_session()
+            else:
+                admin_token = getattr(config, "ADMIN_TOKEN", "") if config else ""
+                if not admin_token:
+                    raise RuntimeError("config.pyにADMIN_TOKENが設定されていません")
+                request = Request(
+                    self.api_client.base_url + "/admin/session/reset",
+                    data=json.dumps({"game_session_id": self.session_id, "reason": "Green participant test restart"}).encode("utf-8"),
+                    headers={"Accept": "application/json", "Authorization": "Bearer " + admin_token, "Content-Type": "application/json"},
+                    method="POST",
+                )
+                with urlopen(request, timeout=15) as response:
+                    result = json.loads(response.read().decode("utf-8"))
+            if not result.get("reset"):
+                raise RuntimeError("APIがリセット完了を返しませんでした")
+        except Exception as exc:
+            error = exc
+        ui.delay(lambda error=error: self._restart_test_session_complete(error), 0.0)
+
+    def _restart_test_session_complete(self, error):
+        self.restart_button.enabled = True
+        self.restart_button.title = "テストを最初から"
+        if error is not None:
+            self.detail.text = "テストを最初からにできません。\n{}".format(error)
+            return
+        self.selected_id = None
+        self.detail.text = "テストを最初からにしました。地点を選んで、もう一度遊ぼう。"
+        self.refresh_now()
 
     def _fetch_remote_state(self):
         definition = None
