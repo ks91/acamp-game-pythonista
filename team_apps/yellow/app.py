@@ -80,8 +80,8 @@ def _story_for(place):
 
 class YellowEgyptGame(ui.View):
     def __init__(self):
-        super().__init__(frame=(0, 0, 375, 667))
-        self.name = "イエロー班 東京ご当地エジプト"
+        super().__init__(frame=(0, 0, 667, 375))
+        self.name = "とうエジGO!"
         self.background_color = "#FFF8E1"
         self.api = None
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
@@ -90,11 +90,16 @@ class YellowEgyptGame(ui.View):
         self.state = None
         self.place_buttons = []
         self.status_label = self._label(
-            "位置情報を読み込んでいます…", (16, 14, 343, 98), ("<system-bold>", 17), TEAM_COLOR
+            "位置情報を読み込んでいます…", (16, 14, 315, 84), ("<system-bold>", 17), TEAM_COLOR
         )
         self.add_subview(self.status_label)
-        self.content = ui.ScrollView(frame=(0, 120, 375, 547), flex="WH")
+        self.content = ui.ScrollView(frame=(0, 105, 330, 255), flex="H")
         self.add_subview(self.content)
+        self.encyclopedia_panel = ui.View(frame=(345, 14, 306, 347), flex="WH")
+        self.encyclopedia_panel.background_color = "#F5E6B8"
+        self.encyclopedia_panel.border_width = 2
+        self.encyclopedia_panel.border_color = "#6D4C41"
+        self.add_subview(self.encyclopedia_panel)
         if config is None:
             self.status_label.text = "設定ファイル config.py が見つかりません。"
             self._render_message(
@@ -188,17 +193,17 @@ class YellowEgyptGame(ui.View):
         server_score = (self.state or {}).get("score", 0)
         bonus_text = "\nコンプリート！ ボーナス{}点の対象".format(COMPLETION_BONUS) if claimed_count == target_count else ""
         self.status_label.text = (
-            "イエロー班｜東京ご当地エジプト\n"
+            "とうエジGO!\n"
             "発見: {}/{}　班の得点: {}点{}"
         ).format(claimed_count, target_count, server_score, bonus_text)
 
         y = 12
-        update_button = self._button("位置情報を更新（GPS）", (16, y, 343, 48), self.update_location)
+        update_button = self._button("位置情報を更新（GPS）", (16, y, 298, 48), self.update_location)
         self.content.add_subview(update_button)
         y += 64
         reset_button = self._button(
-            "得点をリセット（スタッフ操作）",
-            (16, y, 343, 48),
+            "最初からやり直す（表示のみ）",
+            (16, y, 298, 48),
             self.show_reset_notice,
         )
         reset_button.background_color = "#8D6E63"
@@ -206,7 +211,7 @@ class YellowEgyptGame(ui.View):
         y += 64
         items_button = self._button(
             "獲得済みアイテムを見る",
-            (16, y, 343, 48),
+            (16, y, 298, 48),
             self.show_collected_items,
         )
         items_button.background_color = "#6D4C41"
@@ -214,7 +219,7 @@ class YellowEgyptGame(ui.View):
         y += 64
         restart_button = self._button(
             "はじめから",
-            (16, y, 343, 48),
+            (16, y, 298, 48),
             self.show_restart_notice,
         )
         restart_button.background_color = "#455A64"
@@ -233,7 +238,7 @@ class YellowEgyptGame(ui.View):
             if entry is None:
                 button = self._button(
                     "？？？（設定待ち）",
-                    (16, y, 343, 52),
+                    (16, y, 298, 52),
                     lambda sender: None,
                     enabled=False,
                 )
@@ -246,7 +251,7 @@ class YellowEgyptGame(ui.View):
             title = story["display_name"] if claimed else "？？？"
             points = place.get("points", 0)
             text = "✓ {}（{}点）".format(title, points) if claimed else "？？？（{}点）".format(points)
-            button = self._button(text, (16, y, 343, 52), self.claim_place, enabled=not claimed)
+            button = self._button(text, (16, y, 298, 52), self.claim_place, enabled=not claimed)
             button.place_id = place["id"]
             button.story_key = key
             self.content.add_subview(button)
@@ -272,6 +277,38 @@ class YellowEgyptGame(ui.View):
             self.content.add_subview(complete)
             y += 72
         self.content.content_size = (self.width, y + 24)
+        self._render_main_encyclopedia()
+
+    def _render_main_encyclopedia(self):
+        for view in list(self.encyclopedia_panel.subviews):
+            self.encyclopedia_panel.remove_subview(view)
+        title = self._label("モンスター図鑑", (10, 8, 286, 30), ("<system-bold>", 18), TEAM_COLOR)
+        self.encyclopedia_panel.add_subview(title)
+        claimed_ids = self._claimed_ids()
+        target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
+        catalog = (
+            ("ycap", "ピラミッド"),
+            ("fan-cafe", "ハチ公スフィンクス"),
+            ("fan-cafe", "シュバルスフィンクス"),
+            ("center-building", "ファラオ"),
+            ("center-building", "シュバルファラオ"),
+        )
+        y = 48
+        for place_id, expected_name in catalog:
+            source = target_places.get(place_id)
+            discovered = False
+            if source and place_id in claimed_ids:
+                discovered = self._effective_story(source[0], source[1], source[2])["display_name"] == expected_name
+            row = ui.Button(frame=(10, y, 286, 42))
+            row.title = expected_name if discovered else "？？？"
+            row.font = ("<system-bold>", 15)
+            row.alignment = ui.ALIGN_LEFT
+            row.content_horizontal_alignment = ui.ALIGN_LEFT
+            row.tint_color = "white"
+            row.background_color = TEAM_COLOR if discovered else "#9E9E9E"
+            row.corner_radius = 8
+            self.encyclopedia_panel.add_subview(row)
+            y += 48
 
     def _render_message(self, message):
         self._clear_content()
@@ -302,10 +339,10 @@ class YellowEgyptGame(ui.View):
         back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
         self.content.add_subview(back_button)
 
-        preview = ui.ImageView(frame=(16, 72, 205, 220))
+        preview = ui.ImageView(frame=(16, 72, 290, 220))
         preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
         self.content.add_subview(preview)
-        detail = self._label("図鑑からキャラクターを選んでください。", (16, 300, 205, 140), ("<system>", 14))
+        detail = self._label("図鑑からキャラクターを選んでください。", (16, 300, 290, 140), ("<system>", 14))
         self.content.add_subview(detail)
 
         def select_item(button):
@@ -350,7 +387,7 @@ class YellowEgyptGame(ui.View):
         y = 72
         for entry in entries:
             title = entry["name"] if entry["discovered"] else "？？？"
-            button = self._button(title, (238, y, 121, 48), select_item)
+            button = self._button(title, (330, y, 320, 48), select_item)
             button.entry = entry
             self.content.add_subview(button)
             y += 58
@@ -364,10 +401,10 @@ class YellowEgyptGame(ui.View):
         )
 
     def show_reset_notice(self, sender):
-        self._render(
-            "得点リセットはサーバー側の操作です。\n"
-            "スタッフに新しいゲームセッションを作ってもらってください。"
-        )
+        self.state = dict(self.state or {})
+        self.state["score"] = 0
+        self.state["claimed_places"] = []
+        self._render("画面表示を最初の状態に戻しました。")
 
     def update_location(self, sender):
         self.status_label.text = "位置情報を取得しています…"
