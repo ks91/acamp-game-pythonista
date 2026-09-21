@@ -33,52 +33,45 @@ TEAM_COLOR = "#F9A825"
 COMPLETION_BONUS = 2
 
 SPOT_STORIES = {
-    "fan-cafe": {
-        "names": {"ファン カフェ", "ファンカフェ"},
-        "display_name": "ハチ公スフィンクス",
+    "sphinx": {
+        "names": {"ファン カフェ", "ファンカフェ", "513研修室", "渋谷ハチ公前"},
+        "ids": {"fan-cafe", "sphinx"},
+        "display_name": "スフィンクス",
         "item_name": "スフィンクス",
         "photo_label": "2枚目",
         "image_filename": "sphinx.png",
-        "rare_image_filename": "shubaru-sphinx.jpeg",
+        "rare_image_filename": "shubaru-sphinx.png",
         "rare_display_name": "シュバルスフィンクス",
         "rare_item_name": "シュバルスフィンクス",
-        "description": "東京の忠犬ハチ公と、古代エジプトのスフィンクスが合体した守り神。",
+        "description": "センター棟テスト版では513研修室、東京版では渋谷ハチ公前を守るスフィンクス。",
     },
-    "ycap": {
-        "names": {"YCAP"},
+    "pyramid": {
+        "names": {"YCAP", "カフェテリアふじ出口", "ガラスのピラミッド"},
+        "ids": {"ycap", "pyramid"},
         "display_name": "ピラミッド",
         "item_name": "ピラミッド",
         "photo_label": "1枚目",
         "image_filename": "pyramid.jpeg",
-        "description": "YCAPの冒険を、知恵と協力で登るピラミッドに見立てた場所。",
-    },
-    "center-building": {
-        "names": {"センター棟"},
-        "display_name": "ファラオ",
-        "item_name": "ファラオ",
-        "photo_label": "3枚目",
-        "image_filename": "pharaoh.jpeg",
-        "rare_image_filename": "shubaru-pharaoh.png",
-        "rare_display_name": "シュバルファラオ",
-        "rare_item_name": "シュバルファラオ",
-        "description": "センター棟を、みんなの活動を見守るファラオの神殿に見立てた場所。"
+        "rare_image_filename": "shubaru-pyramid.png",
+        "rare_display_name": "シュバルピラミッド",
+        "rare_item_name": "シュバルピラミッド",
+        "description": "センター棟テスト版ではカフェテリアふじ出口、東京版ではガラスのピラミッドを探す。",
     },
 }
 
-SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
+SPOT_ORDER = ("pyramid", "sphinx")
 CHARACTER_CATALOG = (
-    ("fan-cafe", "シュバルスフィンクス"),
-    ("center-building", "シュバルファラオ"),
-    ("ycap", "ピラミッド"),
-    ("fan-cafe", "ハチ公スフィンクス"),
-    ("center-building", "ファラオ"),
+    ("pyramid", "シュバルピラミッド"),
+    ("sphinx", "シュバルスフィンクス"),
+    ("pyramid", "ピラミッド"),
+    ("sphinx", "スフィンクス"),
 )
 
 
 def _story_for(place):
     for key in SPOT_ORDER:
         story = SPOT_STORIES[key]
-        if place.get("id") == key or place.get("name") in story["names"]:
+        if place.get("id") in story.get("ids", set()) or place.get("name") in story["names"]:
             return key, story
     return None, None
 
@@ -328,11 +321,10 @@ class YellowEgyptGame(ui.View):
         right_x = left_width + 24
         right_width = self.width - right_x - 24
         catalog = [
-            ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
-            ("center-building", "シュバルファラオ", "shubaru-pharaoh.png"),
-            ("ycap", "ピラミッド", "pyramid.jpeg"),
-            ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
-            ("center-building", "ファラオ", "pharaoh.jpeg"),
+            ("pyramid", "シュバルピラミッド", "shubaru-pyramid.png"),
+            ("sphinx", "シュバルスフィンクス", "shubaru-sphinx.png"),
+            ("pyramid", "ピラミッド", "pyramid.jpeg"),
+            ("sphinx", "スフィンクス", "sphinx.png"),
         ]
         self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, self.width - 32, 44), lambda button: self._render())
