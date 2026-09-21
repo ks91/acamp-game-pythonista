@@ -292,8 +292,8 @@ class GreenTerritoryGame(ui.View):
                 )
                 with urlopen(request, timeout=15) as response:
                     result = json.loads(response.read().decode("utf-8"))
-            if not result.get("reset"):
-                raise RuntimeError("APIがリセット完了を返しませんでした")
+            if isinstance(result, dict) and result.get("error"):
+                raise RuntimeError(str(result["error"]))
         except Exception as exc:
             error = exc
         ui.delay(lambda error=error: self._restart_test_session_complete(error), 0.0)
