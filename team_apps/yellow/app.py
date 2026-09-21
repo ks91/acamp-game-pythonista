@@ -37,6 +37,8 @@ SPOT_STORIES = {
         "photo_label": "2枚目",
         "image_filename": "sphinx.png",
         "rare_image_filename": "shubaru-sphinx.jpeg",
+        "rare_display_name": "シュバルスフィンクス",
+        "rare_item_name": "シュバルスフィンクス",
         "description": "東京の忠犬ハチ公と、古代エジプトのスフィンクスが合体した守り神。",
     },
     "ycap": {
@@ -54,11 +56,14 @@ SPOT_STORIES = {
     },
     "center-building": {
         "names": {"センター棟"},
-        "display_name": "アヌビス",
+        "display_name": "ファラオ",
         "item_name": "ファラオ",
         "photo_label": "3枚目",
         "image_filename": "pharaoh.jpeg",
-        "description": "センター棟を、みんなの活動を見守る犬の神アヌビスの神殿に見立てた場所。",
+        "rare_image_filename": "shubaru-pharaoh.jpeg",
+        "rare_display_name": "シュバルファラオ",
+        "rare_item_name": "シュバルファラオ",
+        "description": "センター棟を、みんなの活動を見守るファラオの神殿に見立てた場所。"
     },
 }
 
@@ -148,8 +153,12 @@ class YellowEgyptGame(ui.View):
     def _effective_story(self, key, story, place):
         effective = dict(story)
         if self._is_rare(key, place.get("id", key)):
-            effective["display_name"] = "シュバル" + effective["display_name"]
-            effective["item_name"] = "シュバル" + effective["item_name"]
+            effective["display_name"] = effective.get(
+                "rare_display_name", "シュバル" + effective["display_name"]
+            )
+            effective["item_name"] = effective.get(
+                "rare_item_name", "シュバル" + effective["item_name"]
+            )
             if effective.get("rare_image_filename"):
                 effective["image_filename"] = effective["rare_image_filename"]
         return effective
@@ -281,44 +290,72 @@ class YellowEgyptGame(ui.View):
     def show_collected_items(self, sender):
         self._clear_content()
         claimed_ids = self._claimed_ids()
-        collected = []
-        for key, story, place in self._target_places():
-            if place["id"] in claimed_ids:
-                collected.append(self._effective_story(key, story, place))
-        self.status_label.text = "獲得済みアイテム図鑑"
+        target_places = {place["id"]: (key, story, place) for key, story, place in self._target_places()}
+        catalog = [
+            ("ycap", "ピラミッド", "pyramid.jpeg"),
+            ("fan-cafe", "ハチ公スフィンクス", "sphinx.png"),
+            ("fan-cafe", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
+            ("center-building", "ファラオ", "pharaoh.jpeg"),
+            ("center-building", "シュバルファラオ", "shubaru-pharaoh.jpeg"),
+        ]
+        self.status_label.text = "モンスター図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, 343, 44), lambda button: self._render())
         self.content.add_subview(back_button)
-        if not collected:
-            empty_label = self._label(
-                "まだ獲得済みアイテムはありません。\nスポットをチェックインして集めよう！",
-                (24, 72, 327, 70),
-                ("<system>", 16),
-            )
-            self.content.add_subview(empty_label)
-            self.content.content_size = (self.width, 160)
-            return
 
-        preview = ui.ImageView(frame=(16, 72, 210, 220))
+        preview = ui.ImageView(frame=(16, 72, 205, 220))
         preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
         self.content.add_subview(preview)
-        detail = self._label("", (16, 300, 210, 130), ("<system>", 14))
+        detail = self._label("図鑑からキャラクターを選んでください。", (16, 300, 205, 140), ("<system>", 14))
         self.content.add_subview(detail)
 
         def select_item(button):
-            story = button.story
+            entry = button.entry
+            if not entry["discovered"]:
+                preview.image = ui.Image.named(os.path.join(self.repository_directory, "assets", entry["filename"]))
+                preview.alpha = 0.22
+                preview.background_color = "#222222"
+                detail.text = "？？？\n\n基本情報\n？？？"
+                return
+            preview.alpha = 1.0
+            preview.background_color = "#FFF8E1"
+            story = entry["story"]
             preview.image = self._asset_image(story)
-            detail.text = "{}\n{}\n{}".format(
-                story["item_name"], story["display_name"], story["description"]
+            detail.text = "{}\n\n基本情報\nレア度：{}\n発見場所：{}\n\n{}".format(
+                story["display_name"], "★2" if story["display_name"].startswith("シュバル") else "★1",
+                entry["place"].get("name", "不明"), story["description"]
             )
 
+        entries = []
+        for place_id, expected_name, filename in catalog:
+            source = target_places.get(place_id)
+            discovered = False
+            story = None
+            place = source[2] if source else {"id": place_id, "name": ""}
+            if source and place_id in claimed_ids:
+                effective = self._effective_story(source[0], source[1], source[2])
+                if effective["display_name"] == expected_name:
+                    discovered = True
+                    story = effective
+            entries.append({"name": expected_name, "filename": filename, "discovered": discovered, "story": story, "place": place})
+
+        discovered_entries = [entry for entry in entries if entry["discovered"]]
+        unknown_entries = [entry for entry in entries if not entry["discovered"]]
+        claimed_order = (self.state or {}).get("claimed_places", [])
+        discovered_entries.sort(
+            key=lambda entry: claimed_order.index(entry["place"]["id"])
+            if entry["place"]["id"] in claimed_order else len(claimed_order)
+        )
+        entries = discovered_entries + unknown_entries
+
         y = 72
-        for story in collected:
-            button = self._button(story["item_name"], (238, y, 121, 48), select_item)
-            button.story = story
+        for entry in entries:
+            title = entry["name"] if entry["discovered"] else "？？？"
+            button = self._button(title, (238, y, 121, 48), select_item)
+            button.entry = entry
             self.content.add_subview(button)
             y += 58
-        select_item(self.content.subviews[-1])
-        self.content.content_size = (self.width, max(450, y + 24))
+        self.content.content_size = (self.width, max(500, y + 24))
+        select_item(type("InitialSelection", (), {"entry": entries[0]})())
 
     def show_restart_notice(self, sender):
         self._render(
