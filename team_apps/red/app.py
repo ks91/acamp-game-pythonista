@@ -757,9 +757,16 @@ class RedPrototype(ui.View):
         )
         self.style_buttons()
         self.content.content_size = (375, 790)
-        self.open_map_view = ui.WebView(frame=(0, 0, 375, 720))
+        # Native map status panel: Pythonista's embedded WebView was terminating
+        # on some iPads when this button was tapped.  Keep the playable GPS
+        # flow native and stable rather than opening an external map engine.
+        self.open_map_view = ui.Label(frame=(16, 10, 343, 640))
+        self.open_map_view.number_of_lines = 0
+        self.open_map_view.alignment = ui.ALIGN_CENTER
+        self.open_map_view.font = ("<System>", 17)
+        self.open_map_view.text_color = "#263238"
         self.content.add_subview(self.open_map_view)
-        self.open_map_view.load_html(self.leaflet_map_html())
+        self.refresh_native_map_panel()
         self.location_tracking_button = ui.Button(
             title="位置追跡を開始", frame=(8, 675, 170, 40)
         )
@@ -780,6 +787,20 @@ class RedPrototype(ui.View):
         back.action = self.close_map
         self.content.add_subview(back)
         self.style_buttons()
+
+    def refresh_native_map_panel(self):
+        if not self.open_map_view:
+            return
+        if self.server_scenario_loaded:
+            places = "\n".join("・{}".format(place["name"]) for place in self.destinations)
+            heading = "モンスター出現地点\n{}".format(places or "地点なし")
+        else:
+            heading = "地点データを読み込み中…"
+        if self.last_position:
+            position_text = "\n\n現在地を取得しました。\nGPS精度：約{}m".format(self.last_accuracy)
+        else:
+            position_text = "\n\n「現在地を取得」を押すとGPSを更新します。"
+        self.open_map_view.text = heading + position_text
 
     def close_map(self, sender):
         self.stop_location_tracking()
@@ -814,7 +835,7 @@ class RedPrototype(ui.View):
         if position:
             self.last_position = position
             self.last_accuracy = position.get("horizontal_accuracy", "不明")
-            self.open_map_view.load_html(self.leaflet_map_html())
+            self.refresh_native_map_panel()
             playable_destinations = map_destinations(self.destinations)
             if not self.server_scenario_loaded or not playable_destinations:
                 self.set_status(
@@ -832,7 +853,7 @@ class RedPrototype(ui.View):
                 enumerate(distances), key=lambda item: item[1]
             )
             nearest_destination = playable_destinations[nearest_index]
-            self.open_map_view.load_html(self.leaflet_map_html())
+            self.refresh_native_map_panel()
             if nearest <= LOCATION_TRIGGER_RADIUS_M:
                 self.unlocked_destinations.add(nearest_destination["id"])
                 self.stop_location_tracking()
@@ -865,11 +886,9 @@ class RedPrototype(ui.View):
             return
         self.last_position = position
         self.last_accuracy = position.get("horizontal_accuracy", "不明")
-        self.open_map_view.load_html(self.leaflet_map_html())
+        self.refresh_native_map_panel()
         self.set_status(
-            "現在地を更新しました。\nGPS精度：約{}m\n赤いマーカーが現在地です。".format(
-                self.last_accuracy
-            )
+            "現在地を更新しました。\nGPS精度：約{}m".format(self.last_accuracy)
         )
 
     def leaflet_map_html(self):
