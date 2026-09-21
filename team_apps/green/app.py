@@ -330,14 +330,31 @@ class GreenTerritoryGame(ui.View):
             return
         self._close_mission_overlay()
         self.action_button.enabled = False
-        self.detail.text = "GPSで現在地を確認中…"
+        self.detail.text = "GPSを更新中…範囲内か確認しています。"
+        threading.Thread(target=self._fresh_location_worker, args=(place,), daemon=True).start()
+
+    def _fresh_location_worker(self, place):
+        current = None
+        error = None
         try:
+            location.start_updates()
+            time.sleep(3.0)
             current = location.get_location()
-            self._evaluate_location_for_minigame(place, current)
-        except Exception as error:
+        except Exception as exc:
+            error = exc
+        finally:
+            try:
+                location.stop_updates()
+            except Exception:
+                pass
+        ui.delay(lambda current=current, error=error: self._finish_location_check(place, current, error), 0)
+
+    def _finish_location_check(self, place, current, error=None):
+        if error is not None:
             self._show_mission_overlay("GPS確認失敗", "{}\nミニゲームは開始しません。".format(error), "再確認", self._check_location_before_minigame)
             self.action_button.enabled = True
-
+            return
+        self._evaluate_location_for_minigame(place, current)
     def _evaluate_location_for_minigame(self, place, current):
         try:
             if not current:
@@ -350,6 +367,9 @@ class GreenTerritoryGame(ui.View):
                 raise RuntimeError("地点の座標が設定されていません")
             distance = self._distance_meters(latitude, longitude, place["latitude"], place["longitude"])
             radius = float(place.get("capture_radius_meters", 100))
+            accuracy = current.get("horizontal_accuracy")
+            if accuracy is not None and float(accuracy) > radius:
+                raise RuntimeError("GPS精度が低すぎます（精度約{:.0f}m、必要範囲{}m）".format(float(accuracy), int(radius)))
             if distance > radius:
                 self._show_mission_overlay("ミッション開始不可", "地点の範囲外です。\n地点まで約{:.0f}m\n必要範囲: {:.0f}m\n範囲内に移動してから再試行してください。".format(distance, radius), "再確認", self._check_location_before_minigame)
                 return
