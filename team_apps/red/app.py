@@ -493,6 +493,7 @@ class RedPrototype(ui.View):
     def clear_content(self):
         for view in list(self.content.subviews):
             self.content.remove_subview(view)
+        self.content.content_offset = (0, 0)
 
     def set_status(self, text):
         self.status.text = text
@@ -830,9 +831,9 @@ class RedPrototype(ui.View):
         )
         self.style_buttons()
         self.content.content_size = (375, 790)
-        # The map is loaded without continuous GPS tracking.  This preserves
-        # the street-map view while avoiding the launch-time crash path.
-        self.open_map_view = ui.WebView(frame=(0, 0, 375, 660))
+        # Keep this screen native.  Loading an embedded web map can terminate
+        # Pythonista on the team's iPad before the close button is available.
+        self.open_map_view = MonsterLocationMap(frame=(0, 0, 375, 660))
         self.content.add_subview(self.open_map_view)
         self.refresh_native_map_panel()
         self.location_tracking_button = ui.Button(
@@ -841,8 +842,6 @@ class RedPrototype(ui.View):
         self.location_tracking_button.tint_color = "#D32F2F"
         self.location_tracking_button.action = self.toggle_location_tracking
         self.content.add_subview(self.location_tracking_button)
-        # Opening the WebView must not also enter a continuous GPS loop: that
-        # path can terminate Pythonista before the map has rendered.
         self.set_status("モンスター地図を開きました。現在地を取得を押すとGPSを更新します。")
         location_button = ui.Button(
             title="現在地を取得", frame=(190, 675, 170, 40)
@@ -869,20 +868,12 @@ class RedPrototype(ui.View):
             destination = next((place for place in self.destinations if place["id"] == destination_id), None)
             if destination:
                 monsters.append({"destination": destination})
-        # Use the same Google Maps WebView approach as Purple.  Unlike the
-        # custom Leaflet page, this is a normal Maps URL and is stable on iPad.
-        candidates = []
-        if self.last_position and self.last_position.get("latitude") and self.last_position.get("longitude"):
-            candidates.append(self.last_position)
-        candidates.extend(map_destinations(self.destinations))
-        if candidates:
-            target = candidates[0]
-            url = "https://www.google.com/maps/search/?api=1&query={},{}".format(
-                target["latitude"], target["longitude"]
-            )
-            self.open_map_view.load_url(url)
-        else:
-            self.open_map_view.load_html("<html><body style='font-family:sans-serif;text-align:center;padding:40px'>地点データを読み込み中…</body></html>")
+        self.open_map_view.set_data(
+            self.last_position,
+            map_destinations(self.destinations),
+            monsters,
+            status,
+        )
 
     def close_map(self, sender):
         self.stop_location_tracking()
