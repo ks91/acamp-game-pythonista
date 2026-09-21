@@ -497,7 +497,7 @@ class GameView(ui.View):
             self.status_label.text_color,
         )
         self._add_button(
-            "写真を端末に保存",
+            "写真をダウンロード",
             264,
             self.save_pending_photo,
             self.status_label.text_color,
@@ -518,10 +518,12 @@ class GameView(ui.View):
             png_data = self._preview_image(self.pending_photo).to_png()
             with open(path, "wb") as destination:
                 destination.write(png_data)
+            import console
+            console.open_in(path)
         except (OSError, ValueError, TypeError) as error:
             self.show_message("写真を保存できません。\n{}".format(error))
             return
-        self.show_message("写真を保存しました。\n{}".format(path))
+        self.show_message("写真の保存先選択画面を開きました。\n『ファイルに保存』から『ダウンロード』を選んでください。")
 
     def confirm_elevator_position(self, sender):
         self.show_message("写真を撮った時点のGPS位置で判定しています…")
