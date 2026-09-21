@@ -510,12 +510,22 @@ class GameView(ui.View):
             self.show_message("保存する写真がありません。")
             return
         try:
-            import photos
-            photos.save_image(self.pending_photo)
-        except (ImportError, OSError) as error:
+            photo_directory = os.path.expanduser("~/Documents/blue-photos")
+            if not os.path.isdir(photo_directory):
+                os.makedirs(photo_directory)
+            filename = "photo-{}.png".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+            path = os.path.join(photo_directory, filename)
+            image = self.pending_photo
+            if hasattr(image, "save"):
+                image.save(path, "PNG")
+            else:
+                png_data = self._preview_image(image).to_png()
+                with open(path, "wb") as destination:
+                    destination.write(png_data)
+        except (OSError, ValueError, TypeError) as error:
             self.show_message("写真を保存できません。\n{}".format(error))
             return
-        self.show_message("写真を端末の写真アプリに保存しました。")
+        self.show_message("写真を保存しました。\n{}".format(path))
 
     def confirm_elevator_position(self, sender):
         self.show_message("写真を撮った時点のGPS位置で判定しています…")
