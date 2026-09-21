@@ -47,6 +47,10 @@ class GameView(ui.View):
         self.completed_quests = self._load_completed_quests()
         self.quest_progress_path = os.path.join(self.repository_directory, "quest-progress.json")
         self.quest_progress = self._load_quest_progress()
+        self.coins_path = os.path.expanduser("~/Documents/blue-coins.json")
+        self.coins = self._load_coins()
+        self.inventory_path = os.path.expanduser("~/Documents/blue-shop-items.json")
+        self.inventory = self._load_inventory()
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
         self.add_subview(self.status_label)
@@ -57,6 +61,7 @@ class GameView(ui.View):
         self.selected_quest = None
         self.pending_photo = None
         self.pending_photo_location = None
+        self.last_reward = 0
         self.in_test_game = False
         self.refresh()
 
@@ -142,6 +147,30 @@ class GameView(ui.View):
         with open(self.quest_progress_path, "w") as destination:
             json.dump(self.quest_progress, destination)
 
+    def _load_coins(self):
+        try:
+            with open(self.coins_path, "r") as source:
+                value = json.load(source)
+            return int(value)
+        except (OSError, ValueError, TypeError):
+            return 0
+
+    def _save_coins(self):
+        with open(self.coins_path, "w") as destination:
+            json.dump(self.coins, destination)
+
+    def _load_inventory(self):
+        try:
+            with open(self.inventory_path, "r") as source:
+                items = json.load(source)
+            return items if isinstance(items, list) else []
+        except (OSError, ValueError):
+            return []
+
+    def _save_inventory(self):
+        with open(self.inventory_path, "w") as destination:
+            json.dump(self.inventory, destination)
+
     @staticmethod
     def _location_list(value):
         if isinstance(value, list):
@@ -217,11 +246,53 @@ class GameView(ui.View):
 
     def render_title_screen(self, accent_color):
         self._clear_content()
-        self.show_message("blue位置ゲー開発（仮）")
-        self._add_button("開始", 12, self.start_game, accent_color)
-        self._add_button("座標を登録する", 72, self.start_registration, accent_color)
-        self._add_button("テストゲーム", 132, self.start_test_game, accent_color)
-        self.scroll.content_size = (self.width, 200)
+        self.status_label.font = ("<system-bold>", 18)
+        self.show_message("🗺️ まちのひみつハンター\nblue位置ゲー開発（仮）\n💰 コイン：{}枚\n\n今日の冒険を選ぼう！".format(self.coins))
+        self._add_button("▶️ 探索をはじめる", 12, self.start_game, accent_color)
+        self._add_button("📍 座標を登録する", 72, self.start_registration, accent_color)
+        self._add_button("🧪 テストゲーム", 132, self.start_test_game, accent_color)
+        self._add_button("🛒 交換所", 192, self.open_shop, accent_color)
+        self.scroll.content_size = (self.width, 260)
+
+    def open_shop(self, sender):
+        self.render_shop(self.status_label.text_color)
+
+    def render_shop(self, accent_color, message=None):
+        self._clear_content()
+        self.show_message(message or "🛒 探検家交換所\nコインでアイテムを手に入れよう！")
+        items = [
+            ("探検家バッジ", "🏅", 20),
+            ("ヒントカード", "💡", 50),
+            ("ゴールドハンター称号", "👑", 100),
+        ]
+        y = 12
+        for item_name, icon, cost in items:
+            owned = item_name in self.inventory
+            title = "{} {}（{}コイン）{}".format(icon, item_name, cost, " ✅" if owned else "")
+            button = self._add_button(title, y, self.buy_shop_item, accent_color)
+            button.item_name = item_name
+            button.item_cost = cost
+            y += 60
+        self._add_button("🏠 ホームにもどる", y, self.back_to_title, accent_color)
+        self.scroll.content_size = (self.width, y + 76)
+
+    def buy_shop_item(self, sender):
+        item_name = sender.item_name
+        cost = sender.item_cost
+        if item_name in self.inventory:
+            self.render_shop(self.status_label.text_color, "✅ {}は獲得済みです。".format(item_name))
+            return
+        if self.coins < cost:
+            self.render_shop(
+                self.status_label.text_color,
+                "コインが足りません。\n{}には{}コイン必要です。現在：{}コイン".format(item_name, cost, self.coins),
+            )
+            return
+        self.coins -= cost
+        self.inventory.append(item_name)
+        self._save_coins()
+        self._save_inventory()
+        self.render_shop(self.status_label.text_color, "🎉 {}を交換しました！\n残り：{}コイン".format(item_name, self.coins))
 
     def start_test_game(self, sender):
         preferred = [
@@ -256,7 +327,7 @@ class GameView(ui.View):
                 "id": "test-{}".format(index),
                 "name": "テスト：{}を撮影！".format(label),
                 "difficulty": "test",
-                "reward_coins": 0,
+                "reward_coins": 10,
                 "required_count": 1,
                 "target_locations": [location],
                 "capture_instruction": "{}を撮影してください。".format(label),
@@ -420,11 +491,9 @@ class GameView(ui.View):
         self.show_message("{}\n{}".format(quest["name"], capture_instruction(quest)))
         camera_button = self._add_button("写真を撮影", 12, self.take_photo, accent_color)
         camera_button.tint_color = accent_color
-        select_button = self._add_button("写真を選択", 72, self.select_photo, accent_color)
-        select_button.tint_color = accent_color
-        back_button = self._add_button("クエスト一覧にもどる", 132, self.back_to_quests, accent_color)
+        back_button = self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, accent_color)
         back_button.tint_color = accent_color
-        self.scroll.content_size = (self.width, 200)
+        self.scroll.content_size = (self.width, 140)
 
     def _get_current_location(self):
         location.start_updates()
@@ -565,6 +634,11 @@ class GameView(ui.View):
         self.quest_progress[quest_id] = sorted(found)
         self._save_quest_progress()
         if len(found) >= required_count:
+            already_completed = quest_id in self.completed_quests
+            reward = self.selected_quest.get("reward_coins", 0) if not already_completed else 0
+            self.last_reward = reward
+            self.coins += reward
+            self._save_coins()
             self.completed_quests.add(quest_id)
             self._save_completed_quests()
             self.render_completion_screen(self.status_label.text_color)
@@ -580,9 +654,10 @@ class GameView(ui.View):
         self._clear_content()
         quest = self.selected_quest
         self.show_message(
-            "おめでとう！\n"
-            "{}をクリアしました。\n"
-            "報酬はコイン{}枚だよ！".format(quest["name"], quest["reward_coins"])
+            "🎉 おめでとう！\n"
+            "{}をクリアしました！\n"
+            "💰 報酬：コイン{}枚\n"
+            "現在のコイン：{}枚".format(quest["name"], self.last_reward, self.coins)
         )
         self._add_button("別のクエストに挑戦する", 12, self.back_to_quests, accent_color)
         self._add_button("ホームに戻る", 72, self.back_to_title, accent_color)
