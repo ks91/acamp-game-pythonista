@@ -4,7 +4,6 @@ import math
 import random
 import threading
 import time
-from urllib.request import Request, urlopen
 
 import location
 import ui
@@ -281,20 +280,7 @@ class GreenTerritoryGame(ui.View):
     def _restart_test_session_worker(self):
         error = None
         try:
-            if hasattr(self.api_client, "restart_test_session"):
-                result = self.api_client.restart_test_session()
-            else:
-                admin_token = getattr(config, "ADMIN_TOKEN", "") if config else ""
-                if not admin_token:
-                    raise RuntimeError("config.pyにADMIN_TOKENが設定されていません")
-                request = Request(
-                    self.api_client.base_url + "/admin/session/reset",
-                    data=json.dumps({"game_session_id": self.session_id, "reason": "Green participant test restart"}).encode("utf-8"),
-                    headers={"Accept": "application/json", "Authorization": "Bearer " + admin_token, "Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urlopen(request, timeout=15) as response:
-                    result = json.loads(response.read().decode("utf-8"))
+            result = self.api_client.restart_test_session()
             if not result.get("reset"):
                 raise RuntimeError("APIがリセット完了を返しませんでした")
         except Exception as exc:
