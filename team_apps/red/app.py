@@ -316,6 +316,7 @@ class RedPrototype(ui.View):
         self.last_accuracy = None
         self.location_tracking = False
         self.location_tracking_button = None
+        self.map_overlay_views = []
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
@@ -497,9 +498,20 @@ class RedPrototype(ui.View):
             button.tint_color = "#FFFFFF"
 
     def clear_content(self):
+        self._remove_map_overlay()
         for view in list(self.content.subviews):
             self.content.remove_subview(view)
         self.content.content_offset = (0, 0)
+
+    def _remove_map_overlay(self):
+        for view in self.map_overlay_views:
+            try:
+                self.remove_subview(view)
+            except Exception:
+                pass
+        self.map_overlay_views = []
+        self.open_map_view = None
+        self.location_tracking_button = None
 
     def set_status(self, text):
         self.status.text = text
@@ -831,34 +843,28 @@ class RedPrototype(ui.View):
         self.content.content_size = (375, y + 80)
 
     def show_interactive_map(self):
-        self.set_status(
-            "モンスター\n"
-            "指で移動・ピンチで拡大縮小できます。モンスターの位置も表示します。"
-        )
-        self.style_buttons()
-        self.content.content_size = (375, 790)
-        # Keep this screen native: embedded web maps can terminate Pythonista.
-        self.open_map_view = MonsterLocationMap(frame=(0, 0, 375, 660))
-        self.content.add_subview(self.open_map_view)
+        self.set_status("モンスター地図\n青：現在地　赤：モンスター　紫：地点")
+        # A WebView inside ScrollView crashes under touch/pinch on some iPads.
+        # Mount it directly on the root view, outside the scrolling content.
+        self.open_map_view = ui.WebView(frame=(0, 112, 375, 430), flex="W")
+        self.add_subview(self.open_map_view)
+        self.map_overlay_views.append(self.open_map_view)
         self.refresh_native_map_panel()
-        self.location_tracking_button = ui.Button(
-            title="位置追跡を開始", frame=(8, 675, 170, 40)
-        )
+        self.location_tracking_button = ui.Button(title="位置追跡を開始", frame=(8, 550, 170, 40), flex="WT")
         self.location_tracking_button.tint_color = "#D32F2F"
         self.location_tracking_button.action = self.toggle_location_tracking
-        self.content.add_subview(self.location_tracking_button)
-        self.set_status("モンスター地図を開きました。現在地を取得を押すとGPSを更新します。")
-        location_button = ui.Button(
-            title="現在地を取得", frame=(190, 675, 170, 40)
-        )
+        self.add_subview(self.location_tracking_button)
+        self.map_overlay_views.append(self.location_tracking_button)
+        location_button = ui.Button(title="現在地を取得", frame=(190, 550, 170, 40), flex="WT")
         location_button.tint_color = "#EF6C00"
         location_button.action = self.update_current_location
-        self.content.add_subview(location_button)
-        back = ui.Button(title="モンスターを閉じる", frame=(16, 735, 343, 48))
+        self.add_subview(location_button)
+        self.map_overlay_views.append(location_button)
+        back = ui.Button(title="モンスターを閉じる", frame=(16, 600, 343, 48), flex="WT")
         back.tint_color = "#C62828"
         back.action = self.close_map
-        self.content.add_subview(back)
-        self.style_buttons()
+        self.add_subview(back)
+        self.map_overlay_views.append(back)
 
     def refresh_native_map_panel(self):
         if not self.open_map_view:
@@ -877,12 +883,7 @@ class RedPrototype(ui.View):
                     "name": monster["name"],
                     "stars": monster["stars"],
                 })
-        self.open_map_view.set_data(
-            self.last_position,
-            map_destinations(self.destinations),
-            monsters,
-            status,
-        )
+        self.open_map_view.load_html(self.leaflet_map_html())
 
     def close_map(self, sender):
         self.stop_location_tracking()
