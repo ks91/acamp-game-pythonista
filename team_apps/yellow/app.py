@@ -2,13 +2,11 @@
 
 import datetime
 import hashlib
-import json
 import os
 import sys
 import threading
 import uuid
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 import location
 import ui
@@ -114,8 +112,26 @@ class YellowEgyptGame(ui.View):
             game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
             game_mode=getattr(config, "SELECTED_GAME_MODE", None),
         )
-        self.status_label.text = "ゲームを最初の状態に戻しています…"
-        threading.Thread(target=self._restart_test_session, daemon=True).start()
+        self.status_label.text = "ゲームを読み込んでいます…"
+        threading.Thread(target=self._load_initial_state, daemon=True).start()
+
+    def _load_initial_state(self):
+        definition = state = error = None
+        try:
+            definition = self.api.get_game_definition()
+            state = self.api.get_team_state()
+        except (OSError, ValueError) as exc:
+            error = str(exc)
+        ui.delay(lambda: self._apply_initial_state(definition, state, error), 0)
+
+    def _apply_initial_state(self, definition, state, error):
+        if error is not None:
+            # Render the normal controls so a failed launch can be retried.
+            self._render("サーバーへ接続できません。\n{}\n通信を確認して、位置情報を更新してください。".format(error))
+            return
+        self.definition = definition
+        self.state = state
+        self._render()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
         label = ui.Label(frame=frame)
@@ -428,18 +444,7 @@ class YellowEgyptGame(ui.View):
 
     def _restart_test_session(self):
         try:
-            request = Request(
-                config.API_BASE_URL.rstrip("/") + "/test-session/restart",
-                data=json.dumps({"confirm": True}).encode("utf-8"),
-                headers={
-                    "Accept": "application/json",
-                    "Authorization": "Bearer " + config.GAME_TOKEN,
-                    "Content-Type": "application/json; charset=utf-8",
-                },
-                method="POST",
-            )
-            with urlopen(request, timeout=15) as response:
-                result = json.loads(response.read().decode("utf-8"))
+            result = self.api.restart_test_session()
             ui.delay(lambda: self._handle_restart_result(result), 0)
         except HTTPError as error:
             try:

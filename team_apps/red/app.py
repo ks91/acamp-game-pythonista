@@ -321,6 +321,9 @@ class RedPrototype(ui.View):
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
+        self._battle_inventory = None
+        self._content_generation = 0
+        self._battle_action_pending = False
         self.monsters = []
         for index in range(MONSTER_COUNT):
             monster = random.choice(MONSTERS).copy()
@@ -499,6 +502,8 @@ class RedPrototype(ui.View):
             button.tint_color = "#FFFFFF"
 
     def clear_content(self):
+        self._content_generation += 1
+        self._battle_inventory = None
         self._remove_map_overlay()
         for view in list(self.content.subviews):
             self.content.remove_subview(view)
@@ -1237,7 +1242,6 @@ monsters.forEach(m => {
         self.content.content_size = (375, 300)
 
     def show_battle(self, message):
-        self.clear_content()
         monster = self.active_monster
         enemy_max_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
         rank_text = "BOSS" if monster.get("boss") else "★" * monster["stars"]
@@ -1252,6 +1256,19 @@ monsters.forEach(m => {
                 message,
             )
         )
+        # Most turns only change HP and weapon uses. Keep the native controls
+        # alive instead of destroying the button that delivered the tap.
+        inventory = tuple(self.inventory)
+        if self._battle_inventory == inventory:
+            for button in self.content.subviews:
+                item = getattr(button, "item_name", None)
+                if item in WEAPON_POWER:
+                    button.title = "{}で攻撃（基準{}／残り{}回）".format(
+                        item, WEAPON_POWER[item],
+                        self.weapon_uses.get(item, weapon_uses_for(item)),
+                    )
+            return
+        self.clear_content()
         y = 18
         # Battle images are intentionally not decoded here.  Repeated full-size
         # image loading is the crash path on the Red iPad; profile keeps the art.
@@ -1264,7 +1281,7 @@ monsters.forEach(m => {
         y += 72
         attack_button = ui.Button(title="素手で攻撃（10）", frame=(16, y, 343, 48))
         attack_button.tint_color = "#B71C1C"
-        attack_button.action = self.attack_with_fist
+        self._bind_battle_action(attack_button, self.attack_with_fist)
         self.content.add_subview(attack_button)
         y += 62
         for item in dict.fromkeys(self.inventory):
@@ -1277,7 +1294,7 @@ monsters.forEach(m => {
                 )
                 button.tint_color = "#C62828"
                 button.item_name = item
-                button.action = self.attack_with_item
+                self._bind_battle_action(button, self.attack_with_item)
                 self.content.add_subview(button)
                 y += 62
         if monster.get("boss"):
@@ -1292,11 +1309,11 @@ monsters.forEach(m => {
                 artifact_button = ui.Button(title=title, frame=(16, y, 343, 48))
                 artifact_button.tint_color = "#6A1B9A"
                 artifact_button.artifact_name = artifact
-                artifact_button.action = self.use_artifact
+                self._bind_battle_action(artifact_button, self.use_artifact)
                 self.content.add_subview(artifact_button)
                 y += 62
         escape_button = ui.Button(title="逃げる（試作では星で判定）", frame=(16, y, 343, 48))
-        escape_button.action = self.try_escape
+        self._bind_battle_action(escape_button, self.try_escape)
         self.content.add_subview(escape_button)
         y += 62
         inventory_label = ui.Label(frame=(20, y, 335, 50))
@@ -1312,6 +1329,34 @@ monsters.forEach(m => {
         self.content.add_subview(inventory_label)
         self.style_buttons()
         self.content.content_size = (375, y + 80)
+        self._battle_inventory = inventory
+
+    def _bind_battle_action(self, button, action):
+        button.battle_action = action
+        button.content_generation = self._content_generation
+        button.action = self._queue_battle_action
+
+    def _queue_battle_action(self, sender):
+        if (self.current_screen != "battle" or self._battle_action_pending
+                or sender.content_generation != self._content_generation):
+            return
+        self._battle_action_pending = True
+        generation = self._content_generation
+        # Let UIKit finish dispatching the tap before a consumed item or the
+        # result screen replaces controls. The closure keeps sender alive too.
+        def perform():
+            try:
+                if (self.current_screen == "battle"
+                        and generation == self._content_generation):
+                    sender.battle_action(sender)
+            finally:
+                self._battle_action_pending = False
+        ui.delay(perform, 0.05)
+
+    def will_close(self):
+        self.current_screen = "closed"
+        self._content_generation += 1
+        self.stop_location_tracking()
 
     def use_artifact(self, sender):
         if not self.active_monster.get("boss"):
@@ -1414,6 +1459,9 @@ monsters.forEach(m => {
                 self.show_battle(enemy_message)
 
     def finish_battle(self, won, message):
+        if self.current_screen != "battle":
+            return
+        self.current_screen = "battle_result"
         if won:
             self._claim_active_server_place()
             if self.active_monster.get("boss"):
