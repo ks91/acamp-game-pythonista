@@ -23,6 +23,12 @@ LIGHT_BG = "#F4F7F9"
 
 CENTER_TEST_PLACE_NAMES = frozenset({"カフェテリアふじ出口", "513研修室", "事務所側入口", "正面入口"})
 CENTER_TEST_RADIUS_METERS = 10
+LOCAL_CENTER_TEST_PLACES = (
+    {"id": "center-513-training-room", "name": "513研修室", "latitude": 35.67407073059871, "longitude": 139.69317184609355, "radius_m": 10, "points": 120, "description": "センター棟の必須攻略地点。窓際のためGPS精度に注意。", "required": True},
+    {"id": "center-office-entrance", "name": "事務所側入口", "latitude": 35.67465399946227, "longitude": 139.69315284937827, "radius_m": 10, "points": 120, "description": "センター棟の任意攻略地点。", "required": False},
+    {"id": "center-cafeteria-fuji-exit", "name": "カフェテリアふじ出口", "latitude": 35.675026446445194, "longitude": 139.6939601327121, "radius_m": 10, "points": 120, "description": "センター棟の必須攻略地点。", "required": True},
+    {"id": "center-main-entrance", "name": "正面入口", "latitude": 35.67492708549511, "longitude": 139.69340021778783, "radius_m": 10, "points": 120, "description": "センター棟の任意攻略地点。", "required": False},
+)
 
 
 class TerritoryMap(ui.View):
@@ -158,7 +164,7 @@ class GreenTerritoryGame(ui.View):
         places = []
         configured_places = definition.get("places") or []
         center_places = [place for place in configured_places if place.get("name") in CENTER_TEST_PLACE_NAMES]
-        scenario_places = center_places if len(center_places) >= 2 else configured_places
+        scenario_places = center_places if len(center_places) >= 2 else list(LOCAL_CENTER_TEST_PLACES)
         for index, place in enumerate(scenario_places):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
