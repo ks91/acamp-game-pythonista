@@ -98,6 +98,7 @@ class GreenTerritoryGame(ui.View):
         self.model = self._offline_model()
         self.selected_id = None
         self._refreshing = False
+        self._last_api_error = ""
         self._mission_assignments = {}
 
         self.header = ui.Label(frame=(16, 12, 280, 54), font=("<system-bold>", 17), number_of_lines=2)
@@ -242,7 +243,10 @@ class GreenTerritoryGame(ui.View):
         self.map_view.update_model(self.model)
         place = next((item for item in self.model["places"] if item["id"] == self.selected_id), None)
         if place is None:
-            self.detail.text = "地図上の旗をタップすると地点の詳細を表示します。"
+            if status == "offline" and self._last_api_error:
+                self.detail.text = "API接続エラー\n{}".format(self._last_api_error)
+            else:
+                self.detail.text = "地図上の旗をタップすると地点の詳細を表示します。"
             self.action_button.title = "地点を選択してください"
             self.action_button.enabled = False
             return
@@ -361,6 +365,7 @@ class GreenTerritoryGame(ui.View):
             self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
         else:
+            self._last_api_error = str(error) if error is not None else "APIからゲーム状態を取得できませんでした"
             fallback_state = {"score": self.model.get("score", 0), "territories": [], "claimed_places": []}
             self.model = self._build_model({"places": list(LOCAL_CENTER_TEST_PLACES)}, fallback_state, self.team_id)
             self._assign_random_missions()
