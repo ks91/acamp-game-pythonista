@@ -399,20 +399,17 @@ class GreenTerritoryGame(ui.View):
     def _execute_mission(self, sender=None):
         self._close_mission_overlay()
         self.action_button.enabled = False
-        self.detail.text = "ミッション実行中…\n現在地を確認しています。"
-        threading.Thread(target=self._execute_mission_worker, daemon=True).start()
-
-    def _execute_mission_worker(self):
+        self.detail.text = "ミッション実行中…\n陣地を確認しています。"
         try:
-            current = getattr(self, "_mission_location", None) or location.get_location()
+            current = getattr(self, "_mission_location", None)
             if not current:
-                raise RuntimeError("現在地を取得できませんでした")
+                raise RuntimeError("GPS確認がありません。先に範囲確認を行ってください")
             sample = make_location_sample(team_id=self.team_id, device_id=self.device_id, client_time=time.strftime("%Y-%m-%dT%H:%M:%S%z"), location=current)
             self.api_client.post_location_sample(sample)
             result = self.api_client.claim_place(action_id="green-{}".format(int(time.time() * 1000)), game_session_id=self.session_id, place_id=self.selected_id, device_id=self.device_id)
-            ui.delay(lambda result=result: self._mission_result(result), 0)
+            self._mission_result(result)
         except Exception as error:
-            ui.delay(lambda error=error: self._mission_error(error), 0)
+            self._mission_error(error)
 
     def _mission_result(self, result):
         if result.get("claimed"):
