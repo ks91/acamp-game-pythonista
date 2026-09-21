@@ -515,13 +515,9 @@ class GameView(ui.View):
                 os.makedirs(photo_directory)
             filename = "photo-{}.png".format(datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
             path = os.path.join(photo_directory, filename)
-            image = self.pending_photo
-            if hasattr(image, "save"):
-                image.save(path, "PNG")
-            else:
-                png_data = self._preview_image(image).to_png()
-                with open(path, "wb") as destination:
-                    destination.write(png_data)
+            png_data = self._preview_image(self.pending_photo).to_png()
+            with open(path, "wb") as destination:
+                destination.write(png_data)
         except (OSError, ValueError, TypeError) as error:
             self.show_message("写真を保存できません。\n{}".format(error))
             return
