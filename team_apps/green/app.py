@@ -177,12 +177,25 @@ class GreenTerritoryGame(ui.View):
 
     @staticmethod
     def _build_model(definition, state, team_id):
-        claimed = set(state.get("claimed_places", []))
-        territory_by_id = {item.get("place_id"): item for item in (state.get("territories") or [])}
+        if not isinstance(definition, dict):
+            raise ValueError("ゲーム定義が辞書ではありません")
+        if not isinstance(state, dict):
+            raise ValueError("チーム状態が辞書ではありません")
+        claimed_places = state.get("claimed_places") or []
+        if not isinstance(claimed_places, (list, tuple, set)):
+            raise ValueError("claimed_placesの形式が不正です")
+        claimed = set(claimed_places)
+        territories = state.get("territories") or []
+        if not isinstance(territories, (list, tuple)):
+            raise ValueError("territoriesの形式が不正です")
+        territory_by_id = {item.get("place_id"): item for item in territories if isinstance(item, dict) and item.get("place_id")}
         use_demo_opponents = False
         opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
         configured_places = definition.get("places") or []
+        if not isinstance(configured_places, (list, tuple)):
+            raise ValueError("placesの形式が不正です")
+        configured_places = [place for place in configured_places if isinstance(place, dict) and place.get("name")]
         center_places = [place for place in configured_places if place.get("name") in CENTER_TEST_PLACE_NAMES]
         scenario_places = center_places if len(center_places) >= 2 else list(LOCAL_CENTER_TEST_PLACES)
         for index, place in enumerate(scenario_places):
@@ -214,8 +227,8 @@ class GreenTerritoryGame(ui.View):
                 role = "own_base"
             else:
                 role = "neutral"
-            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（攻略可能）", "enemy_base": "相手陣地（攻略可能）", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
-            action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
+            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（上書き不可）", "enemy_base": "相手陣地（上書き不可）", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
+            action_label = "状態確認" if owner == team_id else ("上書き不可" if owner else "ミッション開始")
             mission_text = place.get("mission", place.get("description", ""))
             if "猫" in mission_text or "ねこ" in mission_text:
                 mission_kind = "cat"
@@ -477,6 +490,9 @@ class GreenTerritoryGame(ui.View):
             return
         if place["owner"] == self.team_id:
             self._show_mission_overlay("陣地の状態", "{}\n所有者: {}\n得点: {}点".format(place["name"], place["owner_label"], place["points"]), "閉じる", self._close_mission_overlay)
+            return
+        if place["owner"] and place["owner"] != self.team_id:
+            self._show_mission_overlay("相手陣地（上書き不可）", "{}\n所有者: {}\nこのテストでは相手陣地を上書きできません。".format(place["name"], place["owner_label"]), "閉じる", self._close_mission_overlay)
             return
         self._show_mission_overlay("ミッション開始確認", "{}\n分類: {}\n内容: {}\n成功条件: 先にGPSで地点範囲を確認し、その後ミニゲームをクリア".format(place["name"], place["role_label"], place["mission"] or "地点到着ミッション"), "開始する", self._check_location_before_minigame)
 
