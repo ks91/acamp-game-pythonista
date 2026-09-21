@@ -109,10 +109,10 @@ class GameView(ui.View):
 
     def _ensure_test_game_locations(self):
         defaults = {
-            "513研修室": {"latitude": 35.67407073059871, "longitude": 139.69317184609355},
-            "事務所側入口": {"latitude": 35.67465399946227, "longitude": 139.69315284937827},
-            "カフェテリアふじ出口": {"latitude": 35.675026446445194, "longitude": 139.6939601327121},
-            "正面入口": {"latitude": 35.67492708549511, "longitude": 139.69340021778783},
+            "513研修室": {"latitude": 0.0, "longitude": 0.0},
+            "事務所側入口": {"latitude": 0.0, "longitude": 0.0},
+            "カフェテリアふじ出口": {"latitude": 0.0, "longitude": 0.0},
+            "正面入口": {"latitude": 0.0, "longitude": 0.0},
         }
         changed = False
         for name, location_value in defaults.items():
@@ -491,9 +491,11 @@ class GameView(ui.View):
         self.show_message("{}\n{}".format(quest["name"], capture_instruction(quest)))
         camera_button = self._add_button("写真を撮影", 12, self.take_photo, accent_color)
         camera_button.tint_color = accent_color
-        back_button = self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, accent_color)
+        select_button = self._add_button("写真を選択", 72, self.select_photo, accent_color)
+        select_button.tint_color = accent_color
+        back_button = self._add_button("クエスト一覧にもどる", 132, self.back_to_quests, accent_color)
         back_button.tint_color = accent_color
-        self.scroll.content_size = (self.width, 140)
+        self.scroll.content_size = (self.width, 200)
 
     def _get_current_location(self):
         location.start_updates()
