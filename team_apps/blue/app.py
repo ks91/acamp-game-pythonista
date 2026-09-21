@@ -85,6 +85,7 @@ class GameView(ui.View):
                 "name": "エレベーターを2個探せ！",
                 "difficulty": "easy",
                 "reward_coins": 20,
+                "required_count": 2,
                 "hint": "",
                 "type": "elevator",
             }
@@ -233,17 +234,25 @@ class GameView(ui.View):
         }
         result = classify_location(self.confirmed_elevators, candidate, threshold_m=10)
         if result["kind"] == "same_position_group":
+            self.render_capture_screen(self.status_label.text_color)
             self.show_message(
                 "同じ位置グループのエレベーターです。\n"
-                "階違いの可能性があります。新しい発見には数えません。"
+                "階違いの可能性があります。新しい発見には数えません。\n"
+                "別のエレベーターを探してください。"
             )
             return
         self.confirmed_elevators.append(candidate)
         self._save_confirmed_elevators()
+        required_count = self.selected_quest.get("required_count", 2)
+        found_count = len(self.confirmed_elevators)
+        if found_count >= required_count:
+            self.show_message("エレベーターを{}台発見！\nクエスト達成です。".format(required_count))
+            return
+        self.render_capture_screen(self.status_label.text_color)
         self.show_message(
-            "別の位置グループのエレベーターを発見！\n"
-            "現在 {} か所。GPS記録はこのiPad内に保存しました。".format(
-                len(self.confirmed_elevators)
+            "別のエレベーターを発見！ {} / {}台\n"
+            "次のエレベーターを撮影してください。".format(
+                found_count, required_count
             )
         )
 
