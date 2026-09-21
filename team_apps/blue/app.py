@@ -102,7 +102,19 @@ class GameView(ui.View):
         ]
         for quest in self.available_quests:
             registered = self.registered_quest_locations.get(quest["id"])
-            if registered and not quest.get("target_location"):
+            server_quest = next(
+                (item for item in definition.get("quests", []) if item.get("id") == quest["id"]),
+                {},
+            )
+            public_location = server_quest.get("target_location")
+            if public_location is None and "latitude" in server_quest and "longitude" in server_quest:
+                public_location = {
+                    "latitude": server_quest["latitude"],
+                    "longitude": server_quest["longitude"],
+                }
+            if public_location is not None:
+                quest["target_location"] = public_location
+            elif registered:
                 quest["target_location"] = registered
         self.render_title_screen(accent_color)
 
