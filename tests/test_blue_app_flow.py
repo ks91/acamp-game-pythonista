@@ -18,7 +18,9 @@ class BlueAppFlowTests(unittest.TestCase):
         self.assertIn("render_title_screen", self.methods)
         self.assertIn("start_game", self.methods)
         self.assertIn("select_location", self.methods)
-        self.assertIn("blue位置ゲー開発（仮）", self.source)
+        self.assertIn("Blueの探検ゲーム", self.source)
+        title_method = ast.get_source_segment(self.source, self.methods["render_title_screen"]) or ""
+        self.assertNotIn("座標を登録する", title_method)
         self.assertIn("場所を選択してください", self.source)
         self.assertIn("オリンピックセンター探索イベント（仮）", self.source)
 
