@@ -39,23 +39,23 @@ SPOT_STORIES = {
         "display_name": "スフィンクス",
         "item_name": "スフィンクス",
         "photo_label": "2枚目",
-        "image_filename": "sphinx.png",
-        "rare_image_filename": "shubaru-sphinx.png",
+        "image_filename": "sphinx.jpeg",
+        "rare_image_filename": "shubaru-sphinx.jpeg",
         "rare_display_name": "シュバルスフィンクス",
         "rare_item_name": "シュバルスフィンクス",
         "description": "センター棟テスト版では513研修室、東京版では渋谷ハチ公前を守るスフィンクス。",
     },
     "pyramid": {
-        "names": {"YCAP", "カフェテリアふじ出口", "ガラスのピラミッド"},
+        "names": {"YCAP", "正面玄関", "ガラスのピラミッド"},
         "ids": {"ycap", "pyramid"},
         "display_name": "ピラミッド",
         "item_name": "ピラミッド",
         "photo_label": "1枚目",
         "image_filename": "pyramid.jpeg",
-        "rare_image_filename": "shubaru-pyramid.png",
+        "rare_image_filename": "shubaru-pyramid.jpeg",
         "rare_display_name": "シュバルピラミッド",
         "rare_item_name": "シュバルピラミッド",
-        "description": "センター棟テスト版ではカフェテリアふじ出口、東京版ではガラスのピラミッドを探す。",
+        "description": "センター棟テスト版では正面玄関、東京版ではガラスのピラミッドを探す。",
     },
 }
 
@@ -321,10 +321,10 @@ class YellowEgyptGame(ui.View):
         right_x = left_width + 24
         right_width = self.width - right_x - 24
         catalog = [
-            ("pyramid", "シュバルピラミッド", "shubaru-pyramid.png"),
-            ("sphinx", "シュバルスフィンクス", "shubaru-sphinx.png"),
+            ("pyramid", "シュバルピラミッド", "shubaru-pyramid.jpeg"),
+            ("sphinx", "シュバルスフィンクス", "shubaru-sphinx.jpeg"),
             ("pyramid", "ピラミッド", "pyramid.jpeg"),
-            ("sphinx", "スフィンクス", "sphinx.png"),
+            ("sphinx", "スフィンクス", "sphinx.jpeg"),
         ]
         self.status_label.text = "ご当地エジプト図鑑"
         back_button = self._button("ゲーム画面にもどる", (16, 12, self.width - 32, 44), lambda button: self._render())
