@@ -456,16 +456,22 @@ class PurpleMockGame(ui.View):
         popup.background_color = "#FFF8E1"
         popup.corner_radius = 18
         popup.alpha = 0.0
-        popup.transform = ui.Transform.scale(0.2, 0.2)
         image = ui.ImageView(frame=(20, 20, popup.width - 40, popup.height - 105))
         image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
         path = os.path.join(APP_DIR, "assets", CHEST_IMAGE)
         try:
             with open(path, "rb") as source:
                 image.image = ui.Image.from_data(source.read())
-        except OSError:
+        except Exception:
             image.image = None
         popup.add_subview(image)
+        if image.image is None:
+            fallback = ui.Label(frame=(20, 70, popup.width - 40, 140))
+            fallback.text = "宝箱"
+            fallback.font = ("<system-bold>", 42)
+            fallback.text_color = "#E65100"
+            fallback.alignment = ui.ALIGN_CENTER
+            popup.add_subview(fallback)
         caption = ui.Label(frame=(12, popup.height - 78, popup.width - 24, 58))
         caption.text = "宝箱を発見！"
         caption.font = ("<system-bold>", 26)
@@ -480,7 +486,6 @@ class PurpleMockGame(ui.View):
     def _open_chest_animation(self, popup):
         if self.item_popup is popup:
             popup.alpha = 1.0
-            popup.transform = ui.Transform.scale(1.0, 1.0)
 
     def _show_item_get(self, item_name):
         if self.item_popup is not None:
