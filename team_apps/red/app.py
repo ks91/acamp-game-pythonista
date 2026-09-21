@@ -4,6 +4,7 @@ import json
 import math
 import os
 import random
+import sys
 import threading
 import time
 import uuid
@@ -11,6 +12,12 @@ import webbrowser
 
 import location
 import ui
+
+# Pythonista can execute an app module from its own folder.  Always expose the
+# repository root so the shared server_game helper is available in that case.
+_REPOSITORY_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if _REPOSITORY_ROOT not in sys.path:
+    sys.path.insert(0, _REPOSITORY_ROOT)
 
 try:
     from team_apps.red.server_game import make_api_client, scenario_from_server
