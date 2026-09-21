@@ -79,7 +79,7 @@ def distance_meters(latitude, longitude, target):
 class RedPrototype(ui.View):
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
-        self.name = "レッド班・皇居救出作戦 試作"
+        self.name = "ゴット・アプライアンス"
         self.background_color = "#FFEBEE"
         self.inventory = []
         self.weapon_uses = {}
@@ -108,7 +108,7 @@ class RedPrototype(ui.View):
 
     def build_header(self):
         self.title = ui.Label(frame=(12, 12, 351, 34))
-        self.title.text = "レッド班・皇居救出作戦"
+        self.title.text = "ゴット・アプライアンス"
         self.title.font = ("<System-Bold>", 22)
         self.title.text_color = "#B71C1C"
         self.title.alignment = ui.ALIGN_CENTER
