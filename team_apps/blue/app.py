@@ -196,7 +196,51 @@ class GameView(ui.View):
         self.show_message("blue位置ゲー開発（仮）")
         self._add_button("開始", 12, self.start_game, accent_color)
         self._add_button("座標を登録する", 72, self.start_registration, accent_color)
-        self.scroll.content_size = (self.width, 140)
+        self._add_button("テストゲーム", 132, self.start_test_game, accent_color)
+        self.scroll.content_size = (self.width, 200)
+
+    def start_test_game(self, sender):
+        preferred = [
+            ("523研究室", ("523", "研究室")),
+            ("事務所側入口", ("事務所", "office")),
+            ("カフェテリアふじ出口", ("ふじ", "カフェテリア")),
+            ("正面入口", ("正面", "main")),
+        ]
+        selected = []
+        labels = []
+        for label, keywords in preferred:
+            for key, value in self.registered_quest_locations.items():
+                key_text = str(key).lower()
+                if any(keyword.lower() in key_text for keyword in keywords):
+                    locations = self._location_list(value)
+                    if locations:
+                        selected.append(locations[0])
+                        labels.append(label)
+                        break
+        if len(selected) < 4:
+            all_locations = []
+            for value in self.registered_quest_locations.values():
+                all_locations.extend(self._location_list(value))
+            if len(all_locations) >= 4:
+                selected = all_locations[:4]
+                labels = [label for label, _ in preferred]
+        if len(selected) < 4:
+            self._clear_content()
+            self.show_message("テストゲームには4地点の保存済み座標が必要です。\n現在：{}地点".format(len(selected)))
+            self._add_button("ホームにもどる", 12, self.back_to_title, self.status_label.text_color)
+            self.scroll.content_size = (self.width, 80)
+            return
+        self.selected_quest = {
+            "id": "test-game-registered-four-places",
+            "name": "テストゲーム：4地点を撮影！",
+            "difficulty": "test",
+            "reward_coins": 0,
+            "required_count": 4,
+            "target_locations": selected,
+            "capture_instruction": "登録された4地点を1枚ずつ撮影してください。",
+        }
+        self.test_game_labels = labels
+        self.render_capture_screen(self.status_label.text_color)
 
     def start_registration(self, sender):
         self.render_registration_quests(self.status_label.text_color)
