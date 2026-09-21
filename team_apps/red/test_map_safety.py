@@ -38,13 +38,19 @@ class RedMapSafetyTests(unittest.TestCase):
         self.assertNotIn("self.start_location_tracking()", body)
         self.assertIn("現在地を取得を押すとGPSを更新します", body)
 
-    def test_monster_button_uses_google_maps_url_without_leaflet(self):
+    def test_monster_button_uses_native_map_without_webview(self):
         start = SOURCE.index("def show_interactive_map")
         end = SOURCE.index("def close_map", start)
         body = SOURCE[start:end]
-        self.assertIn("ui.WebView", body)
+        self.assertIn("MonsterLocationMap", body)
+        self.assertNotIn("ui.WebView", body)
         self.assertNotIn("load_html(self.leaflet_map_html())", SOURCE)
-        self.assertIn("https://www.google.com/maps/search/?api=1", SOURCE)
+
+    def test_screen_change_resets_scroll_to_show_back_button(self):
+        start = SOURCE.index("def clear_content")
+        end = SOURCE.index("def set_status", start)
+        body = SOURCE[start:end]
+        self.assertIn("self.content.content_offset = (0, 0)", body)
 
     def test_how_to_play_has_a_visible_home_button(self):
         start = SOURCE.index("def show_how_to_play")
