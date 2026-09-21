@@ -9,6 +9,7 @@ import location
 
 from toolkit.api_client import ApiClient
 from toolkit.claim_flow import claim_with_location
+from toolkit.game_progress import make_progress_store, progress_warning
 
 APP_DIR = os.path.dirname(
     globals().get("__file__", os.path.join(os.getcwd(), "team_apps", "purple", "app.py"))
@@ -276,6 +277,7 @@ class PurpleMockGame(ui.View):
         self.good_bacteria_popup = None
         self.good_bacteria_visible = False
         self.good_bacteria_hp = GOOD_BACTERIA_HP
+        self._progress = make_progress_store(self, config, "purple")
         self._build_ui()
         self._load_server_places()
         self._refresh()
@@ -470,7 +472,11 @@ class PurpleMockGame(ui.View):
                 button.title = "{} ×{}".format(item_name, owned)
             button.enabled = (offered or owned > 0) and self.boss_hp > 0 and not self._arriving
             button.alpha = 1.0 if button.enabled else 0.35
-        self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
+        self.log_label.text = (message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。") + progress_warning(self)
+
+    def _save_progress(self, reset=False):
+        if getattr(self, "_progress", None):
+            self._progress.save(self, reset=reset)
 
     def _maybe_spawn_chest(self, index, chance, source):
         if source == "riddle":
@@ -480,6 +486,7 @@ class PurpleMockGame(ui.View):
             item_name = CHEST_REWARDS[index]
             self.chest_items[index] = item_name
             self.score += CHEST_REWARD_POINTS
+            self._save_progress()
             self._show_chest_found(item_name)
             return "宝箱が開いた！ {}を入手。 +{}pt".format(item_name, CHEST_REWARD_POINTS)
         if self.chest_items[index] is not None:
@@ -492,6 +499,7 @@ class PurpleMockGame(ui.View):
             return ""
         item_name = CHEST_REWARDS[index]
         self.chest_items[index] = item_name
+        self._save_progress()
         self._show_chest_found(item_name)
         return "宝箱が出た！ {}".format(item_name)
 
@@ -581,6 +589,7 @@ class PurpleMockGame(ui.View):
             if offered_item == item_name:
                 self.chest_items[index] = None
                 break
+        self._save_progress()
         self._refresh("{}を使った！ 東京マンに{}ダメージ。".format(item_name, damage))
 
     def _load_google_map(self):
@@ -657,6 +666,8 @@ class PurpleMockGame(ui.View):
             self._refresh("サーバーのシナリオを取得できません。{}".format(error))
             return
         self.definition = definition
+        if self._progress:
+            self._progress.bind_session(self, definition.get("game_session_id"))
         self.place_locations = normalized
         self.mock_label.text = "サーバーシナリオ\n{}".format(definition.get("name", "読込済み"))
         self._draw_place_markers()
@@ -782,6 +793,8 @@ class PurpleMockGame(ui.View):
         if index == 1:
             self.good_bacteria_visible = True
             self.good_bacteria_hp = GOOD_BACTERIA_HP
+        self._save_progress()
+        if index == 1:
             self._show_good_bacteria_arrival()
         chest_message = self._maybe_spawn_chest(index, CHEST_LOCATION_CHANCE, "location")
         message = "{}を{}。登録地点まであと0mです。".format(target["name"], "獲得" if result.get("claimed") else "確認")
@@ -893,6 +906,7 @@ class PurpleMockGame(ui.View):
         if not timed_out and selected == question["answer"]:
             self.solved[index] = True
             self.score += 20
+            self._save_progress()
             chest_message = self._maybe_spawn_chest(index, CHEST_RIDDLE_CHANCE, "riddle")
             message = "正解！ 謎{}を解いた！ +20pt".format(index + 1)
             if chest_message:
@@ -905,6 +919,7 @@ class PurpleMockGame(ui.View):
             return
 
         self.lives -= 1
+        self._save_progress()
         if self.lives <= 0:
             self._refresh("ライフ0。セーブポイントから再開します。")
             self._show_feedback("ライフ0\n最初からやり直し", "#C62828", 3)
@@ -938,12 +953,14 @@ class PurpleMockGame(ui.View):
             self.good_bacteria_hp = 0
             self.good_bacteria_visible = False
             self.score += GOOD_BACTERIA_REWARD_POINTS
+            self._save_progress()
             self._refresh("善玉くんを一発で倒した！ +{}pt".format(GOOD_BACTERIA_REWARD_POINTS))
             return
         if self.score < ATTACK_COST or self.boss_hp <= 0:
             return
         self.score -= ATTACK_COST
         self.boss_hp = max(0, self.boss_hp - ATTACK_DAMAGE)
+        self._save_progress()
         if self.boss_hp == 0:
             self.boss_defeat_transition = True
             self._refresh("東京マンにとどめの一撃！")
@@ -975,6 +992,7 @@ class PurpleMockGame(ui.View):
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.good_bacteria_visible = False
         self.good_bacteria_hp = GOOD_BACTERIA_HP
+        self._save_progress(reset=True)
         self._refresh("仮試作をリセットしました。")
 
     def _stop_quiz(self):
@@ -987,6 +1005,7 @@ class PurpleMockGame(ui.View):
             self.quiz_overlay = None
 
     def will_close(self):
+        self._save_progress()
         self._round_generation += 1
         self._stop_quiz()
 

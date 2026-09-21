@@ -41,6 +41,10 @@ def load_app(team, ui):
         "config": types.SimpleNamespace(),
     }):
         spec.loader.exec_module(module)
+    # Existing UI tests must not read/write the operator's real saved games.
+    # Persistence tests inject a store rooted in a TemporaryDirectory instead.
+    if hasattr(module, "make_progress_store"):
+        module.make_progress_store = lambda view, config, team: None
     return module
 
 

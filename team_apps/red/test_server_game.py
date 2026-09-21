@@ -57,6 +57,10 @@ class RedServerGameTests(unittest.TestCase):
         self.assertEqual([], scenario["places"])
         self.assertFalse(server_game.has_map_coordinates(definition["places"][0]))
 
+    def test_definition_still_identifies_session_when_state_read_failed(self):
+        scenario = server_game.scenario_from_server({"game_session_id": "tokyo-red"}, {})
+        self.assertEqual("tokyo-red", scenario["game_session_id"])
+
     def test_map_destinations_excludes_redacted_placeholders(self):
         destinations = [
             {"id": "hidden", "latitude": 0, "longitude": 0},

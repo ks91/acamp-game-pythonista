@@ -19,6 +19,7 @@ if _REPOSITORY_ROOT not in sys.path:
     sys.path.insert(0, _REPOSITORY_ROOT)
 
 from toolkit.claim_flow import claim_with_location
+from toolkit.game_progress import make_progress_store, progress_warning
 
 try:
     from team_apps.red.server_game import make_api_client, map_destinations, scenario_from_server
@@ -292,6 +293,8 @@ class MonsterLocationMap(ui.View):
 
 
 class RedPrototype(ui.View):
+    persist_progress = True
+
     def __init__(self):
         super().__init__(frame=(0, 0, 375, 667))
         self.name = "ゴット・アプライアンス"
@@ -325,6 +328,7 @@ class RedPrototype(ui.View):
         self._battle_inventory = None
         self._content_generation = 0
         self._battle_action_pending = False
+        self._progress = make_progress_store(self, config, "red") if self.persist_progress else None
         self.monsters = []
         for index in range(MONSTER_COUNT):
             monster = random.choice(MONSTERS).copy()
@@ -387,18 +391,23 @@ class RedPrototype(ui.View):
         ui.delay(lambda: self._apply_server_scenario(scenario, error), 0.0)
 
     def _apply_server_scenario(self, scenario, error):
+        if self.current_screen == "closed":
+            return
         if error is not None:
             self.set_status("サーバーのシナリオを取得できませんでした。\n{}".format(error))
             return
         if not scenario["places"]:
             self.set_status("サーバーのシナリオに、座標つき地点がありません。")
             return
+        if self._progress:
+            self._progress.bind_session(self, scenario["game_session_id"])
         self.destinations = scenario["places"]
         self.claimed_place_ids = scenario["claimed_place_ids"]
         self.unlocked_destinations.update(self.claimed_place_ids)
         self.game_session_id = scenario["game_session_id"] or self.game_session_id
         self.boss_place_ids.update(scenario["boss_place_ids"])
         self.server_scenario_loaded = True
+        self._save_progress()
         for monster in self.monsters:
             self.monster_destinations[monster["name"]] = random.choice(self.destinations)["id"]
         self.show_battle_selection()
@@ -435,6 +444,7 @@ class RedPrototype(ui.View):
         if result and result.get("claimed"):
             self.claimed_place_ids.add(place_id)
             self.unlocked_destinations.add(place_id)
+            self._save_progress()
 
     def _setup_background(self):
         background_path = os.path.join(os.path.dirname(__file__), "back.png")
@@ -526,7 +536,11 @@ class RedPrototype(ui.View):
         self.location_tracking_button = None
 
     def set_status(self, text):
-        self.status.text = text
+        self.status.text = text + progress_warning(self)
+
+    def _save_progress(self):
+        if getattr(self, "_progress", None):
+            self._progress.save(self)
 
     def inventory_counts(self):
         counts = {}
@@ -712,6 +726,7 @@ class RedPrototype(ui.View):
         display_name = sender.monster["name"] if hasattr(sender, "monster") else destination["name"]
         if distance <= LOCATION_TRIGGER_RADIUS_M:
             self.unlocked_destinations.add(destination["id"])
+            self._save_progress()
             result = "{}を発見！出現地点の40m以内です。".format(display_name)
             self.show_battle_selection()
         else:
@@ -963,6 +978,7 @@ class RedPrototype(ui.View):
             self.refresh_native_map_panel()
             if nearest <= LOCATION_TRIGGER_RADIUS_M:
                 self.unlocked_destinations.add(nearest_destination["id"])
+                self._save_progress()
                 self.stop_location_tracking()
                 self.set_status(
                     "{}の40m以内に入りました。モンスター発見！".format(
@@ -1248,6 +1264,7 @@ monsters.forEach(m => {
         self.content.content_size = (375, 300)
 
     def show_battle(self, message):
+        self._save_progress()
         monster = self.active_monster
         enemy_max_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
         rank_text = "BOSS" if monster.get("boss") else "★" * monster["stars"]
@@ -1360,6 +1377,7 @@ monsters.forEach(m => {
         ui.delay(perform, 0.05)
 
     def will_close(self):
+        self._save_progress()
         self.current_screen = "closed"
         self._content_generation += 1
         self.stop_location_tracking()
@@ -1447,6 +1465,7 @@ monsters.forEach(m => {
         else:
             success = random.random() < 0.2
         if success:
+            self._save_progress()
             self.show_battle_selection()
         else:
             enemy_tier = self.active_monster["stars"]
@@ -1519,6 +1538,7 @@ monsters.forEach(m => {
             else:
                 drop_message = "\n容量いっぱいで、{}は入らなかった。".format(drop)
             message += drop_message
+        self._save_progress()
         self.clear_content()
         self.set_status(message)
         result = ui.Label(frame=(20, 28, 335, 100))

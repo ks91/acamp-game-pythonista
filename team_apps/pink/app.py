@@ -17,6 +17,7 @@ from toolkit.check_in import CheckInService
 from toolkit.event_queue import EventQueue
 from toolkit.game_view_model import build_game_view_model
 from toolkit.location_payload import make_location_sample
+from toolkit.game_progress import make_progress_store, progress_warning
 
 
 PINK_RIDDLES = [
@@ -58,6 +59,7 @@ class GameView(ui.View):
         self.collected_coin_ids = set()
         self.last_position = None
         self.distance_remainder_m = 0.0
+        self._progress = make_progress_store(self, config, "pink")
         self.motion_available = False
         self.auto_coin_collection_active = True
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
@@ -73,7 +75,11 @@ class GameView(ui.View):
         self.scroll.frame = (0, 130, self.width, self.height - 130)
 
     def show_message(self, message):
-        self.status_label.text = message
+        self.status_label.text = message + progress_warning(self)
+
+    def _save_progress(self):
+        if getattr(self, "_progress", None):
+            self._progress.save(self)
 
     def start_auto_coin_collection(self):
         try:
@@ -100,6 +106,7 @@ class GameView(ui.View):
         ui.delay(self.auto_collect_coins, 5.0)
 
     def will_close(self):
+        self._save_progress()
         self.auto_coin_collection_active = False
         try:
             location.stop_updates()
@@ -179,6 +186,7 @@ class GameView(ui.View):
         collected = int(self.distance_remainder_m // COIN_SPACING_M)
         self.distance_remainder_m %= COIN_SPACING_M
         self.coins += collected
+        self._save_progress()
         return collected
 
     def _collect_nearby_coins(self, position):
@@ -197,6 +205,7 @@ class GameView(ui.View):
                 self.collected_coin_ids.add(coin["id"])
                 collected += 1
         self.coins += collected
+        self._save_progress()
         return collected
 
     def refresh(self):
@@ -211,6 +220,9 @@ class GameView(ui.View):
                 self.scroll.add_subview(retry)
                 self.scroll.content_size = (375, 80)
             return
+        if self._progress and self._progress.bind_session(
+                self, state.get("game_session_id") or definition.get("game_session_id")):
+            self.last_position = None
         model = build_game_view_model(definition, state, config.TEAM_ID)
         theme = model["theme"]
         accent_color = theme["accent_color"]
@@ -305,6 +317,7 @@ class GameView(ui.View):
         self.coins -= 50
         prize = random.choice(list(self.tickets))
         self.tickets[prize] += 1
+        self._save_progress()
         self.show_message("🎉 {}をゲット！".format(prize))
         self.refresh()
 

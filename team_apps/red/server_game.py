@@ -88,6 +88,6 @@ def scenario_from_server(definition, state):
     return {
         "places": places,
         "claimed_place_ids": {str(place_id) for place_id in claimed if place_id is not None},
-        "game_session_id": state.get("game_session_id"),
+        "game_session_id": state.get("game_session_id") or definition.get("game_session_id"),
         "boss_place_ids": boss_place_ids,
     }

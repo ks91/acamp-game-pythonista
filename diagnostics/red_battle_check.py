@@ -15,6 +15,8 @@ from team_apps.red.app import MONSTERS, RedPrototype
 
 
 class RedBattleCheck(RedPrototype):
+    persist_progress = False
+
     def refresh_server_scenario(self):
         pass  # Offline check: do not start the scenario worker.
 
