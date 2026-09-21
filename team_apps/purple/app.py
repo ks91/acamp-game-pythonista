@@ -22,10 +22,19 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
-# 地点が決まったら、ここに緯度・経度を入れる。
-# 例: {"latitude": 35.000000, "longitude": 139.000000}
+
+
+def dms_to_decimal(degrees, minutes, seconds, direction):
+    value = degrees + minutes / 60.0 + seconds / 3600.0
+    return -value if direction in ("S", "W") else value
+
+
+# 地点1：センター棟入口。DMS表記からアプリ起動時に小数へ変換する。
 FIXED_PLACES = [
-    None,  # 地点1
+    {
+        "latitude": dms_to_decimal(35, 40, 26.9, "N"),
+        "longitude": dms_to_decimal(139, 41, 35.4, "E"),
+    },
     None,  # 地点2
 ]
 # 以前に確認した現在地。地点1ではなく、確認用の地図ピン。
@@ -257,16 +266,6 @@ class PurpleMockGame(ui.View):
 
         self.gps_button = self._button("GPS更新", (6, 132, panel_width - 12, 30), self._update_location, "#455A64")
         self.gps_button.font = ("<system-bold>", 11)
-        self.set_place_buttons = []
-        for index, y in enumerate((166, 200)):
-            button = self._button(
-                "地点{}をここに".format(index + 1),
-                (6, y, panel_width - 12, 30),
-                lambda sender, i=index: self._set_place_here(i),
-                "#37474F",
-            )
-            button.font = ("<system-bold>", 10)
-            self.set_place_buttons.append(button)
 
         self.place_buttons = []
         self.solve_buttons = []
