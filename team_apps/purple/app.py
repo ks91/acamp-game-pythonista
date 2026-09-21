@@ -29,7 +29,7 @@ ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
 # テスト時だけ、地点1を起動時の現在地に置き換える。
-TEST_PLACE1_IS_CURRENT = True
+TEST_PLACE1_IS_CURRENT = False
 # テスト時は攻撃ポイントを消費しない。
 TEST_INFINITE_POINTS = True
 CHEST_LOCATION_CHANCE = 0.20
@@ -56,8 +56,8 @@ def dms_to_decimal(degrees, minutes, seconds, direction):
 # 地点1：センター棟入口。DMS表記からアプリ起動時に小数へ変換する。
 FIXED_PLACES = [
     {
-        "latitude": dms_to_decimal(35, 40, 29.8, "N"),
-        "longitude": dms_to_decimal(139, 41, 36.4, "E"),
+        "latitude": dms_to_decimal(35, 40, 35.0, "N"),
+        "longitude": dms_to_decimal(139, 41, 57.6, "E"),
     },
     None,  # 地点2
 ]
