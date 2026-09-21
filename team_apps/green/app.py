@@ -88,6 +88,7 @@ class GreenTerritoryGame(ui.View):
         self.model = self._offline_model()
         self.selected_id = None
         self._refreshing = False
+        self._mission_assignments = {}
 
         self.header = ui.Label(frame=(16, 12, 280, 54), font=("<system-bold>", 17), number_of_lines=2)
         self.add_subview(self.header)
@@ -142,12 +143,7 @@ class GreenTerritoryGame(ui.View):
         token = getattr(config, "GAME_TOKEN", "")
         if not base_url or not token or token == "set-at-game-start":
             return None
-        return ApiClient(
-            base_url=base_url,
-            token=token,
-            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
-            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
-        )
+        return ApiClient(base_url=base_url, token=token)
 
     @staticmethod
     def _build_model(definition, state, team_id):
@@ -322,6 +318,7 @@ class GreenTerritoryGame(ui.View):
             self.detail.text = "テストを最初からにできません。\n{}".format(error)
             return
         self.selected_id = None
+        self._mission_assignments = {}
         self.detail.text = "テストを最初からにしました。地点を選んで、もう一度遊ぼう。"
         self.refresh_now()
 
@@ -336,11 +333,20 @@ class GreenTerritoryGame(ui.View):
             error = exc
         ui.delay(lambda: self._apply_remote_state(definition, state, error), 0.0)
 
+    def _assign_random_missions(self):
+        mission_kinds = ("cat", "mash", "ghost")
+        for place in self.model.get("places", []):
+            place_id = place["id"]
+            if place_id not in self._mission_assignments:
+                self._mission_assignments[place_id] = random.choice(mission_kinds)
+            place["mission_kind"] = self._mission_assignments[place_id]
+
     def _apply_remote_state(self, definition, state, error):
         self._refreshing = False
         if error is None and definition is not None and state is not None:
             self.session_id = getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id
             self.model = self._build_model(definition, state, self.team_id)
+            self._assign_random_missions()
         else:
             self.model["offline"] = True
             self.model["connection_status"] = "offline"
