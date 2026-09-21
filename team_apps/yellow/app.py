@@ -217,15 +217,6 @@ class YellowEgyptGame(ui.View):
         items_button.background_color = "#6D4C41"
         self.content.add_subview(items_button)
         y += 64
-        restart_button = self._button(
-            "はじめから",
-            (16, y, 298, 48),
-            self.show_restart_notice,
-        )
-        restart_button.background_color = "#455A64"
-        self.content.add_subview(restart_button)
-        y += 64
-
         if message:
             notice = self._label(message, (20, y, 335, 60), ("<system-bold>", 16), TEAM_COLOR)
             self.content.add_subview(notice)
@@ -246,11 +237,17 @@ class YellowEgyptGame(ui.View):
                 y += 60
                 continue
             story, place = entry
-            story = self._effective_story(key, story, place)
+            base_story = story
+            effective_story = self._effective_story(key, base_story, place)
             claimed = place["id"] in claimed_ids
-            title = story["display_name"] if claimed else "？？？"
+            story = effective_story if claimed else base_story
+            title = story["display_name"]
             points = place.get("points", 0)
-            text = "✓ {}（{}点）".format(title, points) if claimed else "？？？（{}点）".format(points)
+            is_rare = effective_story["display_name"].startswith("シュバル")
+            if is_rare and not claimed:
+                text = "？？？（{}点）".format(points)
+            else:
+                text = "✓ {}（{}点）".format(title, points) if claimed else "{}（{}点）".format(title, points)
             button = self._button(text, (16, y, 298, 52), self.claim_place, enabled=not claimed)
             button.place_id = place["id"]
             button.story_key = key
@@ -393,12 +390,6 @@ class YellowEgyptGame(ui.View):
             y += 58
         self.content.content_size = (self.width, max(500, y + 24))
         select_item(type("InitialSelection", (), {"entry": entries[0]})())
-
-    def show_restart_notice(self, sender):
-        self._render(
-            "はじめから始めるには、スタッフが新しいゲームセッションを作ります。\n"
-            "今の得点や獲得記録はそのまま残ります。"
-        )
 
     def show_reset_notice(self, sender):
         self.state = dict(self.state or {})
