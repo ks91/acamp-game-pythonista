@@ -319,6 +319,12 @@ class RedPrototype(ui.View):
         self.location_tracking_button.action = self.toggle_location_tracking
         self.content.add_subview(self.location_tracking_button)
         self.start_location_tracking()
+        location_button = ui.Button(
+            title="現在地を取得", frame=(190, 675, 170, 40)
+        )
+        location_button.tint_color = "#EF6C00"
+        location_button.action = self.update_current_location
+        self.content.add_subview(location_button)
         back = ui.Button(title="マップを閉じる", frame=(16, 735, 343, 48))
         back.tint_color = "#C62828"
         back.action = self.close_map
@@ -387,8 +393,25 @@ class RedPrototype(ui.View):
         ui.delay(self.location_tick, interval)
 
     def update_current_location(self, sender):
-        self.start_location_tracking()
-        self.location_tick()
+        self.set_status("現在地を1回取得中…\n屋外で少し待ってください。")
+        if not self.location_tracking:
+            location.start_updates()
+        try:
+            position = location.get_location()
+        finally:
+            if not self.location_tracking:
+                location.stop_updates()
+        if not position:
+            self.set_status("現在地を取得できませんでした。\n位置情報の許可を確認してください。")
+            return
+        self.last_position = position
+        self.last_accuracy = position.get("horizontal_accuracy", "不明")
+        self.open_map_view.load_html(self.leaflet_map_html())
+        self.set_status(
+            "現在地を更新しました。\nGPS精度：約{}m\n赤いマーカーが現在地です。".format(
+                self.last_accuracy
+            )
+        )
 
     def leaflet_map_html(self):
         destinations = [
