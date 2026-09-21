@@ -137,11 +137,11 @@ class GreenTerritoryGame(ui.View):
     @staticmethod
     def _build_model(definition, state, team_id):
         claimed = set(state.get("claimed_places", []))
-        territory_by_id = {item.get("place_id"): item for item in state.get("territories", [])}
+        territory_by_id = {item.get("place_id"): item for item in (state.get("territories") or [])}
         use_demo_opponents = not territory_by_id and getattr(config, "SHOW_TEST_OPPONENTS", True) if config else not territory_by_id
         opponent_teams = ("blue", "red", "yellow", "purple", "pink")
         places = []
-        for index, place in enumerate(definition.get("places", [])):
+        for index, place in enumerate(definition.get("places") or []):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
             simulated = False
@@ -399,6 +399,9 @@ class GreenTerritoryGame(ui.View):
         self._close_mission_overlay()
         self.action_button.enabled = False
         self.detail.text = "ミッション実行中…\n現在地を確認しています。"
+        threading.Thread(target=self._execute_mission_worker, daemon=True).start()
+
+    def _execute_mission_worker(self):
         try:
             current = location.get_location()
             if not current:
@@ -406,17 +409,24 @@ class GreenTerritoryGame(ui.View):
             sample = make_location_sample(team_id=self.team_id, device_id=self.device_id, client_time=time.strftime("%Y-%m-%dT%H:%M:%S%z"), location=current)
             self.api_client.post_location_sample(sample)
             result = self.api_client.claim_place(action_id="green-{}".format(int(time.time() * 1000)), game_session_id=self.session_id, place_id=self.selected_id, device_id=self.device_id)
-            if result.get("claimed"):
-                self.detail.text = "陣地を獲得しました！"
-                self.refresh_now()
-                self._show_mission_overlay("ミッション成功", "+{}点\n班合計: {}点\n旗を立てました。".format(result.get("score_delta", 0), result.get("team_score", 0)), "地図へ戻る", self._close_mission_overlay)
-            else:
-                self._show_mission_overlay("ミッション完了", "この地点はすでに自班の陣地です。", "地図へ戻る", self._close_mission_overlay)
+            ui.delay(lambda result=result: self._mission_result(result), 0)
         except Exception as error:
-            self._show_mission_overlay("ミッション失敗", "{}\n得点と陣地は変化しません。".format(error), "もう一度挑戦", self._execute_mission)
-        finally:
-            self.action_button.enabled = True
-            self.refresh_view()
+            ui.delay(lambda error=error: self._mission_error(error), 0)
+
+    def _mission_result(self, result):
+        if result.get("claimed"):
+            self.detail.text = "陣地を獲得しました！"
+            self.refresh_now()
+            self._show_mission_overlay("ミッション成功", "+{}点\n班合計: {}点\n旗を立てました。".format(result.get("score_delta", 0), result.get("team_score", 0)), "地図へ戻る", self._close_mission_overlay)
+        else:
+            self._show_mission_overlay("ミッション完了", "この地点はすでに自班の陣地です。", "地図へ戻る", self._close_mission_overlay)
+        self.action_button.enabled = True
+        self.refresh_view()
+
+    def _mission_error(self, error):
+        self._show_mission_overlay("ミッション失敗", "{}\n得点と陣地は変化しません。".format(error), "もう一度挑戦", self._check_location_before_minigame)
+        self.action_button.enabled = True
+        self.refresh_view()
 
 
 def run():
