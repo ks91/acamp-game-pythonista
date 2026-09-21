@@ -2,10 +2,13 @@
 
 import datetime
 import hashlib
+import json
 import os
 import sys
+import threading
 import uuid
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 import location
 import ui
@@ -63,6 +66,13 @@ SPOT_STORIES = {
 }
 
 SPOT_ORDER = ("fan-cafe", "ycap", "center-building")
+CHARACTER_CATALOG = (
+    ("ycap", "ピラミッド"),
+    ("fan-cafe", "ハチ公スフィンクス"),
+    ("fan-cafe", "シュバルスフィンクス"),
+    ("center-building", "ファラオ"),
+    ("center-building", "シュバルファラオ"),
+)
 
 
 def _story_for(place):
@@ -88,6 +98,9 @@ class YellowEgyptGame(ui.View):
         self.definition = None
         self.state = None
         self.place_buttons = []
+        self.reset_button = None
+        self.reset_confirmation_pending = False
+        self.reset_timer = None
         self.status_label = self._label(
             "位置情報を読み込んでいます…", (16, 14, screen_width - 32, 84), ("<system-bold>", 17), TEAM_COLOR
         )
@@ -102,12 +115,7 @@ class YellowEgyptGame(ui.View):
                 "スタッフから渡された設定値を入れてください。"
             )
             return
-        self.api = ApiClient(
-            base_url=config.API_BASE_URL,
-            token=config.GAME_TOKEN,
-            game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
-            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
-        )
+        self.api = ApiClient(base_url=config.API_BASE_URL, token=config.GAME_TOKEN)
         self.refresh()
 
     def _label(self, text, frame, font=("<system>", 15), color="#4E342E", align=ui.ALIGN_LEFT):
@@ -201,10 +209,11 @@ class YellowEgyptGame(ui.View):
         self.content.add_subview(update_button)
         y += 64
         reset_button = self._button(
-            "最初からやり直す（表示のみ）",
+            "最初からやり直す",
             (16, y, self.width - 32, 48),
-            self.show_reset_notice,
+            self.request_test_session_restart,
         )
+        self.reset_button = reset_button
         reset_button.background_color = "#8D6E63"
         self.content.add_subview(reset_button)
         y += 64
@@ -222,6 +231,29 @@ class YellowEgyptGame(ui.View):
             y += 72
 
         places_by_key = {key: (story, place) for key, story, place in target_places}
+        character_title = self._label("キャラクターを獲得", (16, y, self.width - 32, 34), ("<system-bold>", 18), TEAM_COLOR)
+        self.content.add_subview(character_title)
+        y += 44
+        for key, character_name in CHARACTER_CATALOG:
+            entry = places_by_key.get(key)
+            if entry is None:
+                awarded = False
+                place_id = key
+            else:
+                story, place = entry
+                place_id = place["id"]
+                awarded = place_id in claimed_ids and self._effective_story(key, story, place)["display_name"] == character_name
+            character_button = self._button(
+                "✓ {}".format(character_name) if awarded else character_name,
+                (16, y, self.width - 32, 52),
+                self.claim_place,
+                enabled=not (entry and place_id in claimed_ids),
+            )
+            character_button.place_id = place_id
+            character_button.story_key = key
+            self.content.add_subview(character_button)
+            y += 60
+
         for key in SPOT_ORDER:
             story = SPOT_STORIES[key]
             entry = places_by_key.get(key)
@@ -375,11 +407,65 @@ class YellowEgyptGame(ui.View):
         )()
         self.claim_place(claim_sender)
 
-    def show_reset_notice(self, sender):
-        self.state = dict(self.state or {})
-        self.state["score"] = 0
-        self.state["claimed_places"] = []
-        self._render("画面表示を最初の状態に戻しました。")
+    def request_test_session_restart(self, sender):
+        if not self.reset_confirmation_pending:
+            self.reset_confirmation_pending = True
+            sender.title = "もう一度押すと最初から"
+            if self.reset_timer is not None:
+                self.reset_timer.cancel()
+            self.reset_timer = threading.Timer(8.0, self._clear_reset_confirmation)
+            self.reset_timer.daemon = True
+            self.reset_timer.start()
+            return
+        self.reset_confirmation_pending = False
+        if self.reset_timer is not None:
+            self.reset_timer.cancel()
+            self.reset_timer = None
+        sender.enabled = False
+        sender.title = "初期化中…"
+        threading.Thread(target=self._restart_test_session, daemon=True).start()
+
+    def _clear_reset_confirmation(self):
+        def clear():
+            self.reset_confirmation_pending = False
+            self.reset_timer = None
+            if self.reset_button is not None:
+                self.reset_button.title = "最初からやり直す"
+        ui.delay(clear, 0)
+
+    def _restart_test_session(self):
+        try:
+            request = Request(
+                config.API_BASE_URL.rstrip("/") + "/test-session/restart",
+                data=json.dumps({"confirm": True}).encode("utf-8"),
+                headers={
+                    "Accept": "application/json",
+                    "Authorization": "Bearer " + config.GAME_TOKEN,
+                    "Content-Type": "application/json; charset=utf-8",
+                },
+                method="POST",
+            )
+            with urlopen(request, timeout=15) as response:
+                result = json.loads(response.read().decode("utf-8"))
+            ui.delay(lambda: self._handle_restart_result(result), 0)
+        except (HTTPError, URLError, OSError, ValueError) as error:
+            ui.delay(lambda: self._handle_restart_error(error), 0)
+
+    def _handle_restart_result(self, result):
+        if self.reset_button is not None:
+            self.reset_button.enabled = True
+            self.reset_button.title = "最初からやり直す"
+        if result.get("success", result.get("restarted", True)) is False:
+            self._render("テストを最初からに戻せませんでした。\n{}".format(result))
+            return
+        self.refresh()
+        self._render("テストを最初からに戻しました。")
+
+    def _handle_restart_error(self, error):
+        if self.reset_button is not None:
+            self.reset_button.enabled = True
+            self.reset_button.title = "最初からやり直す"
+        self._render_message("テストを最初からに戻せませんでした。\n{}".format(error))
 
     def update_location(self, sender):
         self.status_label.text = "位置情報を取得しています…"
