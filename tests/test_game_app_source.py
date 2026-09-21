@@ -71,6 +71,22 @@ class GameAppSourceTests(unittest.TestCase):
         self.assertIn("ImageView", attributes)
         self.assertIn("add_subview", calls)
 
+    def test_preview_conversion_does_not_call_missing_photos_helper(self):
+        source = Path(__file__).parents[1].joinpath("team_apps", "blue", "app.py").read_text()
+        self.assertNotIn("PIL_to_ui", source)
+        methods = {
+            node.name: node
+            for node in ast.walk(self.tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        }
+        self.assertIn("_preview_image", methods)
+        converter_attributes = {
+            node.attr
+            for node in ast.walk(methods["_preview_image"])
+            if isinstance(node, ast.Attribute)
+        }
+        self.assertIn("from_data", converter_attributes)
+
     def test_capture_status_does_not_claim_unimplemented_upload_is_ready(self):
         string_values = {
             node.value
