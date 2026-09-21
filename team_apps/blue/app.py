@@ -419,9 +419,11 @@ class GameView(ui.View):
         self.show_message("{}\n{}".format(quest["name"], capture_instruction(quest)))
         camera_button = self._add_button("写真を撮影", 12, self.take_photo, accent_color)
         camera_button.tint_color = accent_color
-        back_button = self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, accent_color)
+        select_button = self._add_button("写真を選択", 72, self.select_photo, accent_color)
+        select_button.tint_color = accent_color
+        back_button = self._add_button("クエスト一覧にもどる", 132, self.back_to_quests, accent_color)
         back_button.tint_color = accent_color
-        self.scroll.content_size = (self.width, 140)
+        self.scroll.content_size = (self.width, 200)
 
     def _get_current_location(self):
         location.start_updates()
