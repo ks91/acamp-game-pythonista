@@ -206,14 +206,8 @@ class PurpleMockGame(ui.View):
             self.set_place_buttons.append(button)
 
         self.map_view = ui.WebView(frame=(0, 160, width, 145))
-        self.map_view.load_html(MAP_HTML)
+        self.map_view.load_url("https://www.google.com/maps/@35.674652,139.693472,17z")
         self.add_subview(self.map_view)
-        for index, place in enumerate(self.place_locations):
-            if place is not None:
-                self.map_view.eval_js(
-                    "setPlace({},{},{})".format(index, place["latitude"], place["longitude"])
-                )
-        ui.delay(self._draw_place_markers, 1.0)
 
         self.place_buttons = []
         self.solve_buttons = []
@@ -262,6 +256,16 @@ class PurpleMockGame(ui.View):
         self.attack_button.enabled = can_attack
         self.attack_button.alpha = 1.0 if can_attack else 0.45
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
+
+    def _load_google_map(self):
+        location_point = self.current_location or REFERENCE_LOCATION
+        url = "https://www.google.com/maps/@{},{},17z".format(
+            location_point["latitude"], location_point["longitude"]
+        )
+        try:
+            self.map_view.load_url(url)
+        except Exception:
+            pass
 
     def _draw_current_marker(self):
         if self.current_location is None:
@@ -321,9 +325,7 @@ class PurpleMockGame(ui.View):
             )
         except Exception:
             pass
-        ui.delay(self._draw_current_marker, 1.0)
-        ui.delay(self._draw_place_markers, 1.0)
-        ui.delay(self._draw_reference_marker, 1.0)
+        ui.delay(self._load_google_map, 0.2)
         return self.current_location
 
     def _distance_m(self, first, second):
