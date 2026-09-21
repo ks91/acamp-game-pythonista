@@ -8,6 +8,7 @@ import uuid
 from urllib.error import HTTPError
 
 import location
+import motion
 import ui
 
 import config
@@ -47,6 +48,7 @@ class GameView(ui.View):
             base_url=config.API_BASE_URL,
             token=config.GAME_TOKEN,
             game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
         )
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
@@ -54,6 +56,9 @@ class GameView(ui.View):
         self.tickets = {"スキップチケット": 0, "交換チケット": 0, "ヒントチケット": 0}
         self.coin_points = []
         self.collected_coin_ids = set()
+        self.last_position = None
+        self.distance_remainder_m = 0.0
+        self.motion_available = False
         self.auto_coin_collection_active = True
         self.status_label = ui.Label(frame=(16, 12, 340, 110), flex="W")
         self.status_label.number_of_lines = 0
@@ -73,6 +78,8 @@ class GameView(ui.View):
     def start_auto_coin_collection(self):
         try:
             location.start_updates()
+            motion.start_updates()
+            self.motion_available = True
         except Exception:
             self.auto_coin_collection_active = False
             return
@@ -84,9 +91,9 @@ class GameView(ui.View):
         try:
             position = location.get_location()
             if position is not None:
-                collected = self._collect_nearby_coins(position)
+                collected = self._collect_distance_coins(position)
                 if collected:
-                    self.show_message("🪙 コインを{}枚自動回収しました！".format(collected))
+                    self.show_message("🪙 移動30mごとにコインを{}枚獲得しました！".format(collected))
                     self.refresh()
         except Exception:
             pass
@@ -96,6 +103,10 @@ class GameView(ui.View):
         self.auto_coin_collection_active = False
         try:
             location.stop_updates()
+        except Exception:
+            pass
+        try:
+            motion.stop_updates()
         except Exception:
             pass
 
@@ -132,6 +143,43 @@ class GameView(ui.View):
                     "longitude": start["longitude"] + (end["longitude"] - start["longitude"]) * fraction,
                 })
         return points
+
+    def _device_is_moving(self):
+        if not self.motion_available:
+            return True
+        try:
+            acceleration = motion.get_user_acceleration()
+            if not acceleration:
+                return True
+            magnitude = math.sqrt(
+                acceleration.get("x", 0.0) ** 2
+                + acceleration.get("y", 0.0) ** 2
+                + acceleration.get("z", 0.0) ** 2
+            )
+            return magnitude >= 0.08
+        except Exception:
+            return True
+
+    def _collect_distance_coins(self, position):
+        latitude = position.get("latitude")
+        longitude = position.get("longitude")
+        if latitude is None or longitude is None:
+            return 0
+        if self.last_position is None:
+            self.last_position = {"latitude": latitude, "longitude": longitude}
+            return 0
+        moved_m = self._distance_m(
+            self.last_position["latitude"], self.last_position["longitude"],
+            latitude, longitude,
+        )
+        self.last_position = {"latitude": latitude, "longitude": longitude}
+        if moved_m < 3.0 and not self._device_is_moving():
+            return 0
+        self.distance_remainder_m += moved_m
+        collected = int(self.distance_remainder_m // COIN_SPACING_M)
+        self.distance_remainder_m %= COIN_SPACING_M
+        self.coins += collected
+        return collected
 
     def _collect_nearby_coins(self, position):
         latitude = position.get("latitude")
@@ -174,8 +222,8 @@ class GameView(ui.View):
         update_button.tint_color = accent_color
         self.scroll.add_subview(update_button)
         self.coin_label = ui.Label(frame=(16, 48, 170, 40), flex="W")
-        self.coin_label.text = "🪙 コイン: {}枚\n試作コース: {}/{}回収".format(
-            self.coins, len(self.collected_coin_ids), len(self.coin_points)
+        self.coin_label.text = "🪙 コイン: {}枚\n移動距離の残り: {:.1f}m / {}m".format(
+            self.coins, self.distance_remainder_m, COIN_SPACING_M
         )
         self.coin_label.number_of_lines = 0
         self.scroll.add_subview(self.coin_label)
@@ -276,11 +324,11 @@ class GameView(ui.View):
             sample_id=str(uuid.uuid4()),
             location=position,
         )
-        collected_coins = self._collect_nearby_coins(position)
+        collected_coins = self._collect_distance_coins(position)
         result = CheckInService(self.api, self.queue).submit(sample)
         if result.get("queued"):
             self.show_message(
-                "通信できないため位置情報を端末に保存しました。\n近くのコイン: {}枚".format(
+                "通信できないため位置情報を端末に保存しました。\n今回の移動で獲得: {}枚".format(
                     collected_coins
                 )
             )
