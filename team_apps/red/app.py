@@ -62,89 +62,89 @@ DESTINATIONS = [
         "id": "center-building",
         "name": "センター棟",
         "plus_code": None,
-        "latitude": 35.67437387858118,
-        "longitude": 139.69314002932387,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
     {
         "id": "cafeteria-fuji",
         "name": "カフェテリアふじ",
-        "plus_code": "MMFV+WF",
-        "latitude": 35.67484017956108,
-        "longitude": 139.6936804736062,
+        "plus_code": None,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
     {
         "id": "linkeee",
         "name": "運動教室（LinKeee）",
-        "plus_code": "MMFV+X9",
-        "latitude": 35.67437387858118,
-        "longitude": 139.69314002932387,
+        "plus_code": None,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
     {
         "id": "imperial-palace",
         "name": "皇居",
-        "plus_code": "MQJ4+7W",
-        "latitude": 35.685175,
-        "longitude": 139.7528,
+        "plus_code": None,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
     {
         "id": "meiji-jingu",
         "name": "明治神宮",
-        "plus_code": "MPC2+3P",
-        "latitude": 35.6764,
-        "longitude": 139.6993,
+        "plus_code": None,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
     {
         "id": "yushima-tenjin",
         "name": "湯島天神",
-        "plus_code": "PQ59+2C3",
-        "latitude": 35.7078,
-        "longitude": 139.7685,
+        "plus_code": None,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
     {
         "id": "national-diet",
         "name": "国会議事堂",
-        "plus_code": "MPFV+XP4",
-        "latitude": 35.6759,
-        "longitude": 139.7448,
+        "plus_code": None,
+        "latitude": 0.0,
+        "longitude": 0.0,
     },
 ]
 TOKYO_PUBLIC_ZONES = [
-    ("千代田区・日比谷公園", 35.6748, 139.7554),
-    ("中央区・浜町公園", 35.6893, 139.7870),
-    ("港区・芝公園", 35.6545, 139.7505),
-    ("新宿区・新宿中央公園", 35.6917, 139.6894),
-    ("文京区・小石川後楽園前", 35.7053, 139.7519),
-    ("台東区・上野公園", 35.7156, 139.7745),
-    ("墨田区・隅田公園", 35.7147, 139.8029),
-    ("江東区・木場公園", 35.6814, 139.8113),
-    ("品川区・戸越公園", 35.6115, 139.7160),
-    ("目黒区・中目黒公園", 35.6402, 139.7004),
-    ("大田区・蒲田駅前", 35.5613, 139.7161),
-    ("世田谷区・世田谷公園", 35.6458, 139.6604),
-    ("渋谷区・代々木公園", 35.6716, 139.6949),
-    ("中野区・中野四季の森公園", 35.7078, 139.6638),
-    ("杉並区・和田堀公園", 35.6811, 139.6424),
-    ("豊島区・南池袋公園", 35.7244, 139.7149),
-    ("北区・飛鳥山公園", 35.7480, 139.7392),
-    ("荒川区・荒川自然公園", 35.7388, 139.7796),
-    ("板橋区・城北中央公園", 35.7588, 139.6735),
-    ("練馬区・練馬総合運動場公園", 35.7385, 139.6504),
-    ("足立区・舎人公園", 35.8004, 139.7704),
-    ("葛飾区・水元公園", 35.7898, 139.8720),
-    ("江戸川区・西葛西駅前", 35.6648, 139.8584),
+    ("千代田区・日比谷公園", 0.0, 0.0),
+    ("中央区・浜町公園", 0.0, 0.0),
+    ("港区・芝公園", 0.0, 0.0),
+    ("新宿区・新宿中央公園", 0.0, 0.0),
+    ("文京区・小石川後楽園前", 0.0, 0.0),
+    ("台東区・上野公園", 0.0, 0.0),
+    ("墨田区・隅田公園", 0.0, 0.0),
+    ("江東区・木場公園", 0.0, 0.0),
+    ("品川区・戸越公園", 0.0, 0.0),
+    ("目黒区・中目黒公園", 0.0, 0.0),
+    ("大田区・蒲田駅前", 0.0, 0.0),
+    ("世田谷区・世田谷公園", 0.0, 0.0),
+    ("渋谷区・代々木公園", 0.0, 0.0),
+    ("中野区・中野四季の森公園", 0.0, 0.0),
+    ("杉並区・和田堀公園", 0.0, 0.0),
+    ("豊島区・南池袋公園", 0.0, 0.0),
+    ("北区・飛鳥山公園", 0.0, 0.0),
+    ("荒川区・荒川自然公園", 0.0, 0.0),
+    ("板橋区・城北中央公園", 0.0, 0.0),
+    ("練馬区・練馬総合運動場公園", 0.0, 0.0),
+    ("足立区・舎人公園", 0.0, 0.0),
+    ("葛飾区・水元公園", 0.0, 0.0),
+    ("江戸川区・西葛西駅前", 0.0, 0.0),
 ]
 
 CHIYODA_STATIONS = [
-    ("代々木上原駅", 35.6694, 139.6798), ("代々木公園駅", 35.6719, 139.6900),
-    ("明治神宮前駅", 35.6703, 139.7028), ("表参道駅", 35.6654, 139.7123),
-    ("乃木坂駅", 35.6667, 139.7262), ("赤坂駅", 35.6720, 139.7373),
-    ("国会議事堂前駅", 35.6738, 139.7428), ("霞ケ関駅", 35.6737, 139.7510),
-    ("日比谷駅", 35.6748, 139.7594), ("二重橋前駅", 35.6804, 139.7625),
-    ("大手町駅", 35.6860, 139.7630), ("新御茶ノ水駅", 35.6957, 139.7650),
-    ("湯島駅", 35.7077, 139.7712), ("根津駅", 35.7174, 139.7661),
-    ("千駄木駅", 35.7258, 139.7631), ("西日暮里駅", 35.7323, 139.7665),
-    ("町屋駅", 35.7423, 139.7806), ("北千住駅", 35.7496, 139.8052),
-    ("綾瀬駅", 35.7622, 139.8249), ("北綾瀬駅", 35.7767, 139.8325),
+    ("代々木上原駅", 0.0, 0.0), ("代々木公園駅", 0.0, 0.0),
+    ("明治神宮前駅", 0.0, 0.0), ("表参道駅", 0.0, 0.0),
+    ("乃木坂駅", 0.0, 0.0), ("赤坂駅", 0.0, 0.0),
+    ("国会議事堂前駅", 0.0, 0.0), ("霞ケ関駅", 0.0, 0.0),
+    ("日比谷駅", 0.0, 0.0), ("二重橋前駅", 0.0, 0.0),
+    ("大手町駅", 0.0, 0.0), ("新御茶ノ水駅", 0.0, 0.0),
+    ("湯島駅", 0.0, 0.0), ("根津駅", 0.0, 0.0),
+    ("千駄木駅", 0.0, 0.0), ("西日暮里駅", 0.0, 0.0),
+    ("町屋駅", 0.0, 0.0), ("北千住駅", 0.0, 0.0),
+    ("綾瀬駅", 0.0, 0.0), ("北綾瀬駅", 0.0, 0.0),
 ]
 for zone_name, latitude, longitude in TOKYO_PUBLIC_ZONES:
     DESTINATIONS.append({"id": "zone-" + zone_name, "name": zone_name, "plus_code": None, "latitude": latitude, "longitude": longitude})
@@ -159,10 +159,18 @@ SPECIAL_SPAWN_COUNTS = {
     "yushima-academic-route": 5,
 }
 DESTINATIONS.extend([
-    {"id": "meiji-jingu-torii-route", "name": "明治神宮前駅〜一の鳥居", "plus_code": None, "latitude": 35.6732, "longitude": 139.7032},
-    {"id": "kokkai-diet-route", "name": "国会議事堂前駅〜国会議事堂", "plus_code": None, "latitude": 35.6751, "longitude": 139.7445},
-    {"id": "yushima-academic-route", "name": "湯島駅〜湯島天神・学問通り", "plus_code": None, "latitude": 35.7068, "longitude": 139.7684},
+    {"id": "meiji-jingu-torii-route", "name": "明治神宮前駅〜一の鳥居", "plus_code": None, "latitude": 0.0, "longitude": 0.0},
+    {"id": "kokkai-diet-route", "name": "国会議事堂前駅〜国会議事堂", "plus_code": None, "latitude": 0.0, "longitude": 0.0},
+    {"id": "yushima-academic-route", "name": "湯島駅〜湯島天神・学問通り", "plus_code": None, "latitude": 0.0, "longitude": 0.0},
 ])
+
+
+def item_usage_text(item_name, remaining=None):
+    if item_name in WEAPON_POWER:
+        if remaining is None:
+            remaining = weapon_uses_for(item_name)
+        return "使用制限：{}回（残り{}回）".format(weapon_uses_for(item_name), remaining)
+    return "使用制限：1回（使い切り）"
 
 
 def distance_meters(latitude, longitude, target):
@@ -441,6 +449,10 @@ class RedPrototype(ui.View):
         map_button.tint_color = "#2E7D32"
         map_button.action = self.show_map
         self.content.add_subview(map_button)
+        howto_button = ui.Button(title="遊び方", frame=(16, 58, 343, 42))
+        howto_button.tint_color = "#EF6C00"
+        howto_button.action = self.show_how_to_play
+        self.content.add_subview(howto_button)
         profile_button = ui.Button(title="マイページ（主人公）", frame=(16, 108, 343, 42))
         profile_button.tint_color = "#AD1457"
         profile_button.action = self.show_profile
@@ -568,6 +580,43 @@ class RedPrototype(ui.View):
             )
         )
 
+    def show_how_to_play(self, sender=None):
+        self.current_screen = "how_to_play"
+        self.clear_content()
+        self.set_status("遊び方")
+        title = ui.Label(frame=(18, 18, 339, 120))
+        title.number_of_lines = 0
+        title.font = ("<System-Bold>", 19)
+        title.text_color = "#B71C1C"
+        title.text = "大変だ！謎のモンスターによって皇居が占拠され、天皇が監禁されてしまった…モンスターを倒し、アイテムを集め、三種の神器を手に入れてボスモンスターを倒そう！"
+        self.content.add_subview(title)
+
+        sections = [
+            ("遊び方", "マップ上に表示されたモンスターに近づいてモンスターを発見、倒してHPを上げたりいろんなアイテムをゲットしよう！強いボスを倒し、天皇を救出せよ！"),
+            ("アイテム", "攻撃系は武器、回復系は回復アイテムなど、さまざまなアイテムを落とす。強いモンスターほど良いアイテムが落ちるよ！"),
+            ("使用回数", "アイテムには使用回数があって、それを超えると使えなくなるよ！"),
+            ("HPのひみつ", "HPを上げると何か起こるかも…？"),
+        ]
+        y = 154
+        for heading, body in sections:
+            heading_label = ui.Label(frame=(20, y, 335, 30))
+            heading_label.font = ("<System-Bold>", 18)
+            heading_label.text_color = "#6A1B9A"
+            heading_label.text = heading
+            self.content.add_subview(heading_label)
+            body_label = ui.Label(frame=(20, y + 34, 335, 108))
+            body_label.number_of_lines = 0
+            body_label.font = ("<System>", 16)
+            body_label.text = body
+            self.content.add_subview(body_label)
+            y += 146
+        back = ui.Button(title="ホームにもどる", frame=(16, y, 343, 46))
+        back.tint_color = "#C62828"
+        back.action = self.show_battle_selection
+        self.content.add_subview(back)
+        self.style_buttons()
+        self.content.content_size = (375, y + 80)
+
     def show_profile(self, sender=None):
         self.current_screen = "profile"
         self.clear_content()
@@ -598,16 +647,19 @@ class RedPrototype(ui.View):
         item_title.text_color = "#6A1B9A"
         self.content.add_subview(item_title)
         counts = self.inventory_counts()
-        item_lines = ["{} ×{}".format(item, count) for item, count in counts.items()]
-        item_list = ui.Label(frame=(20, y + 110, 335, 90))
+        item_lines = []
+        for item, count in counts.items():
+            remaining = self.weapon_uses.get(item, weapon_uses_for(item))
+            item_lines.append("{} ×{}\n{}".format(item, count, item_usage_text(item, remaining)))
+        item_list = ui.Label(frame=(20, y + 110, 335, 180))
         item_list.number_of_lines = 0
         item_list.text = "\n".join(item_lines) if item_lines else "まだアイテムはないよ"
         self.content.add_subview(item_list)
-        back = ui.Button(title="ホームにもどる", frame=(16, y + 214, 343, 46))
+        back = ui.Button(title="ホームにもどる", frame=(16, y + 294, 343, 46))
         back.action = self.show_battle_selection
         self.content.add_subview(back)
         self.style_buttons()
-        self.content.content_size = (375, y + 280)
+        self.content.content_size = (375, y + 360)
 
     def show_inventory(self, sender=None):
         self.current_screen = "inventory"
@@ -637,10 +689,12 @@ class RedPrototype(ui.View):
                 label.number_of_lines = 0
                 effect = effect_text.get(item, "効果は戦闘で確認")
                 if item in WEAPON_POWER:
-                    effect = "攻撃：基準{}（残り{}回）".format(
+                    effect = "攻撃：基準{}\n{}".format(
                         WEAPON_POWER[item],
-                        self.weapon_uses.get(item, weapon_uses_for(item)),
+                        item_usage_text(item, self.weapon_uses.get(item, weapon_uses_for(item))),
                     )
+                else:
+                    effect = "{}\n{}".format(effect, item_usage_text(item))
                 count_text = " ×{}".format(count) if count > 1 else ""
                 label.text = "・{}{}\n  {}".format(item, count_text, effect)
                 self.content.add_subview(label)
@@ -809,7 +863,7 @@ class RedPrototype(ui.View):
 const destinations = %s;
 const monsters = %s;
 const current = %s;
-const map = L.map('map', {zoomControl:true}).setView([35.6745,139.6934], 18);
+const map = L.map('map', {zoomControl:true}).setView([0.0,0.0], 18);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 21, attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
