@@ -831,9 +831,8 @@ class RedPrototype(ui.View):
         )
         self.style_buttons()
         self.content.content_size = (375, 790)
-        # OpenStreetMap/Leaflet supports current-location and monster overlays
-        # without a Google Maps API key.
-        self.open_map_view = ui.WebView(frame=(0, 0, 375, 660))
+        # Keep this screen native: embedded web maps can terminate Pythonista.
+        self.open_map_view = MonsterLocationMap(frame=(0, 0, 375, 660))
         self.content.add_subview(self.open_map_view)
         self.refresh_native_map_panel()
         self.location_tracking_button = ui.Button(
@@ -868,7 +867,12 @@ class RedPrototype(ui.View):
             destination = next((place for place in self.destinations if place["id"] == destination_id), None)
             if destination:
                 monsters.append({"destination": destination})
-        self.open_map_view.load_html(self.leaflet_map_html())
+        self.open_map_view.set_data(
+            self.last_position,
+            map_destinations(self.destinations),
+            monsters,
+            status,
+        )
 
     def close_map(self, sender):
         self.stop_location_tracking()

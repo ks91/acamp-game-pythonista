@@ -38,15 +38,14 @@ class RedMapSafetyTests(unittest.TestCase):
         self.assertNotIn("self.start_location_tracking()", body)
         self.assertIn("現在地を取得を押すとGPSを更新します", body)
 
-    def test_monster_button_uses_openstreetmap_with_overlay_support(self):
+    def test_monster_button_uses_native_map_without_webview(self):
         start = SOURCE.index("def show_interactive_map")
         end = SOURCE.index("def close_map", start)
         body = SOURCE[start:end]
-        self.assertIn("ui.WebView", body)
-        self.assertIn("leaflet_map_html", SOURCE)
-        self.assertIn("openstreetmap.org", SOURCE)
-        self.assertIn("L.circleMarker", SOURCE)
-        self.assertIn("L.marker", SOURCE)
+        self.assertIn("MonsterLocationMap", body)
+        self.assertNotIn("ui.WebView", body)
+        self.assertIn(".set_data(", body)
+        self.assertNotIn(".load_html(", body)
 
     def test_screen_change_resets_scroll_to_show_back_button(self):
         start = SOURCE.index("def clear_content")
