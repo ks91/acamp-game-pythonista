@@ -31,6 +31,17 @@ except ImportError:
     config = None
 
 
+def has_map_coordinates(place):
+    """Return false for the redacted 0,0 placeholder used by local data."""
+    try:
+        return not (
+            float(place.get("latitude")) == 0.0
+            and float(place.get("longitude")) == 0.0
+        )
+    except (AttributeError, TypeError, ValueError):
+        return False
+
+
 MONSTERS = [
     {"name": "森のぷに", "stars": 1, "kind": "攻撃系", "drop": "木の棒", "drop_power": 50},
     {"name": "草むらモン", "stars": 1, "kind": "回復系", "drop": "成長フード（+10）", "drop_power": 10},
@@ -839,6 +850,7 @@ class RedPrototype(ui.View):
                 "longitude": destination["longitude"],
             }
             for destination in self.destinations
+            if has_map_coordinates(destination)
         ]
         markers = []
         for index, monster in enumerate(self.monsters):
@@ -846,6 +858,8 @@ class RedPrototype(ui.View):
                 continue
             destination_id = self.monster_destinations[monster["name"]]
             destination = next(item for item in self.destinations if item["id"] == destination_id)
+            if not has_map_coordinates(destination):
+                continue
             offset = (index % 3 - 1) * 0.00012
             markers.append(
                 {
