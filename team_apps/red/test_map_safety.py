@@ -23,6 +23,7 @@ class RedMapSafetyTests(unittest.TestCase):
         body = SOURCE[start:end]
         self.assertNotIn("show_splash", body)
         self.assertIn('self.show_battle("モンスターが現れた！")', body)
+        self.assertIn("show_battle_error", body)
 
     def test_callback_targets_accept_the_sender_argument(self):
         import ast

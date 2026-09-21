@@ -1207,14 +1207,34 @@ monsters.forEach(m => {
         self.active_place_id = self.boss_place_ids.get(self.active_monster["name"])
         self.start_battle(sender)
 
-    def start_battle(self, sender):
+    def start_battle(self, sender=None):
         self.current_screen = "battle"
         monster = self.active_monster
-        self.enemy_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
-        self.player_hp = min(self.player_hp, self.player_max_hp)
-        # Battle must open directly: loading splash artwork here can terminate
-        # Pythonista before the battle controls appear.
-        self.show_battle("モンスターが現れた！")
+        if not monster:
+            self.show_battle_error("戦うモンスターを選び直してください。")
+            return
+        try:
+            self.enemy_hp = monster["boss_hp"] if monster.get("boss") else STAR_HP[monster["stars"]]
+            self.player_hp = min(self.player_hp, self.player_max_hp)
+            # Battle must open directly: loading splash artwork here can terminate
+            # Pythonista before the battle controls appear.
+            self.show_battle("モンスターが現れた！")
+        except Exception as error:
+            self.show_battle_error("{}: {}".format(type(error).__name__, error))
+
+    def show_battle_error(self, detail):
+        self.clear_content()
+        self.set_status("戦闘画面を開けませんでした")
+        label = ui.Label(frame=(18, 40, 339, 160))
+        label.number_of_lines = 0
+        label.alignment = ui.ALIGN_CENTER
+        label.text = "Terraへこの画面を送ってください。\n{}".format(detail)
+        self.content.add_subview(label)
+        back = ui.Button(title="ホームにもどる", frame=(16, 230, 343, 46))
+        back.action = self.show_battle_selection
+        self.content.add_subview(back)
+        self.style_buttons()
+        self.content.content_size = (375, 300)
 
     def show_battle(self, message):
         self.clear_content()
