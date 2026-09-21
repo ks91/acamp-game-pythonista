@@ -297,14 +297,68 @@ class RedPrototype(ui.View):
         self.content.add_subview(back)
         self.content.content_size = (375, y + 80)
 
+    def show_interactive_map(self):
+        self.set_status(
+            "ゲーム内探索マップ\n"
+            "指で動かす・ピンチで拡大縮小・目的地をタップ\n"
+            "緑：到着済み　青：未到着"
+        )
+        self.content.minimum_zoom_scale = 0.6
+        self.content.maximum_zoom_scale = 2.5
+        self.content.zoom_scale = 1.0
+        self.content.content_size = (820, 1000)
+        canvas = ui.View(frame=(0, 0, 820, 1000), background_color="#E8F5E9")
+        self.content.add_subview(canvas)
+
+        title = ui.Label(frame=(24, 20, 700, 48))
+        title.text = "国立オリンピック記念青少年総合センター・探索マップ"
+        title.font = ("<System-Bold>", 22)
+        title.text_color = "#1B5E20"
+        canvas.add_subview(title)
+
+        for frame, text in (
+            ((70, 130, 680, 10), ""),
+            ((110, 130, 10, 650), ""),
+            ((110, 450, 600, 10), ""),
+        ):
+            road = ui.View(frame=frame, background_color="#BDBDBD")
+            canvas.add_subview(road)
+
+        area = ui.Label(frame=(170, 160, 360, 42))
+        area.text = "中央広場"
+        area.alignment = ui.ALIGN_CENTER
+        area.background_color = "#C8E6C9"
+        area.corner_radius = 10
+        canvas.add_subview(area)
+
+        marker_positions = {
+            "center-building": (180, 540),
+            "cafeteria-fuji": (570, 480),
+            "linkeee": (250, 260),
+        }
+        for destination in DESTINATIONS:
+            x, y = marker_positions.get(destination["id"], (300, 300))
+            unlocked = destination["id"] in self.unlocked_destinations
+            marker = ui.Button(
+                title=("📍 " if unlocked else "🔒 ") + destination["name"],
+                frame=(x, y, 230, 58),
+            )
+            marker.tint_color = "#2E7D32" if unlocked else "#1565C0"
+            marker.destination_id = destination["id"]
+            marker.action = self.show_destination_footprints
+            canvas.add_subview(marker)
+
+        legend = ui.Label(frame=(24, 820, 720, 70))
+        legend.number_of_lines = 0
+        legend.text = "目的地をタップすると足跡へ。\n目的地の20m以内に入ると、その場所のモンスターを発見できます。"
+        legend.font = ("<System>", 15)
+        canvas.add_subview(legend)
+
     def show_map(self, sender=None):
         self.current_screen = "map"
         self.clear_content()
-        self.set_status(
-            "ゲーム内マップ\n"
-            "目的地ごとにモンスターの系統を確認できます。\n"
-            "20m以内に入ると足跡をたどれます。"
-        )
+        self.show_interactive_map()
+        return
         y = 8
         map_label = ui.Label(frame=(16, y, 343, 42))
         map_label.text = "【オリンピックセンター探索マップ】"
