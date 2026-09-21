@@ -299,60 +299,36 @@ class RedPrototype(ui.View):
 
     def show_interactive_map(self):
         self.set_status(
-            "ゲーム内探索マップ\n"
-            "指で動かす・ピンチで拡大縮小・目的地をタップ\n"
-            "緑：到着済み　青：未到着"
+            "ゲーム内Googleマップ\n"
+            "指で移動・ピンチで拡大縮小できます。"
         )
-        self.content.minimum_zoom_scale = 0.6
-        self.content.maximum_zoom_scale = 2.5
-        self.content.zoom_scale = 1.0
-        self.content.content_size = (820, 1000)
-        canvas = ui.View(frame=(0, 0, 820, 1000), background_color="#E8F5E9")
-        self.content.add_subview(canvas)
-
-        title = ui.Label(frame=(24, 20, 700, 48))
-        title.text = "国立オリンピック記念青少年総合センター・探索マップ"
-        title.font = ("<System-Bold>", 22)
-        title.text_color = "#1B5E20"
-        canvas.add_subview(title)
-
-        for frame, text in (
-            ((70, 130, 680, 10), ""),
-            ((110, 130, 10, 650), ""),
-            ((110, 450, 600, 10), ""),
-        ):
-            road = ui.View(frame=frame, background_color="#BDBDBD")
-            canvas.add_subview(road)
-
-        area = ui.Label(frame=(170, 160, 360, 42))
-        area.text = "中央広場"
-        area.alignment = ui.ALIGN_CENTER
-        area.background_color = "#C8E6C9"
-        area.corner_radius = 10
-        canvas.add_subview(area)
-
-        marker_positions = {
-            "center-building": (180, 540),
-            "cafeteria-fuji": (570, 480),
-            "linkeee": (250, 260),
-        }
+        self.content.content_size = (375, 760)
+        y = 8
         for destination in DESTINATIONS:
-            x, y = marker_positions.get(destination["id"], (300, 300))
-            unlocked = destination["id"] in self.unlocked_destinations
-            marker = ui.Button(
-                title=("📍 " if unlocked else "🔒 ") + destination["name"],
-                frame=(x, y, 230, 58),
+            button = ui.Button(
+                title=destination["name"],
+                frame=(8 + DESTINATIONS.index(destination) * 123, y, 117, 40),
             )
-            marker.tint_color = "#2E7D32" if unlocked else "#1565C0"
-            marker.destination_id = destination["id"]
-            marker.action = self.show_destination_footprints
-            canvas.add_subview(marker)
+            button.tint_color = "#1565C0"
+            button.destination = destination
+            button.action = self.move_google_map
+            self.content.add_subview(button)
+        self.google_map_view = ui.WebView(frame=(0, 56, 375, 620))
+        self.content.add_subview(self.google_map_view)
+        self.google_map_view.load_url(self.google_map_url(DESTINATIONS[0]))
+        back = ui.Button(title="マップを閉じる", frame=(16, 690, 343, 48))
+        back.tint_color = "#C62828"
+        back.action = lambda sender: self.show_battle_selection()
+        self.content.add_subview(back)
 
-        legend = ui.Label(frame=(24, 820, 720, 70))
-        legend.number_of_lines = 0
-        legend.text = "目的地をタップすると足跡へ。\n目的地の20m以内に入ると、その場所のモンスターを発見できます。"
-        legend.font = ("<System>", 15)
-        canvas.add_subview(legend)
+    def google_map_url(self, destination):
+        return (
+            "https://www.google.com/maps/@?api=1&map_action=map&center={},{}&zoom=18"
+            "&basemap=roadmap"
+        ).format(destination["latitude"], destination["longitude"])
+
+    def move_google_map(self, sender):
+        self.google_map_view.load_url(self.google_map_url(sender.destination))
 
     def show_map(self, sender=None):
         self.current_screen = "map"
