@@ -140,7 +140,20 @@ class RedPrototype(ui.View):
         if respawn_at is None:
             return True
         if time.time() >= respawn_at:
-            self.defeated_monsters.pop(monster["name"], None)
+            old_name = monster["name"]
+            active_names = {
+                item["name"] for item in self.monsters if item is not monster
+            }
+            candidates = [
+                template for template in MONSTERS
+                if template["name"] not in active_names
+            ]
+            replacement = random.choice(candidates or MONSTERS)
+            monster.clear()
+            monster.update(replacement)
+            self.defeated_monsters.pop(old_name, None)
+            self.monster_destinations.pop(old_name, None)
+            self.monster_destinations[monster["name"]] = random.choice(DESTINATIONS)["id"]
             return True
         return False
 
