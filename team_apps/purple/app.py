@@ -152,7 +152,8 @@ function setReference(lat, lon) {
 
 class PurpleMockGame(ui.View):
     def __init__(self):
-        super().__init__(frame=(0, 0, 375, 667))
+        screen_width, screen_height = ui.get_screen_size()
+        super().__init__(frame=(0, 0, screen_width, screen_height))
         self.name = "東京マン腸脱出ゲーム"
         self.background_color = "#FFF8E1"
         self.score = START_SCORE
