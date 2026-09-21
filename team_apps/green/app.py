@@ -99,7 +99,7 @@ class GreenTerritoryGame(ui.View):
         self.restart_button.font = ("<system-bold>", 13)
         self.restart_button.background_color = (0.05, 0.18, 0.12, 0.88)
         self.add_subview(self.restart_button)
-        self.legend_label = ui.Label(frame=(156, 94, 360, 32), text="★攻略対象　◆相手拠点　○未占領　⚑自班陣地　⌂自班拠点", font=("<system>", 11), number_of_lines=2)
+        self.legend_label = ui.Label(frame=(156, 94, 360, 32), text="★相手陣地（攻略可能）　◆相手拠点　○未占領　⚑自班陣地　⌂自班拠点", font=("<system>", 11), number_of_lines=2)
         self.legend_label.background_color = (0, 0, 0, 0.68)
         self.add_subview(self.legend_label)
         self.offline_label = ui.Label(frame=(16, 66, 360, 25), font=("<system-bold>", 13))
@@ -182,7 +182,7 @@ class GreenTerritoryGame(ui.View):
                 role = "own_base"
             else:
                 role = "neutral"
-            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手の攻略対象", "enemy_base": "相手の拠点", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
+            role_labels = {"own_home": "自班の拠点", "enemy_target": "相手陣地（攻略可能）", "enemy_base": "相手の拠点", "neutral": "未占領の拠点", "own_base": "自班の拠点"}
             action_label = "状態確認" if owner == team_id else ("攻略する" if owner else "ミッション開始")
             mission_text = place.get("mission", place.get("description", ""))
             if "猫" in mission_text or "ねこ" in mission_text:
