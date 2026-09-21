@@ -276,13 +276,19 @@ class RedPrototype(ui.View):
 
     def _fetch_server_scenario(self):
         try:
-            scenario = scenario_from_server(
-                self.api.get_game_definition(), self.api.get_team_state()
-            )
-            error = None
+            definition = self.api.get_game_definition()
         except Exception as exc:
             scenario = None
             error = exc
+        else:
+            # A state-read failure must not throw away the playable server map.
+            # The definition owns the places; claims can be refreshed later.
+            try:
+                state = self.api.get_team_state()
+            except Exception:
+                state = {}
+            scenario = scenario_from_server(definition, state)
+            error = None
         ui.delay(lambda: self._apply_server_scenario(scenario, error), 0.0)
 
     def _apply_server_scenario(self, scenario, error):
