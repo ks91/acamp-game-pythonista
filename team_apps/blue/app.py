@@ -193,14 +193,19 @@ class GameView(ui.View):
             + "人がエレベーターだと確認したら、GPSで同じ位置か調べます。\n"
             + "写真はサーバーへ送信しません。"
         )
+        preview = ui.ImageView(frame=(16, 12, self.width - 32, 180))
+        preview.image = image
+        preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        preview.flex = "W"
+        self.scroll.add_subview(preview)
         self._add_button(
             "人が確認した → GPSで位置を比べる",
-            12,
+            204,
             self.confirm_elevator_position,
             self.status_label.text_color,
         )
-        self._add_button("クエスト一覧にもどる", 72, self.back_to_quests, self.status_label.text_color)
-        self.scroll.content_size = (self.width, 140)
+        self._add_button("クエスト一覧にもどる", 264, self.back_to_quests, self.status_label.text_color)
+        self.scroll.content_size = (self.width, 332)
 
     def confirm_elevator_position(self, sender):
         self.show_message("GPS位置を取得しています…")
