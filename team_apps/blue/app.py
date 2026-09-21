@@ -247,11 +247,10 @@ class GameView(ui.View):
     def render_title_screen(self, accent_color):
         self._clear_content()
         self.status_label.font = ("<system-bold>", 18)
-        self.show_message("🗺️ まちのひみつハンター\nblue位置ゲー開発（仮）\n💰 コイン：{}枚\n\n今日の冒険を選ぼう！".format(self.coins))
+        self.show_message("🗺️ まちのひみつハンター\nBlueの探検ゲーム\n💰 コイン：{}枚\n\n今日の冒険を選ぼう！".format(self.coins))
         self._add_button("▶️ 探索をはじめる", 12, self.start_game, accent_color)
-        self._add_button("📍 座標を登録する", 72, self.start_registration, accent_color)
-        self._add_button("🛒 交換所", 132, self.open_shop, accent_color)
-        self.scroll.content_size = (self.width, 200)
+        self._add_button("🛒 交換所", 72, self.open_shop, accent_color)
+        self.scroll.content_size = (self.width, 140)
 
     def open_shop(self, sender):
         self.render_shop(self.status_label.text_color)
