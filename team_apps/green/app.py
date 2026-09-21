@@ -113,6 +113,7 @@ class GreenTerritoryGame(ui.View):
         self._refreshing = False
         self._last_api_error = ""
         self._debug_log = []
+        self._diagnostic_text = ""
         self._mission_assignments = {}
 
         self.header = ui.Label(frame=(16, 12, 280, 54), font=("<system-bold>", 17), number_of_lines=2)
@@ -201,8 +202,7 @@ class GreenTerritoryGame(ui.View):
         if not isinstance(configured_places, (list, tuple)):
             raise ValueError("placesの形式が不正です")
         configured_places = [place for place in configured_places if isinstance(place, dict) and place.get("name")]
-        center_places = [place for place in configured_places if place.get("name") in CENTER_TEST_PLACE_NAMES]
-        scenario_places = center_places if len(center_places) >= 2 else list(LOCAL_CENTER_TEST_PLACES)
+        scenario_places = list(configured_places) if configured_places else list(LOCAL_CENTER_TEST_PLACES)
         for index, place in enumerate(scenario_places):
             territory = territory_by_id.get(place["id"], {})
             owner = territory.get("owner")
@@ -283,7 +283,7 @@ class GreenTerritoryGame(ui.View):
             if status == "offline" and self._last_api_error:
                 self.detail.text = "API接続エラー\n{}".format(self._last_api_error)
             else:
-                self.detail.text = "地図上の旗をタップすると地点の詳細を表示します。"
+                self.detail.text = "{}\n地図上の旗をタップすると地点の詳細を表示します。".format(self._diagnostic_text) if self._diagnostic_text else "地図上の旗をタップすると地点の詳細を表示します。"
             self.action_button.title = "地点を選択してください"
             self.action_button.enabled = False
             return
@@ -392,10 +392,14 @@ class GreenTerritoryGame(ui.View):
         try:
             self._debug("ゲーム定義を取得中")
             definition = self.api_client.get_game_definition()
+            definition_places = definition.get("places", []) if isinstance(definition, dict) else []
+            definition_names = [p.get("name") for p in definition_places if isinstance(p, dict)]
+            self._debug("API地点数={} 地点名={}".format(len(definition_places), definition_names))
             self._debug("ゲーム定義を取得完了")
             self._debug("チーム状態を取得中")
             state = self.api_client.get_team_state()
-            self._debug("チーム状態を取得完了")
+            territory_count = len(state.get("territories", [])) if isinstance(state, dict) and isinstance(state.get("territories", []), list) else "不正"
+            self._debug("チーム状態を取得完了 陣地数={}".format(territory_count))
         except Exception as exc:
             error = exc
             trace = traceback.format_exc()
@@ -435,6 +439,10 @@ class GreenTerritoryGame(ui.View):
             self.session_id = (state.get("game_session_id") if isinstance(state, dict) else None) or (getattr(config, "GAME_SESSION_ID", self.session_id) if config else self.session_id)
             self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
+            api_count = len(definition.get("places", [])) if isinstance(definition.get("places", []), list) else "不正"
+            model_names = [place.get("name") for place in self.model.get("places", [])]
+            self._diagnostic_text = "API地点数: {} / 表示地点数: {}\n表示: {}".format(api_count, len(model_names), "、".join(model_names))
+            self._debug(self._diagnostic_text.replace("\n", " "))
         else:
             trace_text = "\n".join(self._debug_log)
             self._last_api_error = "{}\n{}".format(str(error) if error is not None else "APIからゲーム状態を取得できませんでした", trace_text)
