@@ -95,6 +95,48 @@ DESTINATIONS = [
         "longitude": 139.7448,
     },
 ]
+TOKYO_PUBLIC_ZONES = [
+    ("千代田区・日比谷公園", 35.6748, 139.7554),
+    ("中央区・浜町公園", 35.6893, 139.7870),
+    ("港区・芝公園", 35.6545, 139.7505),
+    ("新宿区・新宿中央公園", 35.6917, 139.6894),
+    ("文京区・小石川後楽園前", 35.7053, 139.7519),
+    ("台東区・上野公園", 35.7156, 139.7745),
+    ("墨田区・隅田公園", 35.7147, 139.8029),
+    ("江東区・木場公園", 35.6814, 139.8113),
+    ("品川区・戸越公園", 35.6115, 139.7160),
+    ("目黒区・中目黒公園", 35.6402, 139.7004),
+    ("大田区・蒲田駅前", 35.5613, 139.7161),
+    ("世田谷区・世田谷公園", 35.6458, 139.6604),
+    ("渋谷区・代々木公園", 35.6716, 139.6949),
+    ("中野区・中野四季の森公園", 35.7078, 139.6638),
+    ("杉並区・和田堀公園", 35.6811, 139.6424),
+    ("豊島区・南池袋公園", 35.7244, 139.7149),
+    ("北区・飛鳥山公園", 35.7480, 139.7392),
+    ("荒川区・荒川自然公園", 35.7388, 139.7796),
+    ("板橋区・城北中央公園", 35.7588, 139.6735),
+    ("練馬区・練馬総合運動場公園", 35.7385, 139.6504),
+    ("足立区・舎人公園", 35.8004, 139.7704),
+    ("葛飾区・水元公園", 35.7898, 139.8720),
+    ("江戸川区・西葛西駅前", 35.6648, 139.8584),
+]
+
+CHIYODA_STATIONS = [
+    ("代々木上原駅", 35.6694, 139.6798), ("代々木公園駅", 35.6719, 139.6900),
+    ("明治神宮前駅", 35.6703, 139.7028), ("表参道駅", 35.6654, 139.7123),
+    ("乃木坂駅", 35.6667, 139.7262), ("赤坂駅", 35.6720, 139.7373),
+    ("国会議事堂前駅", 35.6738, 139.7428), ("霞ケ関駅", 35.6737, 139.7510),
+    ("日比谷駅", 35.6748, 139.7594), ("二重橋前駅", 35.6804, 139.7625),
+    ("大手町駅", 35.6860, 139.7630), ("新御茶ノ水駅", 35.6957, 139.7650),
+    ("湯島駅", 35.7077, 139.7712), ("根津駅", 35.7174, 139.7661),
+    ("千駄木駅", 35.7258, 139.7631), ("西日暮里駅", 35.7323, 139.7665),
+    ("町屋駅", 35.7423, 139.7806), ("北千住駅", 35.7496, 139.8052),
+    ("綾瀬駅", 35.7622, 139.8249), ("北綾瀬駅", 35.7767, 139.8325),
+]
+for zone_name, latitude, longitude in TOKYO_PUBLIC_ZONES:
+    DESTINATIONS.append({"id": "zone-" + zone_name, "name": zone_name, "plus_code": None, "latitude": latitude, "longitude": longitude})
+for station_name, latitude, longitude in CHIYODA_STATIONS:
+    DESTINATIONS.append({"id": "chiyoda-" + station_name, "name": station_name, "plus_code": None, "latitude": latitude, "longitude": longitude})
 
 
 def distance_meters(latitude, longitude, target):
@@ -126,12 +168,27 @@ class RedPrototype(ui.View):
         self.player_max_hp = 100
         self.player_hp = 100
         self.enemy_hp = 0
-        self.monsters = list(MONSTERS)
+        self.monsters = []
+        for index in range(100):
+            monster = random.choice(MONSTERS).copy()
+            monster["name"] = "{} #{:03d}".format(monster["name"], index + 1)
+            self.monsters.append(monster)
         random.shuffle(self.monsters)
-        self.monster_destinations = {
-            monster["name"]: random.choice(DESTINATIONS)["id"]
-            for monster in self.monsters
-        }
+        station_destinations = [
+            destination["id"] for destination in DESTINATIONS
+            if destination["id"].startswith("chiyoda-")
+        ]
+        public_zone_destinations = [
+            destination["id"] for destination in DESTINATIONS
+            if destination["id"].startswith("zone-")
+        ]
+        self.monster_destinations = {}
+        for index, monster in enumerate(self.monsters):
+            if index < len(station_destinations):
+                destination_id = station_destinations[index]
+            else:
+                destination_id = random.choice(public_zone_destinations)
+            self.monster_destinations[monster["name"]] = destination_id
         self.build_header()
         self.show_battle_selection()
 
@@ -187,12 +244,16 @@ class RedPrototype(ui.View):
                 template for template in MONSTERS
                 if template["name"] not in active_names
             ]
-            replacement = random.choice(candidates or MONSTERS)
+            replacement = random.choice(candidates or MONSTERS).copy()
+            slot_id = old_name.rsplit("#", 1)[-1].strip() if "#" in old_name else old_name
+            replacement["name"] = "{} #{}".format(replacement["name"], slot_id)
             monster.clear()
             monster.update(replacement)
             self.defeated_monsters.pop(old_name, None)
             self.monster_destinations.pop(old_name, None)
-            self.monster_destinations[monster["name"]] = random.choice(DESTINATIONS)["id"]
+            self.monster_destinations[monster["name"]] = random.choice(
+                [destination for destination in DESTINATIONS if destination["id"].startswith("zone-")]
+            )["id"]
             return True
         return False
 
