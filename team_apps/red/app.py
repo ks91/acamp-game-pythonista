@@ -137,6 +137,19 @@ for zone_name, latitude, longitude in TOKYO_PUBLIC_ZONES:
     DESTINATIONS.append({"id": "zone-" + zone_name, "name": zone_name, "plus_code": None, "latitude": latitude, "longitude": longitude})
 for station_name, latitude, longitude in CHIYODA_STATIONS:
     DESTINATIONS.append({"id": "chiyoda-" + station_name, "name": station_name, "plus_code": None, "latitude": latitude, "longitude": longitude})
+SPECIAL_SPAWN_COUNTS = {
+    "center-building": 3,
+    "chiyoda-代々木公園駅": 5,
+    "meiji-jingu-torii-route": 5,
+    "kokkai-diet-route": 5,
+    "imperial-palace": 10,
+    "yushima-academic-route": 5,
+}
+DESTINATIONS.extend([
+    {"id": "meiji-jingu-torii-route", "name": "明治神宮前駅〜一の鳥居", "plus_code": None, "latitude": 35.6732, "longitude": 139.7032},
+    {"id": "kokkai-diet-route", "name": "国会議事堂前駅〜国会議事堂", "plus_code": None, "latitude": 35.6751, "longitude": 139.7445},
+    {"id": "yushima-academic-route", "name": "湯島駅〜湯島天神・学問通り", "plus_code": None, "latitude": 35.7068, "longitude": 139.7684},
+])
 
 
 def distance_meters(latitude, longitude, target):
@@ -182,13 +195,18 @@ class RedPrototype(ui.View):
             destination["id"] for destination in DESTINATIONS
             if destination["id"].startswith("zone-")
         ]
+        random_destinations = station_destinations + public_zone_destinations
         self.monster_destinations = {}
-        for index, monster in enumerate(self.monsters):
-            if index < len(station_destinations):
-                destination_id = station_destinations[index]
-            else:
-                destination_id = random.choice(public_zone_destinations)
-            self.monster_destinations[monster["name"]] = destination_id
+        assigned_count = 0
+        for destination_id, count in SPECIAL_SPAWN_COUNTS.items():
+            for _ in range(count):
+                if assigned_count >= len(self.monsters):
+                    break
+                monster = self.monsters[assigned_count]
+                self.monster_destinations[monster["name"]] = destination_id
+                assigned_count += 1
+        for monster in self.monsters[assigned_count:]:
+            self.monster_destinations[monster["name"]] = random.choice(random_destinations)
         self.build_header()
         self.show_battle_selection()
 
