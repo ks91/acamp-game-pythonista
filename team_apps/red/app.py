@@ -329,6 +329,7 @@ class RedPrototype(ui.View):
             markers.append(
                 {
                     "name": monster["name"],
+                    "rank": "★" * monster["stars"],
                     "kind": monster["kind"],
                     "latitude": destination["latitude"] + offset,
                     "longitude": destination["longitude"] + offset,
@@ -355,7 +356,7 @@ destinations.forEach(d => {
 monsters.forEach(m => {
   const icon = L.divIcon({className:'monster', html:'👾', iconSize:[28,28]});
   L.marker([m.latitude,m.longitude], {icon:icon}).addTo(map)
-    .bindPopup('<b>' + m.name + '</b><br>系統：' + m.kind);
+    .bindPopup('<b>' + m.rank + ' ' + m.name + '</b><br>系統：' + m.kind);
 });
 </script></body></html>""" % (destination_json, marker_json)
 
