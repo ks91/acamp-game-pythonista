@@ -45,17 +45,14 @@ class RedMapSafetyTests(unittest.TestCase):
         self.assertNotIn("self.start_location_tracking()", body)
         self.assertIn("現在地を取得", body)
 
-    def test_map_uses_root_webview_for_openstreetmap_overlays(self):
+    def test_map_uses_root_google_maps_view(self):
         start = SOURCE.index("def show_interactive_map")
         end = SOURCE.index("def close_map", start)
         body = SOURCE[start:end]
         self.assertIn("ui.WebView", body)
         self.assertIn("self.add_subview(self.open_map_view)", body)
         self.assertNotIn("self.content.add_subview(self.open_map_view)", body)
-        self.assertIn("openstreetmap.org", SOURCE)
-        self.assertIn("L.circleMarker", SOURCE)
-        self.assertIn("L.marker", SOURCE)
-        self.assertIn('"★" * monster["stars"]', SOURCE)
+        self.assertIn("https://www.google.com/maps/search/?api=1", SOURCE)
 
     def test_screen_change_resets_scroll_to_show_back_button(self):
         start = SOURCE.index("def clear_content")
