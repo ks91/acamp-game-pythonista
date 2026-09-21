@@ -6,17 +6,24 @@ from urllib.request import Request, urlopen
 
 class ApiClient:
     def __init__(
-        self, *, base_url: str, token: str, timeout_s: float = 15, game_team_id: Optional[str] = None
+        self, *, base_url: str, token: str, timeout_s: float = 15,
+        game_team_id: Optional[str] = None, game_mode: Optional[str] = None
     ):
         self.base_url = base_url.rstrip("/")
         self.token = token
         self.timeout_s = timeout_s
         self.game_team_id = game_team_id
+        self.game_mode = game_mode
 
     def _url(self, path: str) -> str:
-        if self.game_team_id is None:
+        parameters = {}
+        if self.game_team_id is not None:
+            parameters["game_team"] = self.game_team_id
+        if self.game_mode is not None:
+            parameters["game_mode"] = self.game_mode
+        if not parameters:
             return self.base_url + path
-        return self.base_url + path + "?" + urlencode({"game_team": self.game_team_id})
+        return self.base_url + path + "?" + urlencode(parameters)
 
     def post_location_sample(self, sample: dict[str, Any]) -> dict[str, Any]:
         request = Request(

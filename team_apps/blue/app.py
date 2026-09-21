@@ -29,6 +29,7 @@ class GameView(ui.View):
             base_url=config.API_BASE_URL,
             token=config.GAME_TOKEN,
             game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+            game_mode=getattr(config, "SELECTED_GAME_MODE", None),
         )
         self.repository_directory = os.path.dirname(os.path.abspath(__file__))
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
