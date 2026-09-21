@@ -15,9 +15,9 @@ MONSTERS = [
 ]
 
 MINIBOSSES = [
-    {"name": "鏡の中ボス", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・鏡", "boss": True},
-    {"name": "勾玉の中ボス", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・勾玉", "boss": True},
-    {"name": "剣の中ボス", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・剣", "boss": True},
+    {"name": "ヤタ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・鏡", "boss": True},
+    {"name": "ヤサカニ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・勾玉", "boss": True},
+    {"name": "クサナギ", "kind": "中ボス", "boss_hp": 2000, "drop": "三種の神器・剣", "boss": True},
 ]
 
 STAR_NAMES = {
