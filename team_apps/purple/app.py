@@ -805,6 +805,9 @@ class PurpleMockGame(ui.View):
             message = "正解！ 謎{}を解いた！ +10pt".format(index + 1)
             if chest_message:
                 message += "\n" + chest_message
+            if chest_message:
+                self._refresh(chest_message)
+                return
             self._refresh(message)
             self._show_feedback("正解！\n+10pt", "#2E7D32", 3)
             return
