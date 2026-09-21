@@ -46,6 +46,8 @@ class RedMapSafetyTests(unittest.TestCase):
         self.assertNotIn("ui.WebView", body)
         self.assertIn(".set_data(", body)
         self.assertNotIn(".load_html(", body)
+        self.assertIn('"★" * monster.get("stars", 1)', SOURCE)
+        self.assertIn('"name": monster["name"]', SOURCE)
 
     def test_screen_change_resets_scroll_to_show_back_button(self):
         start = SOURCE.index("def clear_content")

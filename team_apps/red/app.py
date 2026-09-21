@@ -272,6 +272,12 @@ class MonsterLocationMap(ui.View):
             x, y = xy(destination)
             ui.set_color("#D32F2F")
             ui.Path.oval(x - 5, y - 5, 10, 10).fill()
+            ui.set_color("#B71C1C")
+            ui.draw_string(
+                "{} {}".format("★" * monster.get("stars", 1), monster.get("name", "モンスター")),
+                (x + 8, y + 4, 150, 24),
+                font=("<System-Bold>", 12),
+            )
         if self.current_position and self.current_position.get("latitude") and self.current_position.get("longitude"):
             x, y = xy(self.current_position)
             ui.set_color("#1565C0")
@@ -866,7 +872,11 @@ class RedPrototype(ui.View):
             destination_id = self.monster_destinations.get(monster["name"])
             destination = next((place for place in self.destinations if place["id"] == destination_id), None)
             if destination:
-                monsters.append({"destination": destination})
+                monsters.append({
+                    "destination": destination,
+                    "name": monster["name"],
+                    "stars": monster["stars"],
+                })
         self.open_map_view.set_data(
             self.last_position,
             map_destinations(self.destinations),
