@@ -361,8 +361,12 @@ class GreenTerritoryGame(ui.View):
             self.model = self._build_model(definition, state, self.team_id)
             self._assign_random_missions()
         else:
+            fallback_state = {"score": self.model.get("score", 0), "territories": [], "claimed_places": []}
+            self.model = self._build_model({"places": list(LOCAL_CENTER_TEST_PLACES)}, fallback_state, self.team_id)
+            self._assign_random_missions()
             self.model["offline"] = True
             self.model["connection_status"] = "offline"
+            self.detail.text = "APIに接続できないため、センター棟4地点をテスト表示しています。"
         self.refresh_view()
 
     def select_place(self, place_id):
