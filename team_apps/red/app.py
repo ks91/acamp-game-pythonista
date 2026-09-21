@@ -35,7 +35,7 @@ STAR_NAMES = {
 STAR_HP = {1: 100, 2: 300, 3: 500}
 MAX_HP_GAIN_BY_STAR = {1: 10, 2: 30, 3: 50}
 CAPACITY_GAIN_INTERVAL = {1: 5, 2: 3, 3: 1}
-LOCATION_TRIGGER_RADIUS_M = 20
+LOCATION_TRIGGER_RADIUS_M = 40
 WEAPON_POWER = {"木の棒": 50, "剣": 100, "弓": 100, "爆発系": 1000}
 WEAPON_USES_PER_ITEM = {"木の棒": 5, "剣": 10, "弓": 10, "爆発系": 10}
 
@@ -237,7 +237,7 @@ class RedPrototype(ui.View):
         if not self.unlocked_destinations:
             locked = ui.Label(frame=(20, y, 335, 70))
             locked.number_of_lines = 0
-            locked.text = "目的地から20m以内に入ると\nモンスターを発見できます。"
+            locked.text = "目的地から40m以内に入ると\nモンスターを発見できます。"
             locked.alignment = ui.ALIGN_CENTER
             locked.font = ("<System-Bold>", 17)
             self.content.add_subview(locked)
@@ -318,7 +318,7 @@ class RedPrototype(ui.View):
         display_name = sender.monster["name"] if hasattr(sender, "monster") else destination["name"]
         if distance <= LOCATION_TRIGGER_RADIUS_M:
             self.unlocked_destinations.add(destination["id"])
-            result = "{}を発見！出現地点の20m以内です。".format(display_name)
+            result = "{}を発見！出現地点の40m以内です。".format(display_name)
             self.show_battle_selection()
         else:
             result = "{}（出現地点）まで約{}m。もう少し近づこう。".format(
@@ -450,7 +450,7 @@ class RedPrototype(ui.View):
                 self.unlocked_destinations.add(nearest_destination["id"])
                 self.stop_location_tracking()
                 self.set_status(
-                    "{}の20m以内に入りました。モンスター発見！".format(
+                    "{}の40m以内に入りました。モンスター発見！".format(
                         nearest_destination["name"]
                     )
                 )
@@ -586,7 +586,7 @@ monsters.forEach(m => {
                     destination["name"], kinds, len(assigned)
                 )
             else:
-                card.text = "🔒 {}\n20m以内に入るとモンスターの系統が分かります".format(
+                card.text = "🔒 {}\n40m以内に入るとモンスターの系統が分かります".format(
                     destination["name"]
                 )
             card.font = ("<System>", 14)
