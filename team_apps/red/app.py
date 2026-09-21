@@ -792,6 +792,13 @@ class RedPrototype(ui.View):
         if position:
             self.last_position = position
             self.last_accuracy = position.get("horizontal_accuracy", "不明")
+            self.open_map_view.load_html(self.leaflet_map_html())
+            if not self.server_scenario_loaded:
+                self.set_status(
+                    "現在地を更新しました。\n地点データを読み込み中です。"
+                )
+                ui.delay(self.location_tick, interval)
+                return
             distances = [
                 distance_meters(
                     position["latitude"], position["longitude"], destination
