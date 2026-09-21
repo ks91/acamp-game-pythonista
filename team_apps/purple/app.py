@@ -299,7 +299,7 @@ class PurpleMockGame(ui.View):
 
     def _hide_feedback(self):
         if self.feedback_label is not None:
-            self.feedback_label.remove_from_superview()
+            self.remove_subview(self.feedback_label)
             self.feedback_label = None
 
     def _show_feedback(self, text, color, seconds):
@@ -585,7 +585,7 @@ class PurpleMockGame(ui.View):
             return
         self.quiz_active = False
         if self.quiz_overlay is not None:
-            self.quiz_overlay.remove_from_superview()
+            self.remove_subview(self.quiz_overlay)
             self.quiz_overlay = None
         self.quiz_question = None
         self.quiz_index = None
