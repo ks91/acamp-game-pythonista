@@ -22,6 +22,8 @@ FIXED_PLACES = [
     None,  # 地点1
     None,  # 地点2
 ]
+# 以前に確認した現在地。地点1ではなく、確認用の地図ピン。
+REFERENCE_LOCATION = {"latitude": 35.674652, "longitude": 139.693472}
 
 QUESTIONS = [
     {
@@ -126,6 +128,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 var currentMarker = null;
 var placeMarkers = [];
+var referenceMarker = null;
 function updatePosition(lat, lon) {
   var point = [lat, lon];
   if (!currentMarker) {
@@ -137,6 +140,11 @@ function setPlace(index, lat, lon) {
   var point = [lat, lon];
   if (placeMarkers[index]) { placeMarkers[index].setLatLng(point); return; }
   placeMarkers[index] = L.marker(point).addTo(map).bindPopup('地点' + (index + 1));
+}
+function setReference(lat, lon) {
+  var point = [lat, lon];
+  if (referenceMarker) { referenceMarker.setLatLng(point); return; }
+  referenceMarker = L.marker(point).addTo(map).bindPopup('以前の確認地点（地点1ではありません）');
 }
 </script>
 </body></html>"""
@@ -268,6 +276,17 @@ class PurpleMockGame(ui.View):
         except Exception:
             pass
 
+    def _draw_reference_marker(self):
+        try:
+            self.map_view.eval_js(
+                "setReference({},{})".format(
+                    REFERENCE_LOCATION["latitude"],
+                    REFERENCE_LOCATION["longitude"],
+                )
+            )
+        except Exception:
+            pass
+
     def _draw_place_markers(self):
         for index, place in enumerate(self.place_locations):
             if place is not None:
@@ -303,6 +322,8 @@ class PurpleMockGame(ui.View):
         except Exception:
             pass
         ui.delay(self._draw_current_marker, 1.0)
+        ui.delay(self._draw_place_markers, 1.0)
+        ui.delay(self._draw_reference_marker, 1.0)
         return self.current_location
 
     def _distance_m(self, first, second):
