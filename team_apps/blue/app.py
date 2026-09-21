@@ -35,7 +35,8 @@ class GameView(ui.View):
         self.queue = EventQueue(os.path.join(self.repository_directory, "pending-events.json"))
         self.elevator_locations_path = os.path.join(self.repository_directory, "confirmed-elevators.json")
         self.confirmed_elevators = self._load_confirmed_elevators()
-        self.quest_locations_path = os.path.join(self.repository_directory, "registered-quest-locations.json")
+        self.quest_locations_path = os.path.expanduser("~/Documents/blue-quest-locations.json")
+        self.legacy_quest_locations_path = os.path.join(self.repository_directory, "registered-quest-locations.json")
         self.registered_quest_locations = self._load_registered_quest_locations()
         self.completed_quests_path = os.path.join(self.repository_directory, "completed-quests.json")
         self.completed_quests = self._load_completed_quests()
@@ -71,12 +72,23 @@ class GameView(ui.View):
             json.dump(self.confirmed_elevators, destination)
 
     def _load_registered_quest_locations(self):
-        try:
-            with open(self.quest_locations_path, "r") as source:
-                locations = json.load(source)
-            return locations if isinstance(locations, dict) else {}
-        except (OSError, ValueError):
-            return {}
+        paths = [self.quest_locations_path, self.legacy_quest_locations_path]
+        for path in paths:
+            try:
+                with open(path, "r") as source:
+                    locations = json.load(source)
+                if isinstance(locations, dict):
+                    normalized = {
+                        quest_id: self._location_list(value)
+                        for quest_id, value in locations.items()
+                    }
+                    if path != self.quest_locations_path:
+                        self.registered_quest_locations = normalized
+                        self._save_registered_quest_locations()
+                    return normalized
+            except (OSError, ValueError):
+                continue
+        return {}
 
     def _save_registered_quest_locations(self):
         with open(self.quest_locations_path, "w") as destination:
@@ -214,11 +226,22 @@ class GameView(ui.View):
             self._add_button("対象一覧にもどる", 12, self.start_registration, self.status_label.text_color)
             self.scroll.content_size = (self.width, 80)
             return
+        self.render_registration_detail(self.status_label.text_color)
+
+    def render_registration_detail(self, accent_color, message=None):
         self._clear_content()
-        self.show_message("{}の前に立ってください。\n現在地を登録します。".format(self.selected_quest["name"]))
-        self._add_button("この場所を登録", 12, self.register_quest_location, self.status_label.text_color)
-        self._add_button("対象一覧にもどる", 72, self.start_registration, self.status_label.text_color)
-        self.scroll.content_size = (self.width, 140)
+        locations = self._location_list(self.registered_quest_locations.get(self.selected_quest["id"]))
+        self.show_message(message or "{}の座標を登録できます。\n保存済み：{}か所".format(self.selected_quest["name"], len(locations)))
+        y = 12
+        self._add_button("この場所を追加登録", y, self.register_quest_location, accent_color)
+        y += 60
+        for index, saved in enumerate(locations, start=1):
+            title = "{}: 緯度{} 経度{}".format(index, saved["latitude"], saved["longitude"])
+            button = self._add_button(title + " を削除", y, self.delete_registered_location, accent_color)
+            button.location_index = index - 1
+            y += 60
+        self._add_button("対象一覧にもどる", y, self.start_registration, accent_color)
+        self.scroll.content_size = (self.width, y + 76)
 
     def register_quest_location(self, sender):
         location.start_updates()
@@ -244,8 +267,22 @@ class GameView(ui.View):
             self._save_registered_quest_locations()
             message = "座標を保存しました。\n保存済み：{}か所".format(len(locations))
         self.selected_quest["target_locations"] = locations
-        self.render_registration_quests(self.status_label.text_color)
-        self.show_message(message)
+        self.render_registration_detail(self.status_label.text_color, message)
+
+    def delete_registered_location(self, sender):
+        quest_id = self.selected_quest["id"]
+        locations = self._location_list(self.registered_quest_locations.get(quest_id))
+        index = sender.location_index
+        if index < 0 or index >= len(locations):
+            return
+        locations.pop(index)
+        self.registered_quest_locations[quest_id] = locations
+        self._save_registered_quest_locations()
+        self.selected_quest["target_locations"] = locations
+        self.render_registration_detail(
+            self.status_label.text_color,
+            "座標を削除しました。\n保存済み：{}か所".format(len(locations)),
+        )
 
     def back_to_title(self, sender):
         self.render_title_screen(self.status_label.text_color)
