@@ -926,7 +926,8 @@ class PurpleMockGame(ui.View):
 
     def _finish_boss_defeat(self):
         self.boss_defeat_transition = False
-        self._refresh("東京マンを倒した！脱出成功！")
+        self._refresh("東京マンを倒した！腸破壊完了おめでとう！")
+        self._show_feedback("腸破壊完了\nおめでとう！", "#6A1B9A", 4)
 
     def _reset(self, sender=None):
         self._hide_feedback()
