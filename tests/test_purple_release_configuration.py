@@ -4,16 +4,16 @@ import unittest
 
 
 class PurpleReleaseConfigurationTests(unittest.TestCase):
-    def test_infinite_points_is_disabled_in_the_published_game(self):
+    def test_published_game_has_no_infinite_points_override(self):
         tree = ast.parse((Path(__file__).parents[1] / "team_apps" / "purple" / "app.py").read_text())
-        values = {
-            node.targets[0].id: ast.literal_eval(node.value)
+        assigned_names = {
+            target.id
             for node in tree.body
             if isinstance(node, ast.Assign)
-            and isinstance(node.targets[0], ast.Name)
-            and node.targets[0].id == "TEST_INFINITE_POINTS"
+            for target in node.targets
+            if isinstance(target, ast.Name)
         }
-        self.assertFalse(values["TEST_INFINITE_POINTS"])
+        self.assertNotIn("TEST_INFINITE_POINTS", assigned_names)
 
 
 if __name__ == "__main__":

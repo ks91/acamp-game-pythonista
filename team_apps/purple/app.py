@@ -1,15 +1,14 @@
-"""Purple team local prototype: Tokyo Man escape game mock.
-
-This file uses local GPS but no server connection or real-world chemicals.
-It is a button-driven UI mock for testing the two-place -> attack loop.
-"""
+"""Purple team's Tokyo Man game using the gallery-selected server scenario."""
 
 import math
 import os
 import random
 import time
+import uuid
 import ui
 import location
+
+from toolkit.api_client import ApiClient
 
 APP_DIR = os.path.dirname(
     globals().get("__file__", os.path.join(os.getcwd(), "team_apps", "purple", "app.py"))
@@ -29,10 +28,7 @@ ATTACK_COST = 50
 ATTACK_DAMAGE = 50
 START_LIVES = 3
 GPS_RADIUS_M = 40.0
-# テスト時だけ、地点1を起動時の現在地に置き換える。
-TEST_PLACE1_IS_CURRENT = False
-# テスト時は攻撃ポイントを消費しない。
-TEST_INFINITE_POINTS = False
+SERVER_PLACE_COUNT = 2
 CHEST_LOCATION_CHANCE = 0.20
 CHEST_RIDDLE_CHANCE = 0.80
 ITEM_COSTS = {
@@ -47,6 +43,10 @@ ITEM_IMAGES = {
     "液体窒素＆硫酸": "liquid_nitrogen.jpeg",
     "亜硝酸ナトリウム爆弾": "sodium_nitrite_bomb.jpeg",
 }
+CHEST_REWARDS = [
+    "亜硝酸ナトリウム爆弾",  # 地点1
+    "液体窒素＆硫酸",        # 地点2
+]
 CHEST_IMAGE = "treasure_chest.jpeg"
 
 
@@ -55,16 +55,20 @@ def dms_to_decimal(degrees, minutes, seconds, direction):
     return -value if direction in ("S", "W") else value
 
 
-# 地点1：センター棟入口。DMS表記からアプリ起動時に小数へ変換する。
-FIXED_PLACES = [
-    {
-        "latitude": dms_to_decimal(35, 40, 35.0, "N"),
-        "longitude": dms_to_decimal(139, 41, 57.6, "E"),
-    },
-    None,  # 地点2
-]
-# 以前に確認した現在地。地点1ではなく、確認用の地図ピン。
-REFERENCE_LOCATION = {"latitude": 35.674652, "longitude": 139.693472}
+def make_api_client():
+    """Use the team and mode selected by the shared game gallery."""
+    if config is None:
+        return None
+    base_url = getattr(config, "API_BASE_URL", "")
+    token = getattr(config, "GAME_TOKEN", "")
+    if not base_url or not token or token == "set-at-game-start":
+        return None
+    return ApiClient(
+        base_url=base_url,
+        token=token,
+        game_team_id=getattr(config, "SELECTED_GAME_TEAM_ID", None),
+        game_mode=getattr(config, "SELECTED_GAME_MODE", None),
+    )
 
 QUESTIONS = [
     {
@@ -240,7 +244,7 @@ class PurpleMockGame(ui.View):
         super().__init__(frame=(0, 0, screen_width, screen_height))
         self.name = "東京マン腸脱出ゲーム"
         self.background_color = "#FFF8E1"
-        self.score = 999999 if TEST_INFINITE_POINTS else START_SCORE
+        self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
         self.lives = START_LIVES
         self.arrived = [False, False]
@@ -248,7 +252,9 @@ class PurpleMockGame(ui.View):
         self.used_question_indexes = set()
         self.feedback_label = None
         self.current_location = None
-        self.place_locations = [dict(place) if place else None for place in FIXED_PLACES]
+        self.place_locations = [None] * SERVER_PLACE_COUNT
+        self.api = make_api_client()
+        self.definition = None
         self.quiz_overlay = None
         self.quiz_active = False
         self.quiz_index = None
@@ -261,13 +267,11 @@ class PurpleMockGame(ui.View):
         self.test_solve_count = 0
         self.item_inventory = {item: 0 for item in ITEM_COSTS}
         self.item_popup = None
+        self.good_bacteria_popup = None
         self.good_bacteria_visible = False
         self.good_bacteria_hp = GOOD_BACTERIA_HP
         self._build_ui()
-        self._read_current_location()
-        if TEST_PLACE1_IS_CURRENT and self.current_location is not None:
-            self.place_locations[0] = dict(self.current_location)
-            ui.delay(self._load_google_map, 0.2)
+        self._load_server_places()
         self._refresh()
 
     def _label(self, text, frame, font, color="#263238", align=ui.ALIGN_LEFT):
@@ -298,7 +302,7 @@ class PurpleMockGame(ui.View):
         map_width = width - map_x
         panel_width = left_width
         self._label("東京マン腸脱出ゲーム", (6, 8, panel_width - 12, 28), ("<system-bold>", 16), align=ui.ALIGN_CENTER)
-        self.mock_label = self._label("仮動作：GPSあり\nサーバー通信なし", (6, 38, panel_width - 12, 32), ("<system-bold>", 10), "#D84315", ui.ALIGN_CENTER)
+        self.mock_label = self._label("ギャラリー選択の\nサーバー地点を読込中", (6, 38, panel_width - 12, 32), ("<system-bold>", 10), "#D84315", ui.ALIGN_CENTER)
         self.status_label = self._label("", (6, 74, panel_width - 12, 52), ("<system-bold>", 12), align=ui.ALIGN_CENTER)
 
         self.character_panel = ui.View(frame=(left_width, 0, character_width, self.height))
@@ -412,6 +416,36 @@ class PurpleMockGame(ui.View):
             self.character_image.image = None
         self.character_health_label.text = "東京マン体力\n{}/{}".format(self.boss_hp, START_BOSS_HP)
 
+    def _show_good_bacteria_arrival(self):
+        if self.good_bacteria_popup is not None:
+            self.remove_subview(self.good_bacteria_popup)
+        popup = ui.View(frame=(self.width * 0.25, 70, self.width * 0.5, min(430, self.height - 100)))
+        popup.background_color = "#E8F5E9"
+        popup.corner_radius = 18
+        image = ui.ImageView(frame=(20, 20, popup.width - 40, popup.height - 105))
+        image.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
+        path = os.path.join(APP_DIR, "assets", "zen_dama.jpeg")
+        try:
+            with open(path, "rb") as source:
+                image.image = ui.Image.from_data(source.read())
+        except OSError:
+            image.image = None
+        popup.add_subview(image)
+        caption = ui.Label(frame=(12, popup.height - 78, popup.width - 24, 58))
+        caption.text = "善玉くんが現れた！"
+        caption.font = ("<system-bold>", 24)
+        caption.text_color = "#2E7D32"
+        caption.alignment = ui.ALIGN_CENTER
+        popup.add_subview(caption)
+        self.add_subview(popup)
+        self.good_bacteria_popup = popup
+        ui.delay(self._hide_good_bacteria_arrival, 3.0)
+
+    def _hide_good_bacteria_arrival(self):
+        if self.good_bacteria_popup is not None:
+            self.remove_subview(self.good_bacteria_popup)
+            self.good_bacteria_popup = None
+
     def _refresh(self, message=""):
         self._update_tokyoman_art()
         self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}\n残機: {}".format(self.score, self.boss_hp, START_BOSS_HP, self.lives)
@@ -452,7 +486,7 @@ class PurpleMockGame(ui.View):
             self.chest_riddle_checked[index] = True
         if random.random() >= chance:
             return ""
-        item_name = random.choice(list(ITEM_COSTS))
+        item_name = CHEST_REWARDS[index]
         self.chest_items[index] = item_name
         self._show_chest_found(item_name)
         return "宝箱が出た！ {}（{}pt）を購入できます。".format(item_name, ITEM_COSTS[item_name])
@@ -540,8 +574,7 @@ class PurpleMockGame(ui.View):
         if self.score < cost:
             self._refresh("ポイントが足りません。")
             return
-        if not TEST_INFINITE_POINTS:
-            self.score -= cost
+        self.score -= cost
         self.item_inventory[item_name] += 1
         self._refresh("{}を購入した！".format(item_name))
 
@@ -582,17 +615,6 @@ class PurpleMockGame(ui.View):
         except Exception:
             pass
 
-    def _draw_reference_marker(self):
-        try:
-            self.map_view.eval_js(
-                "setReference({},{})".format(
-                    REFERENCE_LOCATION["latitude"],
-                    REFERENCE_LOCATION["longitude"],
-                )
-            )
-        except Exception:
-            pass
-
     def _draw_place_markers(self):
         for index, place in enumerate(self.place_locations):
             if place is not None:
@@ -602,6 +624,38 @@ class PurpleMockGame(ui.View):
                     )
                 except Exception:
                     pass
+
+    def _load_server_places(self):
+        """Load scenario places from the server selected by the game gallery."""
+        if self.api is None:
+            self.mock_label.text = "サーバー設定待ち\nギャラリーから起動してください"
+            self._refresh("ゲームサーバーの設定がありません。ギャラリーからゲームを選択してください。")
+            return
+        try:
+            definition = self.api.get_game_definition()
+            places = definition.get("places", [])
+            if len(places) < SERVER_PLACE_COUNT:
+                raise ValueError("このシナリオの地点が不足しています")
+            normalized = []
+            for place in places[:SERVER_PLACE_COUNT]:
+                if not place.get("id") or place.get("latitude") is None or place.get("longitude") is None:
+                    raise ValueError("サーバー地点の情報が不完全です")
+                normalized.append({
+                    "id": place["id"],
+                    "name": place.get("name", "地点"),
+                    "latitude": float(place["latitude"]),
+                    "longitude": float(place["longitude"]),
+                    "radius_m": float(place.get("radius_m", place.get("radius_meters", GPS_RADIUS_M))),
+                })
+        except Exception as error:
+            self.mock_label.text = "サーバー地点を\n取得できません"
+            self._refresh("サーバーのシナリオを取得できません。{}".format(error))
+            return
+        self.definition = definition
+        self.place_locations = normalized
+        self.mock_label.text = "サーバーシナリオ\n{}".format(definition.get("name", "読込済み"))
+        self._draw_place_markers()
+        self._load_google_map()
 
     def _read_current_location(self):
         self._refresh("GPSを取得しています…")
@@ -640,26 +694,6 @@ class PurpleMockGame(ui.View):
                  + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2)
         return 2 * earth_radius_m * math.asin(math.sqrt(value))
 
-    def _set_place_here(self, index):
-        if self.place_locations[index] is not None:
-            self._refresh("地点{}はすでに共通設定されています。変更できません。".format(index + 1))
-            return
-        current = self._read_current_location()
-        if current is None:
-            return
-        self.place_locations[index] = dict(current)
-        try:
-            self.map_view.eval_js(
-                "setPlace({},{},{})".format(
-                    index,
-                    current["latitude"],
-                    current["longitude"],
-                )
-            )
-        except Exception:
-            pass
-        self._refresh("地点{}を仮設定しました。確定後はFIXED_PLACESに埋め込みます。".format(index + 1))
-
     def _update_location(self, sender):
         current = self._read_current_location()
         if current is None:
@@ -667,13 +701,13 @@ class PurpleMockGame(ui.View):
         next_index = 0 if not self.arrived[0] else 1
         target = self.place_locations[next_index]
         if target is None:
-            self._refresh("現在地を更新しました。先に地点{}をここに設定してください。".format(next_index + 1))
+            self._refresh("サーバーの地点を読み込めていません。ギャラリーから選び直してください。")
             return
         distance = self._distance_m(current, target)
-        if distance <= GPS_RADIUS_M:
+        if distance <= target["radius_m"]:
             self._arrive(next_index, distance)
         else:
-            self._refresh("現在地を更新しました。地点{}まで約{:.0f}mです。".format(next_index + 1, distance))
+            self._refresh("現在地を更新しました。{}まで約{:.0f}mです。".format(target["name"], distance))
 
     def _check_arrival(self, index):
         if index > 0 and not self.arrived[index - 1]:
@@ -681,33 +715,51 @@ class PurpleMockGame(ui.View):
             return
         target = self.place_locations[index]
         if target is None:
-            self._refresh("先に「地点{}をここに」を押してください。".format(index + 1))
+            self._refresh("サーバーの地点を読み込めていません。")
             return
         current = self._read_current_location()
         if current is None:
             return
         distance = self._distance_m(current, target)
-        if distance <= GPS_RADIUS_M:
+        if distance <= target["radius_m"]:
             self._arrive(index, distance)
         else:
-            self._refresh("まだ地点{}の範囲外です。約{:.0f}m離れています。".format(index + 1, distance))
+            self._refresh("{}の範囲外です。約{:.0f}m離れています。".format(target["name"], distance))
 
     def _arrive(self, index, distance_m):
-        if distance_m > GPS_RADIUS_M:
-            self._refresh("地点{}は範囲外です。約{:.0f}m離れています。".format(index + 1, distance_m))
+        target = self.place_locations[index]
+        if target is None or distance_m > target["radius_m"]:
+            self._refresh("地点{}はサーバー指定の範囲外です。".format(index + 1))
             return
         if index > 0 and not self.arrived[index - 1]:
             self._refresh("先に地点{}へ到着してください。".format(index))
             return
         if self.arrived[index]:
             return
+        session_id = getattr(config, "GAME_SESSION_ID", "") if config else ""
+        device_id = getattr(config, "DEVICE_ID", "") if config else ""
+        if self.api is None or not session_id or not device_id:
+            self._refresh("サーバー設定がないため地点を獲得できません。")
+            return
+        try:
+            result = self.api.claim_place(
+                action_id=str(uuid.uuid4()),
+                game_session_id=session_id,
+                place_id=target["id"],
+                device_id=device_id,
+            )
+        except Exception as error:
+            self._refresh("地点の獲得をサーバーへ送れませんでした。{}".format(error))
+            return
         self.arrived[index] = True
-        self.score += 20
+        if "team_score" in result:
+            self.score = result["team_score"]
         if index == 1:
             self.good_bacteria_visible = True
             self.good_bacteria_hp = GOOD_BACTERIA_HP
+            self._show_good_bacteria_arrival()
         chest_message = self._maybe_spawn_chest(index, CHEST_LOCATION_CHANCE, "location")
-        message = "地点{}に到着！ +20pt".format(index + 1)
+        message = "{}を{}。".format(target["name"], "獲得" if result.get("claimed") else "確認")
         if chest_message:
             message += "\n" + chest_message
         self._refresh(message)
@@ -723,6 +775,7 @@ class PurpleMockGame(ui.View):
             if index == 1:
                 self.good_bacteria_visible = True
                 self.good_bacteria_hp = GOOD_BACTERIA_HP
+                self._show_good_bacteria_arrival()
         self.solved[index] = True
         self.chest_riddle_checked[index] = False
         self.test_solve_count += 1
@@ -875,8 +928,7 @@ class PurpleMockGame(ui.View):
             return
         if self.score < ATTACK_COST or self.boss_hp <= 0:
             return
-        if not TEST_INFINITE_POINTS:
-            self.score -= ATTACK_COST
+        self.score -= ATTACK_COST
         self.boss_hp = max(0, self.boss_hp - ATTACK_DAMAGE)
         if self.boss_hp == 0:
             message = "東京マンを倒した！脱出成功！"
@@ -886,7 +938,7 @@ class PurpleMockGame(ui.View):
 
     def _reset(self, sender=None):
         self._hide_feedback()
-        self.score = 999999 if TEST_INFINITE_POINTS else START_SCORE
+        self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
         self.lives = START_LIVES
         self.arrived = [False, False]
