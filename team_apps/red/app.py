@@ -873,13 +873,28 @@ class RedPrototype(ui.View):
 <body><div id='map'></div>
 <script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>
 <script>
-const destinations = %s;
-const monsters = %s;
+const destinations = %s.filter(d => d.latitude !== 0 && d.longitude !== 0);
+const monsters = %s.filter(m => m.latitude !== 0 && m.longitude !== 0);
 const current = %s;
-const map = L.map('map', {zoomControl:true}).setView([0.0,0.0], 18);
+const map = L.map('map', {zoomControl:true});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 21, attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
+if (current) {
+  map.setView([current.latitude,current.longitude], 18);
+} else if (destinations.length) {
+  map.fitBounds(destinations.map(d => [d.latitude, d.longitude]), {padding:[24,24]});
+} else {
+  map.setView([0,0], 2);
+  const pending = L.control({position:'topright'});
+  pending.onAdd = function() {
+    const box = L.DomUtil.create('div');
+    box.style.cssText = 'background:white;padding:8px;border-radius:6px;font-size:13px';
+    box.textContent = '現在地を取得中…';
+    return box;
+  };
+  pending.addTo(map);
+}
 destinations.forEach(d => {
   L.marker([d.latitude,d.longitude]).addTo(map).bindPopup('目的地：' + d.name);
 });
