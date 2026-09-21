@@ -37,6 +37,7 @@ def load_app(team, ui):
     module = importlib.util.module_from_spec(spec)
     with patch.dict(sys.modules, {
         "ui": ui, "location": types.SimpleNamespace(stop_updates=Mock()),
+        "motion": types.SimpleNamespace(),
         "config": types.SimpleNamespace(),
     }):
         spec.loader.exec_module(module)

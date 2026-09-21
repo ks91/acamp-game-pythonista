@@ -16,6 +16,11 @@ def build_quest_cards(definition):
                 "hint": quest.get("hint", ""),
             }
         )
+        # These fields decide whether a photographed location completes a quest.
+        # Dropping them can leave every target unregistered on a partner iPad.
+        for key in ("target_locations", "target_location", "required_count", "public_location_only"):
+            if key in quest:
+                cards[-1][key] = quest[key]
     return cards
 
 

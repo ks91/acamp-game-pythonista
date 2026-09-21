@@ -205,6 +205,11 @@ class GameView(ui.View):
             state = self.api.get_team_state()
         except OSError as error:
             self.show_message("サーバーへ接続できません。\n{}".format(error))
+            if not self.scroll.subviews:
+                retry = ui.Button(title="もう一度読み込む", frame=(16, 12, 340, 44))
+                retry.action = lambda sender: self.refresh()
+                self.scroll.add_subview(retry)
+                self.scroll.content_size = (375, 80)
             return
         model = build_game_view_model(definition, state, config.TEAM_ID)
         theme = model["theme"]
@@ -313,7 +318,9 @@ class GameView(ui.View):
         try:
             position = location.get_location()
         finally:
-            location.stop_updates()
+            # The five-second coin collector still needs live GPS updates.
+            if not self.auto_coin_collection_active:
+                location.stop_updates()
         if position is None:
             self.show_message("位置情報を取得できません。屋外で位置情報の許可と電波を確認してください。")
             return

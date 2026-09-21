@@ -7,7 +7,6 @@ import random
 import sys
 import threading
 import time
-import uuid
 import webbrowser
 
 import location
@@ -18,6 +17,8 @@ import ui
 _REPOSITORY_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _REPOSITORY_ROOT not in sys.path:
     sys.path.insert(0, _REPOSITORY_ROOT)
+
+from toolkit.claim_flow import claim_with_location
 
 try:
     from team_apps.red.server_game import make_api_client, map_destinations, scenario_from_server
@@ -406,29 +407,34 @@ class RedPrototype(ui.View):
     def _claim_active_server_place(self):
         if not (self.server_scenario_loaded and self.active_place_id and self.game_session_id):
             return
-        threading.Thread(target=self._post_server_claim, daemon=True).start()
+        # Capture the defeated monster's place before another battle can start.
+        place_id = self.active_place_id
+        position = dict(self.last_position) if self.last_position else None
+        threading.Thread(target=self._post_server_claim,
+                         args=(place_id, position), daemon=True).start()
 
-    def _post_server_claim(self):
+    def _post_server_claim(self, place_id, position):
         try:
-            result = self.api.claim_place(
-                action_id=str(uuid.uuid4()),
+            result = claim_with_location(
+                self.api, team_id=getattr(config, "TEAM_ID", "red"),
                 game_session_id=self.game_session_id,
-                place_id=self.active_place_id,
-                device_id=self.device_id,
+                place_id=place_id, device_id=self.device_id, position=position,
             )
             error = None
         except Exception as exc:
             result = None
             error = exc
-        ui.delay(lambda: self._finish_server_claim(result, error), 0.0)
+        ui.delay(lambda: self._finish_server_claim(place_id, result, error), 0.0)
 
-    def _finish_server_claim(self, result, error):
+    def _finish_server_claim(self, place_id, result, error):
+        if self.current_screen == "closed":
+            return
         if error is not None:
             self.set_status("モンスター報酬は獲得しました。地点のサーバー登録は失敗しました。\n{}".format(error))
             return
         if result and result.get("claimed"):
-            self.claimed_place_ids.add(self.active_place_id)
-            self.unlocked_destinations.add(self.active_place_id)
+            self.claimed_place_ids.add(place_id)
+            self.unlocked_destinations.add(place_id)
 
     def _setup_background(self):
         background_path = os.path.join(os.path.dirname(__file__), "back.png")

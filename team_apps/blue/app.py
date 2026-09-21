@@ -198,6 +198,10 @@ class GameView(ui.View):
             state = self.api.get_team_state()
         except OSError as error:
             self.show_message("サーバーへ接続できません。\n{}".format(error))
+            if not self.scroll.subviews:
+                self._add_button("もう一度読み込む", 12,
+                                 lambda sender: self.refresh(), "#1565C0")
+                self.scroll.content_size = (self.width, 80)
             return
         self.definition = definition
         self.state = state
@@ -221,7 +225,7 @@ class GameView(ui.View):
                 (item for item in definition.get("quests", []) if item.get("id") == quest["id"]),
                 {},
             )
-            public_location = server_quest.get("target_location")
+            public_location = server_quest.get("target_locations") or server_quest.get("target_location")
             if public_location is None and "latitude" in server_quest and "longitude" in server_quest:
                 public_location = {
                     "latitude": server_quest["latitude"],

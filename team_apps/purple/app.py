@@ -3,12 +3,12 @@
 import math
 import os
 import random
-import time
-import uuid
+import threading
 import ui
 import location
 
 from toolkit.api_client import ApiClient
+from toolkit.claim_flow import claim_with_location
 
 APP_DIR = os.path.dirname(
     globals().get("__file__", os.path.join(os.getcwd(), "team_apps", "purple", "app.py"))
@@ -264,6 +264,9 @@ class PurpleMockGame(ui.View):
         self.quiz_index = None
         self.quiz_question = None
         self.quiz_remaining = 0
+        self._quiz_generation = 0
+        self._round_generation = 0
+        self._arriving = False
         self.checkpoint_state = None
         self.chest_arrival_checked = [False, False]
         self.chest_riddle_checked = [False, False]
@@ -447,16 +450,16 @@ class PurpleMockGame(ui.View):
         self.status_label.text = "ポイント: {}pt    東京マン体力: {}/{}\n残機: {}".format(self.score, self.boss_hp, START_BOSS_HP, self.lives)
         for index in range(2):
             previous_arrived = index == 0 or self.arrived[index - 1]
-            can_arrive = previous_arrived and not self.arrived[index]
+            can_arrive = previous_arrived and not self.arrived[index] and not self._arriving
             self.place_buttons[index].enabled = can_arrive
             self.place_buttons[index].alpha = 1.0 if can_arrive else 0.45
-            can_solve = self.arrived[index] and not self.solved[index]
+            can_solve = self.arrived[index] and not self.solved[index] and not self._arriving
             self.solve_buttons[index].enabled = can_solve
             self.solve_buttons[index].alpha = 1.0 if can_solve else 0.45
         can_attack = (self.good_bacteria_visible and self.good_bacteria_hp > 0) or (not self.good_bacteria_visible and self.score >= ATTACK_COST and self.boss_hp > 0)
         self.attack_button.title = "善玉くんを殴る 50pt" if self.good_bacteria_visible else "殴る 50pt"
-        self.attack_button.enabled = can_attack
-        self.attack_button.alpha = 1.0 if can_attack else 0.45
+        self.attack_button.enabled = can_attack and not self._arriving
+        self.attack_button.alpha = 1.0 if self.attack_button.enabled else 0.45
         for button in self.item_buttons:
             item_name = button.item_name
             offered = item_name in self.chest_items
@@ -465,7 +468,7 @@ class PurpleMockGame(ui.View):
             button.title = "{} {}pt".format(item_name, ITEM_COSTS[item_name]) if offered else ""
             if owned:
                 button.title = "{} ×{}".format(item_name, owned)
-            button.enabled = (offered or owned > 0) and self.boss_hp > 0
+            button.enabled = (offered or owned > 0) and self.boss_hp > 0 and not self._arriving
             button.alpha = 1.0 if button.enabled else 0.35
         self.log_label.text = message or "地点へ進み、謎を解いて攻撃ポイントを集めよう。"
 
@@ -562,6 +565,8 @@ class PurpleMockGame(ui.View):
             self.item_popup = None
 
     def _buy_item(self, sender):
+        if self._arriving:
+            return
         item_name = sender.item_name
         if not isinstance(item_name, str) or item_name not in self.chest_items:
             return
@@ -671,6 +676,7 @@ class PurpleMockGame(ui.View):
             "latitude": float(current["latitude"]),
             "longitude": float(current["longitude"]),
             "accuracy": float(current.get("horizontal_accuracy", 0.0)),
+            "horizontal_accuracy": float(current.get("horizontal_accuracy", -1.0)),
         }
         try:
             self.map_view.eval_js(
@@ -731,6 +737,8 @@ class PurpleMockGame(ui.View):
             self._show_feedback("登録地点まで\nあと約{:.0f}m".format(distance), "#1565C0", 3)
 
     def _arrive(self, index, distance_m):
+        if self._arriving:
+            return
         target = self.place_locations[index]
         if target is None or distance_m > target["radius_m"]:
             self._refresh("地点{}はサーバー指定の範囲外です。".format(index + 1))
@@ -745,14 +753,27 @@ class PurpleMockGame(ui.View):
         if self.api is None or not session_id or not device_id:
             self._refresh("サーバー設定がないため地点を獲得できません。")
             return
-        try:
-            result = self.api.claim_place(
-                action_id=str(uuid.uuid4()),
-                game_session_id=session_id,
-                place_id=target["id"],
-                device_id=device_id,
-            )
-        except Exception as error:
+        self._arriving = True
+        generation = self._round_generation
+        position = dict(self.current_location) if self.current_location else None
+        self._refresh("現在地と地点到着をサーバーへ送っています…")
+        def send():
+            result = error = None
+            try:
+                result = claim_with_location(
+                    self.api, team_id=config.TEAM_ID, device_id=device_id,
+                    game_session_id=session_id, place_id=target["id"], position=position,
+                )
+            except Exception as exc:
+                error = exc
+            ui.delay(lambda: self._finish_arrival(index, target, generation, result, error), 0)
+        threading.Thread(target=send, daemon=True).start()
+
+    def _finish_arrival(self, index, target, generation, result, error):
+        if generation != self._round_generation:
+            return
+        self._arriving = False
+        if error is not None:
             self._refresh("地点の獲得をサーバーへ送れませんでした。{}".format(error))
             return
         self.arrived[index] = True
@@ -769,7 +790,7 @@ class PurpleMockGame(ui.View):
         self._refresh(message)
 
     def _solve(self, index):
-        if not self.arrived[index] or self.solved[index] or self.quiz_active:
+        if self._arriving or not self.arrived[index] or self.solved[index] or self.quiz_active:
             return
         available_indexes = [
             question_index for question_index in range(len(QUESTIONS))
@@ -783,6 +804,7 @@ class PurpleMockGame(ui.View):
         self._start_quiz(index, question_index)
 
     def _start_quiz(self, index, question_index):
+        self._quiz_generation += 1
         question = QUESTIONS[question_index]
         self.quiz_index = index
         self.quiz_question = question
@@ -828,7 +850,8 @@ class PurpleMockGame(ui.View):
             overlay.add_subview(button)
 
         self._update_quiz_timer()
-        ui.delay(self._quiz_tick, 1.0)
+        generation = self._quiz_generation
+        ui.delay(lambda: self._quiz_tick(generation), 1.0)
 
     def _update_quiz_timer(self):
         if self.quiz_overlay is None:
@@ -840,15 +863,15 @@ class PurpleMockGame(ui.View):
         if timer is not None:
             timer.text = "残り {}秒".format(self.quiz_remaining)
 
-    def _quiz_tick(self):
-        if not self.quiz_active:
+    def _quiz_tick(self, generation):
+        if generation != self._quiz_generation or not self.quiz_active:
             return
         self.quiz_remaining -= 1
         if self.quiz_remaining <= 0:
             self._finish_quiz(None, timed_out=True)
             return
         self._update_quiz_timer()
-        ui.delay(self._quiz_tick, 1.0)
+        ui.delay(lambda: self._quiz_tick(generation), 1.0)
 
     def _answer_quiz(self, sender):
         self._finish_quiz(sender.choice, timed_out=False)
@@ -885,7 +908,8 @@ class PurpleMockGame(ui.View):
         if self.lives <= 0:
             self._refresh("ライフ0。セーブポイントから再開します。")
             self._show_feedback("ライフ0\n最初からやり直し", "#C62828", 3)
-            ui.delay(self._restore_checkpoint, 3.0)
+            generation = self._round_generation
+            ui.delay(lambda: self._restore_checkpoint(generation), 3.0)
         elif self.lives == 1:
             self._refresh("残機1。あと1回間違えると最初からです。")
             self._show_feedback("あと1回間違えたら\n最初からだよ", "#C62828", 3)
@@ -896,12 +920,16 @@ class PurpleMockGame(ui.View):
             self._refresh("不正解。残機{}。".format(self.lives))
             self._show_feedback("不正解\n残機{}".format(self.lives), "#C62828", 3)
 
-    def _restore_checkpoint(self):
+    def _restore_checkpoint(self, generation):
+        if generation != self._round_generation:
+            return
         # セーブポイント機能を追加したら、ここで保存済み状態を復元する。
         # 現在はセーブポイント未実装なので、得点・情報を保持せず最初から始める。
         self._reset(None)
 
     def _attack(self, sender):
+        if self._arriving:
+            return
         if self.good_bacteria_visible:
             if self.good_bacteria_hp <= 0:
                 self.good_bacteria_visible = False
@@ -930,6 +958,9 @@ class PurpleMockGame(ui.View):
         self._show_feedback("腸破壊完了\nおめでとう！", "#6A1B9A", 4)
 
     def _reset(self, sender=None):
+        self._round_generation += 1
+        self._arriving = False
+        self._stop_quiz()
         self._hide_feedback()
         self.score = START_SCORE
         self.boss_hp = START_BOSS_HP
@@ -945,6 +976,19 @@ class PurpleMockGame(ui.View):
         self.good_bacteria_visible = False
         self.good_bacteria_hp = GOOD_BACTERIA_HP
         self._refresh("仮試作をリセットしました。")
+
+    def _stop_quiz(self):
+        self._quiz_generation += 1
+        self.quiz_active = False
+        self.quiz_question = None
+        self.quiz_index = None
+        if self.quiz_overlay is not None:
+            self.remove_subview(self.quiz_overlay)
+            self.quiz_overlay = None
+
+    def will_close(self):
+        self._round_generation += 1
+        self._stop_quiz()
 
 
 def run():

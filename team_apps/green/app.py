@@ -245,7 +245,8 @@ class GreenTerritoryGame(ui.View):
                 "id": place["id"], "name": place["name"],
                 "latitude": place.get("latitude"), "longitude": place.get("longitude"),
                 "points": territory.get("points", place.get("points", 0)), "owner": owner,
-                "capture_radius_meters": CENTER_TEST_RADIUS_METERS,
+                "capture_radius_meters": float(place.get(
+                    "radius_m", place.get("radius_meters", CENTER_TEST_RADIUS_METERS))),
                 "owner_label": owner_label, "simulated_owner": simulated,
                 "role": role, "role_label": role_labels.get(role, "地点"),
                 "is_boss": bool(place.get("is_boss", False)),
@@ -343,6 +344,9 @@ class GreenTerritoryGame(ui.View):
         if self.api_client is None:
             self.detail.text = "テスト開始し直しには、ゲームサーバーへの接続が必要です。"
             return
+        if getattr(self.api_client, "game_team_id", None) not in (None, self.team_id):
+            self.detail.text = "ペア班のゲームから自班の進行はリセットできません。"
+            return
         if not getattr(self, "_restart_confirmed", False):
             self._restart_confirmed = True
             self.restart_button.title = "もう一度押すと最初から"
@@ -362,6 +366,8 @@ class GreenTerritoryGame(ui.View):
     def _restart_test_session_worker(self):
         error = None
         try:
+            if getattr(self.api_client, "game_team_id", None) not in (None, self.team_id):
+                raise ValueError("ペア班のゲームから自班の進行はリセットできません。")
             if hasattr(self.api_client, "restart_test_session"):
                 result = self.api_client.restart_test_session()
             else:

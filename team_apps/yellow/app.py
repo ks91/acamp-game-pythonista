@@ -243,6 +243,7 @@ class YellowEgyptGame(ui.View):
             "最初からやり直す",
             (16, y, panel_width - 32, 48),
             self.request_test_session_restart,
+            enabled=self.api.game_team_id in (None, config.TEAM_ID),
         )
         self.reset_button = reset_button
         reset_button.background_color = "#8D6E63"
@@ -444,6 +445,10 @@ class YellowEgyptGame(ui.View):
 
     def _restart_test_session(self):
         try:
+            # The server restart endpoint resets the authenticated team's
+            # session; it does not select a session using game_team.
+            if self.api.game_team_id not in (None, config.TEAM_ID):
+                raise ValueError("ペア班のゲームから自班の進行はリセットできません。")
             result = self.api.restart_test_session()
             ui.delay(lambda: self._handle_restart_result(result), 0)
         except HTTPError as error:

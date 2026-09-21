@@ -16,10 +16,12 @@ class YellowStartupSafetyTests(unittest.TestCase):
         self.app = load_app("yellow", ui)
         self.app.config = types.SimpleNamespace(
             API_BASE_URL="https://example.invalid/v1", GAME_TOKEN="test-token",
+            TEAM_ID="yellow",
             SELECTED_GAME_TEAM_ID="yellow", SELECTED_GAME_MODE="tokyo",
         )
 
     def make_game(self, api):
+        api.game_team_id = "yellow"
         workers = []
         def thread(target, daemon):
             return types.SimpleNamespace(start=lambda: workers.append(target))
@@ -57,6 +59,7 @@ class YellowStartupSafetyTests(unittest.TestCase):
     def test_explicit_restart_uses_the_selected_api_client(self):
         game = self.app.YellowEgyptGame.__new__(self.app.YellowEgyptGame)
         game.api = Mock()
+        game.api.game_team_id = "yellow"
         game.api.restart_test_session.return_value = {"restarted": True}
         game._handle_restart_result = Mock()
         game._restart_test_session()
