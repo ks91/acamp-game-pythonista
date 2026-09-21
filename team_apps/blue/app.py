@@ -193,8 +193,9 @@ class GameView(ui.View):
             + "人がエレベーターだと確認したら、GPSで同じ位置か調べます。\n"
             + "写真はサーバーへ送信しません。"
         )
+        import photos
         preview = ui.ImageView(frame=(16, 12, self.width - 32, 180))
-        preview.image = image
+        preview.image = photos.PIL_to_ui(image)
         preview.content_mode = ui.CONTENT_SCALE_ASPECT_FIT
         preview.flex = "W"
         self.scroll.add_subview(preview)
