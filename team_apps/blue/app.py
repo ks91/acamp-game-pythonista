@@ -29,6 +29,7 @@ class GameView(ui.View):
         super().__init__(frame=(0, 0, 375, 667))
         self.name = "アカキャン位置ゲー"
         self.background_color = "white"
+        self.game_mode = getattr(config, "SELECTED_GAME_MODE", None)
         self.api = ApiClient(
             base_url=config.API_BASE_URL,
             token=config.GAME_TOKEN,
@@ -192,6 +193,26 @@ class GameView(ui.View):
         )
         return 2 * earth_radius_m * math.asin(math.sqrt(haversine))
 
+    def _server_place_quests(self, definition):
+        """Turn the selected server scenario's places into Blue photo quests."""
+        quests = []
+        for place in definition.get("places", []):
+            if not isinstance(place, dict) or not place.get("id") or not place.get("name"):
+                continue
+            quests.append({
+                "id": "server-place-{}".format(place["id"]),
+                "name": "{}を発見！".format(place["name"]),
+                "difficulty": "tokyo",
+                "reward_coins": int(place.get("points", 20)),
+                "required_count": 1,
+                "target_locations": [{
+                    "latitude": place["latitude"],
+                    "longitude": place["longitude"],
+                }],
+                "capture_instruction": place.get("description") or "{}を撮影してください。".format(place["name"]),
+            })
+        return quests
+
     def refresh(self):
         try:
             definition = self.api.get_game_definition()
@@ -212,13 +233,18 @@ class GameView(ui.View):
         self.background_color = theme["background_color"]
         self.status_label.text_color = accent_color
         self.places = {place["id"]: place for place in definition.get("places", [])}
-        self.available_quests = build_quest_cards(definition) or [
-            {"id": "elevator", "name": "エレベーターを2箇所探せ！", "difficulty": "easy", "reward_coins": 20, "required_count": 2},
-            {"id": "vending-machine", "name": "自動販売機を3箇所探せ！", "difficulty": "easy", "reward_coins": 20, "required_count": 3},
-            {"id": "convenience-store", "name": "D棟のコンビニを探せ！", "difficulty": "normal", "reward_coins": 50, "required_count": 1, "public_location_only": True},
-            {"id": "cafeteria-fuji", "name": "カフェテリアふじを探せ！", "difficulty": "normal", "reward_coins": 50},
-            {"id": "facility-sign", "name": "施設案内を探せ！", "difficulty": "hard", "reward_coins": 100},
-        ]
+        if getattr(self, "game_mode", getattr(config, "SELECTED_GAME_MODE", None)) == "tokyo":
+            # Tokyo must use only the scenario returned by the server, never
+            # center-building locations retained on the iPad.
+            self.available_quests = self._server_place_quests(definition)
+        else:
+            self.available_quests = build_quest_cards(definition) or [
+                {"id": "elevator", "name": "エレベーターを2箇所探せ！", "difficulty": "easy", "reward_coins": 20, "required_count": 2},
+                {"id": "vending-machine", "name": "自動販売機を3箇所探せ！", "difficulty": "easy", "reward_coins": 20, "required_count": 3},
+                {"id": "convenience-store", "name": "D棟のコンビニを探せ！", "difficulty": "normal", "reward_coins": 50, "required_count": 1, "public_location_only": True},
+                {"id": "cafeteria-fuji", "name": "カフェテリアふじを探せ！", "difficulty": "normal", "reward_coins": 50},
+                {"id": "facility-sign", "name": "施設案内を探せ！", "difficulty": "hard", "reward_coins": 100},
+            ]
         for quest in self.available_quests:
             registered = self.registered_quest_locations.get(quest["id"])
             server_quest = next(
@@ -462,12 +488,19 @@ class GameView(ui.View):
 
     def render_quest_selection(self, accent_color):
         self._clear_content()
-        self.show_message(
-            "オリンピックセンター探索イベント（仮）\n"
-            "オリンピックセンターの中を歩いて、\n"
-            "身近なものをカメラで探してみよう！\n\n"
-            "クエストを選択してください"
-        )
+        if getattr(self, "game_mode", getattr(config, "SELECTED_GAME_MODE", None)) == "tokyo":
+            self.show_message(
+                "{}\n東京の目的地を歩いて、写真で発見しよう！\n\nクエストを選択してください".format(
+                    (self.definition or {}).get("name", "東京探索")
+                )
+            )
+        else:
+            self.show_message(
+                "オリンピックセンター探索イベント（仮）\n"
+                "オリンピックセンターの中を歩いて、\n"
+                "身近なものをカメラで探してみよう！\n\n"
+                "クエストを選択してください"
+            )
         y = 12
         for quest in self.available_quests:
             label = "✓ クリア済み：" if quest["id"] in self.completed_quests else ""
